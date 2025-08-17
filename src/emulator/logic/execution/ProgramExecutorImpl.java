@@ -19,7 +19,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public long run(Long... input) {
 
-        ExecutionContext context = null; // create the context with inputs.
+        ExecutionContext context = new ExecutionContextImpl();
 
         SInstruction currentInstruction = program.getInstructions().get(0);
         Label nextLabel;
