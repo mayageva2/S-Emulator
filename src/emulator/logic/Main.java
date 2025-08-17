@@ -2,14 +2,14 @@ package emulator.logic;
 
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
-import emulator.logic.instruction.SInstruction;
+import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.DecreaseInstruction;
 import emulator.logic.instruction.IncreaseInstruction;
 import emulator.logic.instruction.JumpNotZeroInstruction;
 import emulator.logic.instruction.NoOpInstruction;
 import emulator.logic.label.LabelImpl;
-import emulator.logic.program.SProgram;
-import emulator.logic.program.SProgramImpl;
+import emulator.logic.program.Program;
+import emulator.logic.program.ProgramImpl;
 import emulator.logic.variable.Variable;
 import emulator.logic.variable.VariableImpl;
 import emulator.logic.variable.VariableType;
@@ -24,12 +24,12 @@ public class Main {
         LabelImpl l1 = new LabelImpl(1);
         LabelImpl l2 = new LabelImpl(1);
 
-        SInstruction increase = new IncreaseInstruction(x1, l1);
-        SInstruction decrease = new DecreaseInstruction(z1, l2);
-        SInstruction noop = new NoOpInstruction(Variable.RESULT);
-        SInstruction jnz = new JumpNotZeroInstruction(x1, l2);
+        Instruction increase = new IncreaseInstruction(x1, l1);
+        Instruction decrease = new DecreaseInstruction(z1, l2);
+        Instruction noop = new NoOpInstruction(Variable.RESULT);
+        Instruction jnz = new JumpNotZeroInstruction(x1, l2);
 
-        SProgram p = new SProgramImpl("test");
+        Program p = new ProgramImpl("test");
         p.addInstruction(increase);
         p.addInstruction(increase);
         p.addInstruction(decrease);
@@ -56,7 +56,7 @@ public class Main {
         Variable x1 = new VariableImpl(VariableType.INPUT, 1);
         LabelImpl l1 = new LabelImpl(1);
 
-        SProgram p = new SProgramImpl("SANITY");
+        Program p = new ProgramImpl("SANITY");
         p.addInstruction(new DecreaseInstruction(x1, l1));
         p.addInstruction(new IncreaseInstruction(Variable.RESULT));
         p.addInstruction(new JumpNotZeroInstruction(x1, l1));

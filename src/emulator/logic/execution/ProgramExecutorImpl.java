@@ -1,18 +1,18 @@
 package emulator.logic.execution;
 
-import emulator.logic.instruction.SInstruction;
+import emulator.logic.instruction.Instruction;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
-import emulator.logic.program.SProgram;
+import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
 
 import java.util.Map;
 
 public class ProgramExecutorImpl implements ProgramExecutor{
 
-    private final SProgram program;
+    private final Program program;
 
-    public ProgramExecutorImpl(SProgram program) {
+    public ProgramExecutorImpl(Program program) {
         this.program = program;
     }
 
@@ -21,7 +21,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         ExecutionContext context = new ExecutionContextImpl();
 
-        SInstruction currentInstruction = program.getInstructions().get(0);
+        Instruction currentInstruction = program.getInstructions().get(0);
         Label nextLabel;
         do {
             nextLabel = currentInstruction.execute(context);

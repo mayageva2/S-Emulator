@@ -4,7 +4,7 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
-public abstract class AbstractInstruction implements SInstruction {
+public abstract class AbstractInstruction implements Instruction {
 
     private final InstructionData instructionData;
     private final Label label;

@@ -4,7 +4,7 @@ import emulator.logic.execution.ExecutionContext;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
-public interface SInstruction {
+public interface Instruction {
 
     String getName();
     Label execute(ExecutionContext context);

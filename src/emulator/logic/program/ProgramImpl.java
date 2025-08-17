@@ -1,16 +1,16 @@
 package emulator.logic.program;
 
-import emulator.logic.instruction.SInstruction;
+import emulator.logic.instruction.Instruction;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SProgramImpl implements SProgram{
+public class ProgramImpl implements Program {
 
     private final String name;
-    private final List<SInstruction> instructions;
+    private final List<Instruction> instructions;
 
-    public SProgramImpl(String name) {
+    public ProgramImpl(String name) {
         this.name = name;
         instructions = new ArrayList<>();
     }
@@ -21,12 +21,12 @@ public class SProgramImpl implements SProgram{
     }
 
     @Override
-    public void addInstruction(SInstruction instruction) {
+    public void addInstruction(Instruction instruction) {
         instructions.add(instruction);
     }
 
     @Override
-    public List<SInstruction> getInstructions() {
+    public List<Instruction> getInstructions() {
         return instructions;
     }
 
