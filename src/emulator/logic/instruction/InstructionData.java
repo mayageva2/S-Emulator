@@ -10,6 +10,7 @@ public enum InstructionData {
     GOTO_LABEL("GOTO_LABEL", 1),
     ASSIGNMENT("ASSIGNMENT", 4),
     CONSTANT_ASSIGNMENT("CONSTANT_ASSIGNMENT", 2),
+    JUMP_ZERO("JUMP_ZERO", 2),
 
     ;
 
