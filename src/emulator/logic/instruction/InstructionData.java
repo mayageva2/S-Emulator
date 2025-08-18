@@ -8,6 +8,8 @@ public enum InstructionData {
     NEUTRAL("NEUTRAL", 0),
     ZERO_VARIABLE("ZERO_VAR", 1),
     GOTO_LABEL("GOTO_LABEL", 1),
+    ASSIGNMENT("ASSIGNMENT", 4),
+    CONSTANT_ASSIGNMENT("CONSTANT_ASSIGNMENT", 2),
 
     ;
 
