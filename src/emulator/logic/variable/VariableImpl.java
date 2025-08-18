@@ -16,6 +16,9 @@ public class VariableImpl implements Variable {
     }
 
     @Override
+    public int getNumber() { return number; }
+
+    @Override
     public String getRepresentation() {
         return type.getVariableRepresentation(number);
     }

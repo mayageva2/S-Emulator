@@ -6,6 +6,7 @@ import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
 
+import java.util.List;
 import java.util.Map;
 
 public class ProgramExecutorImpl implements ProgramExecutor{
@@ -19,19 +20,41 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public long run(Long... input) {
 
-        ExecutionContext context = new ExecutionContextImpl();
+        List<Instruction> instructions = program.getInstructions();
+        final int len = instructions.size();
 
-        Instruction currentInstruction = program.getInstructions().get(0);
+        if (len == 0) {
+            throw new IllegalStateException("empty program");
+        }
+
+        ExecutionContext context = new ExecutionContextImpl();
+        for (Instruction instruction : instructions) {
+            Variable v = instruction.getVariable();
+            context.updateVariable(v, v.getNumber());
+        }
+
+        int currentIndex = 0;
+        Instruction currentInstruction = instructions.get(currentIndex);
         Label nextLabel;
+
         do {
             nextLabel = currentInstruction.execute(context);
 
-            if (nextLabel == FixedLabel.EMPTY) {
-                // set currentInstruction to the next instruction in line
-            } else if (nextLabel != FixedLabel.EXIT) {
-                // need to find the instruction at 'nextLabel' and set current instruction to it
+            if (nextLabel == FixedLabel.EMPTY) {    // Go to next instruction in line
+                currentIndex++;
+                if (currentIndex < len) {
+                    currentInstruction = instructions.get(currentIndex);
+                }
+            } else if (nextLabel != FixedLabel.EXIT) {   // Go to the instruction at given label
+                Instruction target = program.instructionAt(nextLabel);
+                if (target == null) {
+                    throw new IllegalStateException("No instruction for label: " + nextLabel);
+                }
+                int idx = instructions.indexOf(target);
+                currentInstruction = target;
+                currentIndex = idx;
             }
-        } while (nextLabel != FixedLabel.EXIT);
+        } while (nextLabel != FixedLabel.EXIT && currentIndex < len);
 
         return context.getVariableValue(Variable.RESULT);
     }

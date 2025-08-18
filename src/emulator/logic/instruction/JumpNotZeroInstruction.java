@@ -7,7 +7,7 @@ import emulator.logic.variable.Variable;
 
 public class JumpNotZeroInstruction extends AbstractInstruction{
 
-    private final Label jnzLabel;
+    private final Label jnzLabel;   //Target label
 
     public JumpNotZeroInstruction(Variable variable, Label jnzLabel) {
         this(variable, jnzLabel, FixedLabel.EMPTY);

@@ -22,25 +22,20 @@ public class Main {
         Variable z1 = new VariableImpl(VariableType.WORK, 1);
 
         LabelImpl l1 = new LabelImpl(1);
-        LabelImpl l2 = new LabelImpl(1);
-
-        Instruction increase = new IncreaseInstruction(x1, l1);
-        Instruction decrease = new DecreaseInstruction(z1, l2);
-        Instruction noop = new NoOpInstruction(Variable.RESULT);
-        Instruction jnz = new JumpNotZeroInstruction(x1, l2);
+        LabelImpl l2 = new LabelImpl(2);
 
         Program p = new ProgramImpl("test");
-        p.addInstruction(increase);
-        p.addInstruction(increase);
-        p.addInstruction(decrease);
-        p.addInstruction(jnz);
+        p.addInstruction(new IncreaseInstruction(x1));
+        p.addInstruction(new DecreaseInstruction(x1, l1));
+        p.addInstruction(new DecreaseInstruction(z1, l2));
+        p.addInstruction(new JumpNotZeroInstruction(x1, l1));
 
         ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
         long result = programExecutor.run(3L, 6L, 2L);
         System.out.println(result);;
 
 
-        sanity();
+       sanity();
     }
 
     private static void sanity() {
