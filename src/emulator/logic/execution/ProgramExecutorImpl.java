@@ -8,6 +8,7 @@ import emulator.logic.variable.Variable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ProgramExecutorImpl implements ProgramExecutor{
 
@@ -28,9 +29,9 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         }
 
         ExecutionContext context = new ExecutionContextImpl();
-        for (Instruction instruction : instructions) {
-            Variable v = instruction.getVariable();
-            context.updateVariable(v, v.getNumber());
+        Set<Variable> variables = program.getVariables();
+        for (Variable variable : variables) {
+            context.updateVariable(variable, variable.getNumber());
         }
 
         int currentIndex = 0;

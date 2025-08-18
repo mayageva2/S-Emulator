@@ -2,11 +2,10 @@ package emulator.logic;
 
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
-import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.DecreaseInstruction;
 import emulator.logic.instruction.IncreaseInstruction;
 import emulator.logic.instruction.JumpNotZeroInstruction;
-import emulator.logic.instruction.NoOpInstruction;
+import emulator.logic.instruction.ZeroVarInstruction;
 import emulator.logic.label.LabelImpl;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramImpl;
@@ -23,12 +22,14 @@ public class Main {
 
         LabelImpl l1 = new LabelImpl(1);
         LabelImpl l2 = new LabelImpl(2);
+        LabelImpl l3 = new LabelImpl(3);
 
         Program p = new ProgramImpl("test");
         p.addInstruction(new IncreaseInstruction(x1));
-        p.addInstruction(new DecreaseInstruction(x1, l1));
-        p.addInstruction(new DecreaseInstruction(z1, l2));
-        p.addInstruction(new JumpNotZeroInstruction(x1, l1));
+       // p.addInstruction(new DecreaseInstruction(x1, l1));
+       // p.addInstruction(new DecreaseInstruction(z1, l2));
+      //  p.addInstruction(new JumpNotZeroInstruction(x1, l1));
+        p.addInstruction(new ZeroVarInstruction(x1, l3));
 
         ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
         long result = programExecutor.run(3L, 6L, 2L);
