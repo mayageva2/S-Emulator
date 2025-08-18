@@ -15,9 +15,7 @@ public class ZeroVarInstruction extends AbstractInstruction{
 
     @Override
     public Label execute(ExecutionContext context) {
-        while(context.getVariableValue(getVariable()) > 0) {
-            new DecreaseInstruction(getVariable()).execute(context);
-        }
+        context.updateVariable(getVariable(), 0L);
         return FixedLabel.EMPTY;
     }
 }

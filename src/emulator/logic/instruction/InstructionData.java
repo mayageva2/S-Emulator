@@ -7,6 +7,7 @@ public enum InstructionData {
     JUMP_NOT_ZERO("JNZ", 3),
     NEUTRAL("NEUTRAL", 0),
     ZERO_VARIABLE("ZERO_VAR", 1),
+    GOTO_LABEL("GOTO_LABEL", 1),
 
     ;
 
