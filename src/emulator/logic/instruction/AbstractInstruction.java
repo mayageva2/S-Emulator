@@ -1,5 +1,6 @@
 package emulator.logic.instruction;
 
+import emulator.logic.execution.ExecutionContext;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
@@ -39,4 +40,6 @@ public abstract class AbstractInstruction implements Instruction {
     public Variable getVariable() {
         return variable;
     }
+
+    public abstract Label execute(ExecutionContext context);
 }
