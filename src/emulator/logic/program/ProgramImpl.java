@@ -31,8 +31,10 @@ public class ProgramImpl implements Program {
         int idx = instructions.size();
         instructions.add(instruction);
 
-        Variable v = instruction.getVariable();
-        if (v != null) variables.add(v);
+        // Updates all variables this instruction uses
+        for (Variable var : instruction.referencedVariables()) {
+            if (var != null) variables.add(var);
+        }
 
         // Creates an Index label
         Label lbl = instruction.getLabel();

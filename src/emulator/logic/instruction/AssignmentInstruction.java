@@ -5,6 +5,8 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 public class AssignmentInstruction extends AbstractInstruction {
@@ -27,5 +29,10 @@ public class AssignmentInstruction extends AbstractInstruction {
         long value = context.getVariableValue(assignedVariable);
         context.updateVariable(getVariable(), value);
         return FixedLabel.EMPTY;
+    }
+
+    @Override
+    public Collection<Variable> referencedVariables() {
+        return List.of(getVariable(), assignedVariable);
     }
 }

@@ -5,6 +5,10 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 public abstract class AbstractInstruction implements Instruction {
 
     private final InstructionData instructionData;
@@ -39,6 +43,11 @@ public abstract class AbstractInstruction implements Instruction {
     @Override
     public Variable getVariable() {
         return variable;
+    }
+
+    @Override
+    public Collection<Variable> referencedVariables() {
+        return getVariable() == null ? Collections.emptyList() : List.of(getVariable());
     }
 
     public abstract Label execute(ExecutionContext context);
