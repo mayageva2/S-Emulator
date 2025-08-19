@@ -20,8 +20,8 @@ public abstract class AbstractInstruction implements Instruction {
     }
 
     public AbstractInstruction(InstructionData instructionData, Variable variable, Label label) {
-        this.instructionData = instructionData;
-        this.label = label;
+        this.instructionData = java.util.Objects.requireNonNull(instructionData, "instructionData");
+        this.label = (label == null) ? FixedLabel.EMPTY : label;
         this.variable = variable;
     }
 

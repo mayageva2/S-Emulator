@@ -26,6 +26,7 @@ public class JumpNotZeroInstruction extends AbstractInstruction{
             return jnzLabel;
         }
         return FixedLabel.EMPTY;
-
     }
+
+    public Label getJnzLabel() {return jnzLabel; }
 }

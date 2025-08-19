@@ -33,6 +33,8 @@ public class ConstantAssignmentInstruction extends AbstractInstruction {
         context.updateVariable(getVariable(), constantValue);
         return FixedLabel.EMPTY;
     }
+
+    public long getConstantValue() { return constantValue; }
 }
 
 

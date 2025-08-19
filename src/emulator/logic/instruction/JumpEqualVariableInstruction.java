@@ -44,4 +44,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction {
     public Collection<Variable> referencedVariables() {
         return List.of(getVariable(), compareVariable);
     }
+
+    public Variable getCompareVariable() { return compareVariable; }
+    public Label getJeVariableLabel() { return jeVariableLabel; }
 }

@@ -37,4 +37,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction {
         long v = context.getVariableValue(getVariable());
         return (v == constantValue) ? jeConstantLabel : FixedLabel.EMPTY;
     }
+
+    public Label getJeConstantLabel() { return jeConstantLabel; }
+    public long getConstantValue() { return constantValue; }
 }

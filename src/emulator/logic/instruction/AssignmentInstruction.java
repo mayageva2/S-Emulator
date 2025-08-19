@@ -35,4 +35,6 @@ public class AssignmentInstruction extends AbstractInstruction {
     public Collection<Variable> referencedVariables() {
         return List.of(getVariable(), assignedVariable);
     }
+
+    public Variable getAssignedVariable() { return assignedVariable; }
 }

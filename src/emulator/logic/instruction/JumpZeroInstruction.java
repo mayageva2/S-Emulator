@@ -29,4 +29,6 @@ public class JumpZeroInstruction extends AbstractInstruction {
         return (v == 0L) ? jzLabel : FixedLabel.EMPTY;
     }
 
+    public Label getJzLabel() { return jzLabel; }
+
 }

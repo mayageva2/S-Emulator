@@ -21,4 +21,6 @@ public class GoToLabelInstruction extends AbstractInstruction{
     public Label execute(ExecutionContext context) {
         return gtlLabel;
     }
+
+    public Label getgtlLabel() { return gtlLabel; }
 }
