@@ -25,6 +25,9 @@ public class AssignmentInstruction extends AbstractInstruction {
     }
 
     @Override
+    public int degree() { return 0; }
+
+    @Override
     public Label execute(ExecutionContext context) {
         long value = context.getVariableValue(assignedVariable);
         context.updateVariable(getVariable(), value);

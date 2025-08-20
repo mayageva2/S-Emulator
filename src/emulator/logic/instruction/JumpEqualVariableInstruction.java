@@ -34,6 +34,9 @@ public class JumpEqualVariableInstruction extends AbstractInstruction {
     }
 
     @Override
+    public int degree() { return 0; }
+
+    @Override
     public Label execute(ExecutionContext context) {
         long v  = context.getVariableValue(getVariable());
         long v2 = context.getVariableValue(compareVariable);

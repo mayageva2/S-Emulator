@@ -5,10 +5,14 @@ import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
+import emulator.logic.label.LabelImpl;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class ZeroVariableInstruction extends AbstractInstruction implements Expandable {
 
@@ -39,4 +43,19 @@ public class ZeroVariableInstruction extends AbstractInstruction implements Expa
 
        return out;
    }
+
+    @Override
+    public int degree() {
+        ExpansionHelper helper = ExpansionHelper.fromUsedSets(
+                java.util.Set.of(), java.util.Set.of(),
+                name -> new VariableImpl(VariableType.WORK, 0, name),
+                name -> new LabelImpl(0)
+        );
+
+        return 1 + expand(helper).stream()
+                .mapToInt(Instruction::degree)
+                .max()
+                .orElse(0);
+    }
+
 }

@@ -18,6 +18,9 @@ public class GoToLabelInstruction extends AbstractInstruction {
     }
 
     @Override
+    public int degree() { return 0; }
+
+    @Override
     public Label execute(ExecutionContext context) {
         return gtlLabel;
     }

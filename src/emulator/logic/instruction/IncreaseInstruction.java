@@ -16,6 +16,9 @@ public class IncreaseInstruction extends AbstractInstruction {
     }
 
     @Override
+    public int degree() { return 0; }
+
+    @Override
     public Label execute(ExecutionContext context) {
 
         long variableValue = context.getVariableValue(getVariable());
