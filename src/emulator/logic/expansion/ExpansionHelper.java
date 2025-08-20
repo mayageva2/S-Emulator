@@ -67,7 +67,7 @@ public final class ExpansionHelper {
         for (Instruction i : list) {
             if (i == null) continue;
             Label lab = i.getLabel();
-            if (lab != null && !lab.isEmpty()) {
+            if (lab != null && lab.getLabelRepresentation().length() < 0) {
                 String name = lab.getLabelRepresentation();
                 if (name != null && !name.isEmpty()) s.add(name);
             }

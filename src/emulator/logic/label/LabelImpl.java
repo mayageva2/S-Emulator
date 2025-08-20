@@ -12,5 +12,4 @@ public class LabelImpl implements Label{
         return label;
     }
 
-    public boolean isEmpty() { return label == null || label.isBlank(); }
 }

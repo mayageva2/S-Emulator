@@ -7,5 +7,5 @@ public interface Variable {
     public String getName();
     public boolean isEmpty();
 
-    Variable RESULT = new VariableImpl(VariableType.RESULT, 0);
+    Variable RESULT = new VariableImpl(VariableType.RESULT, 0, "y");
 }
