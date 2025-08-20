@@ -4,9 +4,9 @@ public enum InstructionData {
 
     INCREASE("INCREASE", 1),
     DECREASE("DECREASE", 1),
-    JUMP_NOT_ZERO("JUMP_NOT_ZERO", 3),
+    JUMP_NOT_ZERO("JUMP_NOT_ZERO", 2),
     NEUTRAL("NEUTRAL", 0),
-    ZERO_VARIABLE("ZERO_VAR", 1),
+    ZERO_VARIABLE("ZERO_VARIABLE", 1),
     GOTO_LABEL("GOTO_LABEL", 1),
     ASSIGNMENT("ASSIGNMENT", 4),
     CONSTANT_ASSIGNMENT("CONSTANT_ASSIGNMENT", 2),
@@ -31,4 +31,5 @@ public enum InstructionData {
     public int getCycles() {
         return cycles;
     }
+
 }

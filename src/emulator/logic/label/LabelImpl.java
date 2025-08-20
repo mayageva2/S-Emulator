@@ -11,4 +11,6 @@ public class LabelImpl implements Label{
     public String getLabelRepresentation() {
         return label;
     }
+
+    public boolean isEmpty() { return label == null || label.isBlank(); }
 }

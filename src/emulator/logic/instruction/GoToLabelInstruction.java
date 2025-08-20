@@ -4,7 +4,7 @@ import emulator.logic.execution.ExecutionContext;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
-public class GoToLabelInstruction extends AbstractInstruction{
+public class GoToLabelInstruction extends AbstractInstruction {
 
     private final Label gtlLabel;
     public GoToLabelInstruction(Variable variable, Label gtlLabel) {

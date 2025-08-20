@@ -28,11 +28,12 @@ public class Main {
       //  p.addInstruction(new JumpNotZeroInstruction(x1, l1));
       //  p.addInstruction(new ZeroVarInstruction(x1, l3));
       //  p.addInstruction(new GoToLabelInstruction(z1, l1));
-       p.addInstruction(new JumpEqualVariableInstruction(x1, z1, l1));
+       p.addInstruction(new ZeroVariableInstruction(x1, l1));
+
 
         ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
         long result = programExecutor.run(3L, 6L, 2L);
-        System.out.println(result);;
+        System.out.println(result);
 
 
        sanity();

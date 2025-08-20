@@ -12,6 +12,7 @@ public interface Instruction {
     String getName();
     Label execute(ExecutionContext context);
     int cycles();
+    int degree();
     Label getLabel();
     Variable getVariable();
     default Collection<Variable> referencedVariables() { return Collections.emptyList(); }
