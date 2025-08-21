@@ -1,13 +1,19 @@
 package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.expansion.Expandable;
+import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
+import emulator.logic.label.LabelImpl;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public abstract class AbstractInstruction implements Instruction {
 
@@ -52,6 +58,31 @@ public abstract class AbstractInstruction implements Instruction {
     @Override
     public Collection<Variable> referencedVariables() {
         return getVariable() == null ? Collections.emptyList() : List.of(getVariable());
+    }
+
+    @Override
+    public int degree() {
+
+        if (!(this instanceof Expandable expandable)) {
+            return 0;
+        }
+
+        List<Instruction> children = expandable.expand(degreeHelper());
+        if (children == null || children.isEmpty()) {
+            return 0;
+        }
+        return 1 + children.stream()
+                .mapToInt(Instruction::degree)
+                .max()
+                .orElse(0);
+    }
+
+    protected ExpansionHelper degreeHelper() {
+        return ExpansionHelper.fromUsedSets(
+                Set.of(), Set.of(),
+                name -> new VariableImpl(VariableType.WORK, 0, name),
+                name -> new LabelImpl(0)
+        );
     }
 
     public int getDegree() { return degree; }

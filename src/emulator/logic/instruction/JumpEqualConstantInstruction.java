@@ -33,9 +33,6 @@ public class JumpEqualConstantInstruction extends AbstractInstruction {
     }
 
     @Override
-    public int degree() { return 0; }
-
-    @Override
     public Label execute(ExecutionContext context) {
         long v = context.getVariableValue(getVariable());
         return (v == constantValue) ? jeConstantLabel : FixedLabel.EMPTY;

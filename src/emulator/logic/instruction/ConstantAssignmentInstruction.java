@@ -29,9 +29,6 @@ public class ConstantAssignmentInstruction extends AbstractInstruction {
     }
 
     @Override
-    public int degree() { return 0; }
-
-    @Override
     public Label execute(ExecutionContext context) {
         context.updateVariable(getVariable(), constantValue);
         return FixedLabel.EMPTY;

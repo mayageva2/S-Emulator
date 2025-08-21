@@ -47,18 +47,4 @@ public class ZeroVariableInstruction extends AbstractInstruction implements Expa
        return List.of(dec, jnz);
    }
 
-    @Override
-    public int degree() {
-        ExpansionHelper helper = ExpansionHelper.fromUsedSets(
-                java.util.Set.of(), java.util.Set.of(),
-                name -> new VariableImpl(VariableType.WORK, 0, name),
-                name -> new LabelImpl(0)
-        );
-
-        return 1 + expand(helper).stream()
-                .mapToInt(Instruction::degree)
-                .max()
-                .orElse(0);
-    }
-
 }
