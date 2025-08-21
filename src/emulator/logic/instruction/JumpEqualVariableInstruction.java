@@ -1,15 +1,20 @@
 package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.expansion.Expandable;
+import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
-public class JumpEqualVariableInstruction extends AbstractInstruction {
+public class JumpEqualVariableInstruction extends AbstractInstruction implements Expandable {
 
     private final Label jeVariableLabel;
     private final Variable compareVariable;
@@ -43,6 +48,82 @@ public class JumpEqualVariableInstruction extends AbstractInstruction {
     @Override
     public Collection<Variable> referencedVariables() {
         return List.of(getVariable(), compareVariable);
+    }
+
+    @Override
+    public List<Instruction> expand(ExpansionHelper helper) {
+        Variable var = getVariable();
+        Variable compareVar = compareVariable;
+        Variable z1 = helper.freshVar();
+        Variable z2 = helper.freshVar();
+        Variable y = new VariableImpl(VariableType.RESULT, 0, "y");
+
+        List<Instruction> out = new ArrayList<>();
+
+        Label L1 = helper.freshLabel();
+        Label L2 = helper.freshLabel();
+        Label L3 = helper.freshLabel();
+        Label L = jeVariableLabel;
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            firstLabel = helper.freshLabel();
+        }
+
+        for (Instruction zi : new AssignmentInstruction(z1, var, firstLabel).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        for (Instruction zi : new AssignmentInstruction(z2, compareVar).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        for (Instruction zi : new JumpZeroInstruction(z1, L3, L2).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        for (Instruction zi : new JumpZeroInstruction(z2, L1).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        DecreaseInstruction decZ1 = new DecreaseInstruction(z1);
+        decZ1.setCreatedFrom(this);
+        out.add(decZ1);
+
+        DecreaseInstruction decZ2 = new DecreaseInstruction(z2);
+        decZ2.setCreatedFrom(this);
+        out.add(decZ2);
+
+        for (Instruction zi : new GoToLabelInstruction(z1, L2).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        for (Instruction zi : new JumpZeroInstruction(z2, L, L3).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        NeutralInstruction neutral = new NeutralInstruction(y, L1);
+        neutral.setCreatedFrom(this);
+        out.add(neutral);
+
+        return out;
     }
 
     public Variable getCompareVariable() { return compareVariable; }
