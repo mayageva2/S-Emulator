@@ -15,6 +15,7 @@ public abstract class AbstractInstruction implements Instruction {
     private final Label label;
     private final Variable variable;
     private int degree;
+    private Instruction createdFrom;
 
     public AbstractInstruction(InstructionData instructionData, Variable variable) {
         this(instructionData, variable, FixedLabel.EMPTY);
@@ -57,4 +58,7 @@ public abstract class AbstractInstruction implements Instruction {
     public void setDegree(int degree) { this.degree = degree; }
 
     public abstract Label execute(ExecutionContext context);
+
+    public Instruction getCreatedFrom() { return createdFrom; }
+    public void setCreatedFrom(Instruction origin) { this.createdFrom = origin; }
 }
