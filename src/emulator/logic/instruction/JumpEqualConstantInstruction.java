@@ -6,7 +6,10 @@ import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -44,6 +47,55 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
 
+        Variable var = getVariable();
+        Variable z1 = helper.freshVar();
+        Variable y = new VariableImpl(VariableType.RESULT, 0, "y");
+
+        List<Instruction> out = new ArrayList<>();
+
+        Label L1 = helper.freshLabel();
+        Label L = jeConstantLabel;
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            firstLabel = helper.freshLabel();
+        }
+
+        for (Instruction zi : new AssignmentInstruction(z1, var, firstLabel).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        for(long i = 0; i < constantValue; i++) {
+            for (Instruction zi : new JumpZeroInstruction(z1, L1).expand(helper)) {
+                if (zi instanceof AbstractInstruction ai) {
+                    ai.setCreatedFrom(this);
+                }
+                out.add(zi);
+            }
+
+            DecreaseInstruction dec = new DecreaseInstruction(z1);
+            dec.setCreatedFrom(this);
+            out.add(dec);
+        }
+
+        JumpNotZeroInstruction jnz = new JumpNotZeroInstruction(z1, L1);
+        jnz.setCreatedFrom(this);
+        out.add(jnz);
+
+        for (Instruction zi : new GoToLabelInstruction(z1, L).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
+
+        NeutralInstruction neutral = new NeutralInstruction(y, L1);
+        neutral.setCreatedFrom(this);
+        out.add(neutral);
+
+        return out;
     }
 
     public Label getJeConstantLabel() { return jeConstantLabel; }
