@@ -1,13 +1,16 @@
 package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.expansion.Expandable;
+import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.util.List;
 import java.util.Objects;
 
-public class JumpEqualConstantInstruction extends AbstractInstruction {
+public class JumpEqualConstantInstruction extends AbstractInstruction implements Expandable {
 
     private final Label jeConstantLabel;
     private final long constantValue;
@@ -36,6 +39,11 @@ public class JumpEqualConstantInstruction extends AbstractInstruction {
     public Label execute(ExecutionContext context) {
         long v = context.getVariableValue(getVariable());
         return (v == constantValue) ? jeConstantLabel : FixedLabel.EMPTY;
+    }
+
+    @Override
+    public List<Instruction> expand(ExpansionHelper helper) {
+
     }
 
     public Label getJeConstantLabel() { return jeConstantLabel; }

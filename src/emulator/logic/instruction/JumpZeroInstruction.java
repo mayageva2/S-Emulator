@@ -6,6 +6,8 @@ import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +40,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
 
         List<Instruction> out = new ArrayList<>();
         Variable var =  getVariable();
+        Variable y = new VariableImpl(VariableType.RESULT, 0, "y");
 
         Label firstLabel = getLabel();
         if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
@@ -51,11 +54,14 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         jnzToL1.setCreatedFrom(this);
         out.add(jnzToL1);
 
-        GoToLabelInstruction gtl = new GoToLabelInstruction(var, L);
-        gtl.setCreatedFrom(this);
-        out.add(gtl);
+        for (Instruction zi : new GoToLabelInstruction(var, L).expand(helper)) {
+            if (zi instanceof AbstractInstruction ai) {
+                ai.setCreatedFrom(this);
+            }
+            out.add(zi);
+        }
 
-        NeutralInstruction neutral = new NeutralInstruction(var, L1);
+        NeutralInstruction neutral = new NeutralInstruction(y, L1);
         neutral.setCreatedFrom(this);
         out.add(neutral);
 
