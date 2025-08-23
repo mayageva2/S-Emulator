@@ -14,7 +14,7 @@ public class XmlVersionManager {
         this.versionsDir = versionsDir;
     }
 
-    public void saveVersion(Path original, int version) {
+    public void saveOrReplaceVersion(Path original, int version) {
         try {
             Files.createDirectories(versionsDir);
             Path dest = versionsDir.resolve("program-v" + version + ".xml");

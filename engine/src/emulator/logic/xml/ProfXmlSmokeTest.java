@@ -50,7 +50,7 @@ public class ProfXmlSmokeTest {
 
             // 4) only now (read OK + validations pass) -> save version 1
             XmlVersionManager versionManager = new XmlVersionManager();
-            versionManager.saveVersion(xmlPath, 1);
+            versionManager.saveOrReplaceVersion(xmlPath, 1);
 
             // 5) map to engine objects
             Program program = XmlToObjects.toProgram(programXml);
