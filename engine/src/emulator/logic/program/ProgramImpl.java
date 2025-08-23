@@ -41,10 +41,12 @@ public class ProgramImpl implements Program {
         Label lbl = instruction.getLabel();
         if (lbl != null && lbl != FixedLabel.EMPTY) {
             String key = lbl.getLabelRepresentation();
-            if (labelToIndex.containsKey(key)) {
-                throw new IllegalStateException("Duplicate label '" + key + "'");
+            Integer prev = labelToIndex.putIfAbsent(key, idx);
+            if (prev != null) {
+                throw new IllegalStateException(
+                        "Duplicate label '" + key + "' at indices " + prev + " and " + idx
+                );
             }
-            labelToIndex.put(key, instructions.size());
         }
     }
 
