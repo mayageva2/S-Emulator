@@ -7,6 +7,6 @@ import java.util.Map;
 public interface ProgramExecutor {
 
     long run(Long... input);
-    Map<Variable, Long> variableState();
-    public int getLastExecutionCycles();
+    Map<String, Long> variableState();
+    int getLastExecutionCycles();
 }
