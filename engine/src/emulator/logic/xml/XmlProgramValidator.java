@@ -4,6 +4,11 @@ import java.util.*;
 
 public class XmlProgramValidator {
 
+    public void validate(ProgramXml p) throws XmlReadException {
+        validateBasic(p);
+        validateLabelsExist(p);
+    }
+
     public void validateBasic(ProgramXml p) throws XmlReadException {
         if (p == null) {
             throw new XmlReadException("Empty program document.");

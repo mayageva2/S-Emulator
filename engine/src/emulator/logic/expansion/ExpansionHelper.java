@@ -54,7 +54,7 @@ public final class ExpansionHelper {
             if (i == null) continue;
             Variable v = i.getVariable();
             if (v != null) {
-                String name = v.getName();
+                String name = v.getRepresentation();
                 if (name != null && !name.isEmpty()) s.add(name);
             }
         }
