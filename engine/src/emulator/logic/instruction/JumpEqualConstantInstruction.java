@@ -49,7 +49,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
 
         Variable var = getVariable();
         Variable z1 = helper.freshVar();
-        Variable y = new VariableImpl(VariableType.RESULT, 0, "y");
+        Variable y = new VariableImpl(VariableType.RESULT, 0);
 
         List<Instruction> out = new ArrayList<>();
 
@@ -84,7 +84,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
         jnz.setCreatedFrom(this);
         out.add(jnz);
 
-        for (Instruction zi : new GoToLabelInstruction(z1, L).expand(helper)) {
+        for (Instruction zi : new GoToLabelInstruction(L).expand(helper)) {
             if (zi instanceof AbstractInstruction ai) {
                 ai.setCreatedFrom(this);
             }

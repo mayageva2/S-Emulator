@@ -40,7 +40,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
 
         List<Instruction> out = new ArrayList<>();
         Variable var =  getVariable();
-        Variable y = new VariableImpl(VariableType.RESULT, 0, "y");
+        Variable y = new VariableImpl(VariableType.RESULT, 0);
 
         Label firstLabel = getLabel();
         if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
@@ -54,7 +54,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         jnzToL1.setCreatedFrom(this);
         out.add(jnzToL1);
 
-        for (Instruction zi : new GoToLabelInstruction(var, L).expand(helper)) {
+        for (Instruction zi : new GoToLabelInstruction(L).expand(helper)) {
             if (zi instanceof AbstractInstruction ai) {
                 ai.setCreatedFrom(this);
             }

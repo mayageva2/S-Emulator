@@ -23,6 +23,11 @@ public abstract class AbstractInstruction implements Instruction {
     private int degree;
     private Instruction createdFrom;
 
+    public AbstractInstruction(InstructionData instructionData) {
+        this(instructionData,null, FixedLabel.EMPTY);
+        this.degree = 0;
+    }
+
     public AbstractInstruction(InstructionData instructionData, Variable variable) {
         this(instructionData, variable, FixedLabel.EMPTY);
         this.degree = 0;
@@ -80,7 +85,7 @@ public abstract class AbstractInstruction implements Instruction {
     protected ExpansionHelper degreeHelper() {
         return ExpansionHelper.fromUsedSets(
                 Set.of(), Set.of(),
-                name -> new VariableImpl(VariableType.WORK, 0, name),
+                name -> new VariableImpl(VariableType.WORK, 0),
                 name -> new LabelImpl(0)
         );
     }

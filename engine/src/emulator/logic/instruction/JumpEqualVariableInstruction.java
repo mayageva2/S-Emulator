@@ -56,7 +56,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         Variable compareVar = compareVariable;
         Variable z1 = helper.freshVar();
         Variable z2 = helper.freshVar();
-        Variable y = new VariableImpl(VariableType.RESULT, 0, "y");
+        Variable y = new VariableImpl(VariableType.RESULT, 0);
 
         List<Instruction> out = new ArrayList<>();
 
@@ -105,7 +105,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         decZ2.setCreatedFrom(this);
         out.add(decZ2);
 
-        for (Instruction zi : new GoToLabelInstruction(z1, L2).expand(helper)) {
+        for (Instruction zi : new GoToLabelInstruction(L2).expand(helper)) {
             if (zi instanceof AbstractInstruction ai) {
                 ai.setCreatedFrom(this);
             }

@@ -11,8 +11,8 @@ import java.util.List;
 public class GoToLabelInstruction extends AbstractInstruction implements Expandable {
 
     private final Label gtlLabel;
-    public GoToLabelInstruction(Variable variable, Label gtlLabel) {
-        super(InstructionData.GOTO_LABEL, variable);
+    public GoToLabelInstruction(Label gtlLabel) {
+        super(InstructionData.GOTO_LABEL);
         this.gtlLabel = gtlLabel;
     }
 

@@ -35,7 +35,7 @@ public final class Expander {
     private ExpansionHelper buildHelper(List<Instruction> input) {
         return ExpansionHelper.fromInstructions(
                 input,
-                name -> new VariableImpl(null, -1, name),
+                name -> new VariableImpl(null, -1),
                 name -> {
                     int num;
                     try {

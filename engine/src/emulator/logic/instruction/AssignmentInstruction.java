@@ -75,7 +75,7 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
         jnzToL1.setCreatedFrom(this);
         out.add(jnzToL1);
 
-        for (Instruction zi : new GoToLabelInstruction(dst, L3).expand(helper)) {
+        for (Instruction zi : new GoToLabelInstruction(L3).expand(helper)) {
             if (zi instanceof AbstractInstruction ai) {
                 ai.setCreatedFrom(this);
             }
