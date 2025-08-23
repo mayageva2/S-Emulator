@@ -12,4 +12,8 @@ public class LabelImpl implements Label{
         return label;
     }
 
+    public String toString() {
+        return getLabelRepresentation();
+    }
+
 }
