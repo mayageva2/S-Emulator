@@ -31,7 +31,11 @@ public final class XmlToObjects {
             case "INCREASE" -> new IncreaseInstruction(v, toLabelObj(ix.getLabel()));
             case "DECREASE" -> new DecreaseInstruction(v, toLabelObj(ix.getLabel()));
             case "ZERO_VARIABLE" -> new ZeroVariableInstruction(v, toLabelObj(ix.getLabel()));
-            case "JUMP_NOT_ZERO" -> new JumpNotZeroInstruction(v, parseJumpLabel(req(args, "JNZLabel")));
+            case "JUMP_NOT_ZERO" -> {
+                Label target = parseJumpLabel(req(args, "JNZLabel"));
+                Label attached = toLabelObj(ix.getLabel());
+                yield new JumpNotZeroInstruction(v, target, attached);
+            }
             case "ASSIGNMENT" -> {
                 Variable src = parseVariable(req(args, "assignedVariable"));
                 yield new AssignmentInstruction(v, src, toLabelObj(ix.getLabel()));

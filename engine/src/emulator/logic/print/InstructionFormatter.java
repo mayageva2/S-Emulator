@@ -13,12 +13,6 @@ public class InstructionFormatter {
 
     public String format(Instruction ins) {
         StringBuilder sb = new StringBuilder();
-
-        var lbl = ins.getLabel();
-        if (style.isShowLabels() && lbl != null && !FixedLabel.EMPTY.equals(lbl)) {
-            sb.append(lbl).append(": ");
-        }
-
         sb.append(formatBody(ins));
 
         if (style.isShowCycles()) {
