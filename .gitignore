@@ -29,3 +29,12 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+# build
+target/
+out/
+*.class
+*.jar
+
+# libs
+lib/

@@ -1,6 +1,7 @@
 package emulator.logic.print;
 
 import emulator.logic.instruction.*;
+import emulator.logic.label.FixedLabel;
 
 public class InstructionFormatter {
 
@@ -14,7 +15,7 @@ public class InstructionFormatter {
         StringBuilder sb = new StringBuilder();
 
         var lbl = ins.getLabel();
-        if (style.isShowLabels() && lbl != null && !emulator.logic.label.FixedLabel.EMPTY.equals(lbl)) {
+        if (style.isShowLabels() && lbl != null && !FixedLabel.EMPTY.equals(lbl)) {
             sb.append(lbl).append(": ");
         }
 
@@ -59,6 +60,12 @@ public class InstructionFormatter {
         if (ins instanceof JumpEqualVariableInstruction jev) {
             return "IF " + jev.getVariable() + " = " + jev.getCompareVariable()
                     + " GOTO " + jev.getJeVariableLabel();
+        }
+        if (ins instanceof QuotationInstruction qi) {
+            String args = qi.getFunctionArguments();
+            if (args == null) args = "";
+            return qi.getVariable() + " ← (" + qi.getFunctionName()
+                    + (args.isEmpty() ? "" : ("," + args)) + ")";
         }
         return ins.getName();
     }

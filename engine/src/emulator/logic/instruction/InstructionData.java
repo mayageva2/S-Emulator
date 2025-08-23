@@ -13,6 +13,7 @@ public enum InstructionData {
     JUMP_ZERO("JUMP_ZERO", 2),
     JUMP_EQUAL_CONSTANT("JUMP_EQUAL_CONSTANT", 2),
     JUMP_EQUAL_VARIABLE("JUMP_EQUAL_VARIABLE", 2),
+    QUOTATION("QUOTE", 5);
 
     ;
 

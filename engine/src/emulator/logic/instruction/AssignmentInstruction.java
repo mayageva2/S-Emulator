@@ -5,10 +5,7 @@ import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
-import emulator.logic.label.LabelImpl;
 import emulator.logic.variable.Variable;
-import emulator.logic.variable.VariableImpl;
-import emulator.logic.variable.VariableType;
 
 import java.util.ArrayList;
 import java.util.Collection;
