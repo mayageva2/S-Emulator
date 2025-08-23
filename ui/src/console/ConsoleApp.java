@@ -121,7 +121,7 @@ public class ConsoleApp {
             long y = exec.run(inputs.toArray(new Long[0]));
             io.println("Result y = " + y);
 
-            int cycles = currentProgram.calculateCycles();
+            int cycles = exec.getLastExecutionCycles();
             io.println("Total cycles: " + cycles);
 
             String hist = String.format("run#%d | inputs=[%s] | y=%d | cycles=%d",

@@ -8,4 +8,5 @@ public interface ProgramExecutor {
 
     long run(Long... input);
     Map<Variable, Long> variableState();
+    public int getLastExecutionCycles();
 }
