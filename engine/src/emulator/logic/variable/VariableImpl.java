@@ -15,6 +15,22 @@ public class VariableImpl implements Variable {
                 : (type == VariableType.INPUT ? "x" + number : "z" + number);
     }
 
+    public VariableImpl(String name) {
+        if (name.equals("y")) {
+            this.type = VariableType.RESULT;
+            this.number = 0;
+        } else if (name.startsWith("x")) {
+            this.type = VariableType.INPUT;
+            this.number = Integer.parseInt(name.substring(1));
+        } else if (name.startsWith("z")) {
+            this.type = VariableType.WORK;
+            this.number = Integer.parseInt(name.substring(1));
+        } else {
+            throw new IllegalArgumentException("Unknown variable name: " + name);
+        }
+        this.representation = name;
+    }
+
     @Override public VariableType getType() { return type; }
     @Override public int getNumber() { return number; }
     @Override public String getRepresentation() { return representation; }

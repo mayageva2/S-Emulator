@@ -78,4 +78,23 @@ public final class Expander {
         }
         return true;
     }
+
+    public static List<Instruction> expandInstructions(List<Instruction> src, ExpansionHelper helper) {
+        List<Instruction> out = new ArrayList<>();
+        if (src == null) return out;
+
+        for (Instruction ins : src) {
+            if (ins == null) continue;
+
+            List<Instruction> expanded =
+                    (ins instanceof Expandable ex) ? ex.expand(helper) : List.of(ins);
+
+            out.addAll(expanded);
+        }
+        return out;
+    }
+
+    public static List<Instruction> expandProgramOnce(List<Instruction> src, ExpansionHelper helper) {
+        return expandInstructions(src, helper);
+    }
 }

@@ -13,6 +13,7 @@ public interface EmulatorEngine {
     ProgramView programView();
     LoadResult loadProgram(Path xmlPath);
     RunResult run(Long... input);
+    RunResult run(int degree, Long... input);
     int lastCycles();
     List<RunRecord> history();
     boolean hasProgramLoaded();

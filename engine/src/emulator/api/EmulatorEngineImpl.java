@@ -3,6 +3,7 @@ package emulator.api;
 import emulator.api.dto.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
+import emulator.logic.expansion.ProgramExpander;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.label.Label;
@@ -13,17 +14,16 @@ import emulator.logic.xml.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program current;
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
+    private int runCounter = 0;
     private final XmlVersionManager versionMgr = new XmlVersionManager(Paths.get("versions"));
+    private final ProgramExpander programExpander = new ProgramExpander();
 
     @Override
     public ProgramView programView() {
@@ -73,6 +73,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.current = XmlToObjects.toProgram(pxml);
             this.executor = new ProgramExecutorImpl(this.current);
 
+            history.clear();
+            runCounter = 0;
+
             return new LoadResult(true, "Program loaded");
         } catch (XmlReadException e) {
             this.current = null;
@@ -83,7 +86,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     @Override
     public RunResult run(Long... input) {
+        return run(0, input);
+    }
+
+    @Override
+    public RunResult run(int degree, Long... input) {
         requireLoaded();
+
+        Program toRun = (degree <= 0)
+                ? current
+                : programExpander.expandToDegree(current, degree);
+
+        this.executor = new ProgramExecutorImpl(toRun);
         long y = executor.run(input);
         int cycles = executor.getLastExecutionCycles();
         Map<Variable, Long> state = executor.variableState();
@@ -95,7 +109,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                             case RESULT -> VarType.RESULT;
                             case INPUT  -> VarType.INPUT;
                             case WORK   -> VarType.WORK;
-                            },
+                        },
                         e.getKey().getNumber(),
                         e.getValue()
                 ))
