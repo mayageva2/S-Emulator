@@ -6,24 +6,24 @@ import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.label.Label;
-import emulator.logic.print.InstructionFormatter;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
-import emulator.logic.xml.XmlProgramReader;
-import emulator.logic.xml.XmlProgramValidator;
-import emulator.logic.xml.XmlReadException;
-import emulator.logic.xml.XmlToObjects;
+import emulator.logic.xml.*;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program current;
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
+    private final XmlVersionManager versionMgr = new XmlVersionManager(Paths.get("versions"));
 
     @Override
     public ProgramView programView() {
@@ -91,7 +91,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         List<VariableView> views = state.entrySet().stream()
                 .map(e -> new VariableView(
                         e.getKey().getRepresentation(),
-                        e.getKey().getType(),
+                        switch (e.getKey().getType()) {
+                            case RESULT -> VarType.RESULT;
+                            case INPUT  -> VarType.INPUT;
+                            case WORK   -> VarType.WORK;
+                            },
                         e.getKey().getNumber(),
                         e.getValue()
                 ))
@@ -102,9 +106,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     @Override
-    public Map<Variable, Long> variableState() {
-        requireLoaded();
-        return executor.variableState();
+    public Path saveOrReplaceVersion(Path original, int version) throws IOException {
+        Objects.requireNonNull(original, "original must not be null");
+        if (version < 0) throw new IllegalArgumentException("version must be non-negative");
+        return versionMgr.saveOrReplaceVersion(original, version);
     }
 
     @Override

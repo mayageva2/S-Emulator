@@ -12,6 +12,7 @@ import java.util.*;
 
 public class ConsoleApp {
     private final EmulatorEngine engine;
+    private Path lastXmlPath;
 
     public ConsoleApp(EmulatorEngine engine) {
         this.engine = engine;
@@ -27,13 +28,14 @@ public class ConsoleApp {
         io.println("S-Emulator (Console)");
         while (true) {
             showMenu(io);
-            String choice = io.ask("Choose action [1-5]: ").trim();
+            String choice = io.ask("Choose action [1-6]: ").trim();
             switch (choice) {
                 case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
                 case "3" -> doRun(io);
                 case "4" -> doHistory(io);
-                case "5" -> { io.println("Bye!"); return; }
+                case "5" -> doSaveVersion(io);
+                case "6" -> { io.println("Bye!"); return; }
                 default -> io.println("Invalid choice. Try again.");
             }
             io.println("");
@@ -46,7 +48,8 @@ public class ConsoleApp {
       2) Show program
       3) Run
       4) History
-      5) Exit
+      5) Save version
+      6) Exit
       """);
     }
 
@@ -54,6 +57,9 @@ public class ConsoleApp {
         Path path = Paths.get(io.ask("Path to XML: ").trim());
         var res = engine.loadProgram(path);
         io.println(res.ok() ? "Loaded." : "Failed: " + res.message());
+        if (res.ok()) {
+            lastXmlPath = path;
+        }
     }
 
     private void doShowProgram(ConsoleIO io) {
@@ -83,14 +89,14 @@ public class ConsoleApp {
     private String prettyCommand(InstructionView iv) {
         var args = iv.args();
         switch (iv.opcode()) {
-            case "INCREASE": return args.get(0) + " ← " + args.get(0) + " + 1";
-            case "DECREASE": return args.get(0) + " ← " + args.get(0) + " - 1";
-            case "NEUTRAL": return args.get(0) + " ← " + args.get(0);
-            case "ZERO_VARIABLE": return args.get(0) + " ← 0";
+            case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
+            case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
+            case "NEUTRAL": return args.get(0) + "<-" + args.get(0);
+            case "ZERO_VARIABLE": return args.get(0) + "<-0";
             case "JUMP_NOT_ZERO": return "IF " + args.get(0) + " != 0 GOTO " + getArg(args,"JNZLabel");
             case "GOTO_LABEL": return "GOTO " + getArg(args,"gotoLabel");
-            case "ASSIGNMENT": return args.get(0) + " ← " + getArg(args,"assignedVariable");
-            case "CONSTANT_ASSIGNMENT": return args.get(0) + " ← " + getArg(args,"constantValue");
+            case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
             case "JUMP_ZERO": return "IF " + args.get(0) + " = 0 GOTO " + getArg(args,"JZLabel");
             case "JUMP_EQUAL_CONSTANT": return "IF " + args.get(0) + " = " + getArg(args,"constantValue")
                     + " GOTO " + getArg(args,"JEConstantLabel");
@@ -161,5 +167,39 @@ public class ConsoleApp {
             }
         }
         return out;
+    }
+
+    private void doSaveVersion(ConsoleIO io) {
+        if (!engine.hasProgramLoaded()) {
+            io.println("No program loaded. Load a program first.");
+            return;
+        }
+
+        Path xmlPath = this.lastXmlPath;
+        if (xmlPath == null) {
+            String p = io.ask("Path to XML to save as version: ").trim();
+            if (p.isEmpty()) {
+                io.println("No path provided.");
+                return;
+            }
+            xmlPath = Paths.get(p);
+        }
+
+        String vStr = io.ask("Version number (e.g. 1): ").trim();
+        int version;
+        try {
+            version = Integer.parseInt(vStr);
+            if (version < 0) throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+            io.println("Invalid version number: " + vStr);
+            return;
+        }
+
+        try {
+            Path saved = engine.saveOrReplaceVersion(xmlPath, version);
+            io.println("[INFO] Saved version " + version + " to " + saved);
+        } catch (Exception e) { // IOException או אחרות
+            io.println("[WARN] Could not save version: " + e.getMessage());
+        }
     }
 }
