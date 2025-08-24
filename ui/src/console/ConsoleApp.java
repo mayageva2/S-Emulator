@@ -1,29 +1,23 @@
 package console;
 
-import emulator.logic.execution.ProgramExecutor;
-import emulator.logic.execution.ProgramExecutorImpl;
-import emulator.logic.instruction.Instruction;
-import emulator.logic.instruction.InstructionData;
-import emulator.logic.label.FixedLabel;
-import emulator.logic.label.Label;
-import emulator.logic.print.InstructionFormatter;
-import emulator.logic.program.Program;
-import emulator.logic.variable.Variable;
-import emulator.logic.variable.VariableType;
-import emulator.logic.xml.*;
+import emulator.api.EmulatorEngine;
+import emulator.api.EmulatorEngineImpl;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ConsoleApp {
-    private Program currentProgram = null;
-    private final List<String> runHistory = new ArrayList<>();
+    private final EmulatorEngine engine;
+
+    public ConsoleApp(EmulatorEngine engine) {
+        this.engine = engine;
+    }
 
     public static void main(String[] args) {
         ConsoleIO io = new ConsoleIO(System.in, System.out);
-        new ConsoleApp().loop(io);
+        EmulatorEngine engine = new EmulatorEngineImpl();
+        new ConsoleApp(engine).loop(io);
     }
 
     public void loop(ConsoleIO io) {
@@ -54,54 +48,13 @@ public class ConsoleApp {
     }
 
     private void doLoad(ConsoleIO io) {
-        String pathStr = io.ask("Enter full XML path: ");
-        Path path = Paths.get(pathStr.trim());
-
-        try {
-            XmlProgramReader reader = new XmlProgramReader();
-            ProgramXml pxml = reader.read(path);
-
-            new XmlProgramValidator().validate(pxml);
-
-            Program program = XmlToObjects.toProgram(pxml);
-
-            this.currentProgram = program;
-            io.println("Program loaded successfully.");
-        } catch (XmlReadException e) {
-            io.println("Load failed: " + e.getMessage());
-        } catch (Exception e) {
-            io.println("Load failed: " + e);
-        }
+        Path path = Paths.get(io.ask("Path to XML: ").trim());
+        var res = engine.loadProgram(path);
+        io.println(res.ok() ? "Loaded." : "Failed: " + res.message());
     }
 
     private void doShowProgram(ConsoleIO io) {
-        if (!requireLoaded(io)) return;
-
-        Program p = currentProgram;
-        io.println("Program: " + p.getName());
-
-        List<String> inputs = p.getVariables().stream()
-                .filter(v -> v.getType() == VariableType.INPUT)
-                .sorted(Comparator.comparingInt(Variable::getNumber))
-                .map(Variable::getRepresentation)
-                .toList();
-        io.println("Inputs:  " + String.join(", ", inputs));
-
-        LinkedHashSet<String> labels = new LinkedHashSet<>();
-        for (Instruction instr : p.getInstructions()) {
-            Label l = instr.getLabel();
-            if (l != null && l != FixedLabel.EMPTY) {
-                labels.add(l.getLabelRepresentation());
-            }
-        }
-        labels.add(FixedLabel.EXIT.getLabelRepresentation());
-        io.println("Labels:  " + String.join(", ", labels));
-
-        io.println("--- Instructions ---");
-        List<Instruction> list = p.getInstructions();
-        for (int i = 0; i < list.size(); i++) {
-            io.println(formatInstruction(i + 1, list.get(i)));
-        }
+        engine.programSummary().forEach(io::println);
     }
 
     private void doRun(ConsoleIO io) {
@@ -117,54 +70,25 @@ public class ConsoleApp {
         }
 
         try {
-            ProgramExecutor exec = new ProgramExecutorImpl(currentProgram);
-            long y = exec.run(inputs.toArray(new Long[0]));
-            io.println("Result y = " + y);
+            var result = engine.run(inputs.toArray(Long[]::new));
+            io.println("y = " + result.y() + " | cycles = " + result.cycles());
 
-            int cycles = exec.getLastExecutionCycles();
-            io.println("Total cycles: " + cycles);
-
-            String hist = String.format("run#%d | inputs=[%s] | y=%d | cycles=%d",
-                    runHistory.size() + 1,
-                    inputs.stream().map(Object::toString).collect(Collectors.joining(",")),
-                    y, cycles);
-            runHistory.add(hist);
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
         }
     }
 
     private void doHistory(ConsoleIO io) {
-        if (runHistory.isEmpty()) {
-            io.println("No runs yet.");
-            return;
-        }
-        io.println("#  | inputs                | y    | cycles");
-        io.println("----+-----------------------+------+-------");
-        for (int i = 0; i < runHistory.size(); i++) {
-            io.println(runHistory.get(i));
-        }
+        if (engine.history().isEmpty()) { io.println("No runs yet."); return; }
+        //history print add
     }
 
     private boolean requireLoaded(ConsoleIO io) {
-        if (currentProgram == null) {
+        if (!engine.hasProgramLoaded()) {
             io.println("No program loaded. Use 'Load program XML' first.");
             return false;
         }
         return true;
-    }
-
-    private String formatInstruction(int index1, Instruction instr) {
-        String label = "";
-        if (instr.getLabel() != null && instr.getLabel() != FixedLabel.EMPTY) {
-            label = instr.getLabel().getLabelRepresentation();
-        }
-        InstructionData data = InstructionData.valueOf(instr.getName());
-        String type = data.isBasic() ? "B" : "S";
-        int cycles = data.getCycles();
-
-        String body = new InstructionFormatter().format(instr);
-        return String.format("#%-3d (%s) [%-3s] %s (%d)", index1, type, label, body, cycles);
     }
 
     private List<Long> parseCsvLongs(String csv) {
