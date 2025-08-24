@@ -62,14 +62,15 @@ public final class ExpansionHelper {
     }
 
     public static Set<String> collectUsedLabelNames(List<Instruction> list) {
-        Set<String> s = new HashSet<>();
+        Set<String> s = new java.util.LinkedHashSet<>();
         if (list == null) return s;
         for (Instruction i : list) {
             if (i == null) continue;
             Label lab = i.getLabel();
-            if (lab != null && lab.getLabelRepresentation().length() < 0) {
-                String name = lab.getLabelRepresentation();
-                if (name != null && !name.isEmpty()) s.add(name);
+            if (lab == null) continue;
+            String name = lab.getLabelRepresentation();
+            if (name != null && !name.isEmpty()) {
+                s.add(name);
             }
         }
         return s;

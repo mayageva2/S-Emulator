@@ -131,8 +131,18 @@ public class ConsoleApp {
             return;
         }
 
+        int degree = 0;
         try {
-            RunResult res = engine.run(inputs.toArray(new Long[0]));
+            String d = io.ask("Choose expansion degree (0 = none): ").trim();
+            degree = d.isEmpty() ? 0 : Integer.parseInt(d);
+            if (degree < 0) degree = 0;
+        } catch (NumberFormatException ex) {
+            io.println("Invalid degree. Using 0.");
+            degree = 0;
+        }
+
+        try {
+            RunResult res = engine.run(degree, inputs.toArray(new Long[0]));
             io.println("Result y = " + res.y());
             io.println("Total cycles: " + res.cycles());
         } catch (Exception e) {
