@@ -1,6 +1,7 @@
 package emulator.logic.program;
 
 import emulator.logic.instruction.Instruction;
+import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
@@ -13,7 +14,7 @@ public class ProgramImpl implements Program {
     private final String name;
     private final List<Instruction> instructions;
     private final Set<Variable> variables;
-    private final Map<Label, Integer> labelToIndex;
+    private final Map<String, Integer> labelToIndex;
 
     public ProgramImpl(String name) {
         this.name = name;
@@ -38,9 +39,14 @@ public class ProgramImpl implements Program {
 
         // Creates an Index label
         Label lbl = instruction.getLabel();
-        if (lbl != EMPTY) {
-            Integer prev = labelToIndex.put(lbl, idx);
-            if (prev != null) { throw new IllegalStateException( "Duplicate label '" + lbl + "' at indices " + prev + " and " + idx); }
+        if (lbl != null && lbl != FixedLabel.EMPTY) {
+            String key = lbl.getLabelRepresentation();
+            Integer prev = labelToIndex.putIfAbsent(key, idx);
+            if (prev != null) {
+                throw new IllegalStateException(
+                        "Duplicate label '" + key + "' at indices " + prev + " and " + idx
+                );
+            }
         }
     }
 
@@ -56,9 +62,10 @@ public class ProgramImpl implements Program {
 
     @Override
     public Instruction instructionAt(Label label) {
-        Integer idx = labelToIndex.get(label);
+        String key = label.getLabelRepresentation();
+        Integer idx = labelToIndex.get(key);
         if (idx == null) {
-            throw new IllegalArgumentException("Unknown label: " + label);
+            throw new IllegalArgumentException("Unknown label: " + key);
         }
         return instructions.get(idx);
     }
