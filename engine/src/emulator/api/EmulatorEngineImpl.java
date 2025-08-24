@@ -13,16 +13,14 @@ import emulator.logic.xml.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program current;
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
+    private int runCounter = 0;
     private final XmlVersionManager versionMgr = new XmlVersionManager(Paths.get("versions"));
 
     @Override
@@ -73,6 +71,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.current = XmlToObjects.toProgram(pxml);
             this.executor = new ProgramExecutorImpl(this.current);
 
+            history.clear();
+            runCounter = 0;
+
             return new LoadResult(true, "Program loaded");
         } catch (XmlReadException e) {
             this.current = null;
@@ -95,13 +96,15 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                             case RESULT -> VarType.RESULT;
                             case INPUT  -> VarType.INPUT;
                             case WORK   -> VarType.WORK;
-                            },
+                        },
                         e.getKey().getNumber(),
                         e.getValue()
                 ))
                 .toList();
 
-        history.add(new RunRecord(List.of(input), y, cycles));
+        long[] in = Arrays.stream(input).mapToLong(Long::longValue).toArray();
+        history.add(RunRecord.of(++runCounter, 0, in, y, cycles));
+
         return new RunResult(y, cycles, views);
     }
 
@@ -120,6 +123,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     @Override
     public List<RunRecord> history() { return List.copyOf(history); }
+
+    @Override
+    public void clearHistory() {
+        history.clear();
+        runCounter = 0;
+    }
 
     @Override
     public boolean hasProgramLoaded() { return current != null; }

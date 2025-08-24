@@ -15,6 +15,7 @@ public interface EmulatorEngine {
     RunResult run(Long... input);
     int lastCycles();
     List<RunRecord> history();
+    void clearHistory();
     boolean hasProgramLoaded();
     Path saveOrReplaceVersion(Path original, int version) throws IOException;
 }
