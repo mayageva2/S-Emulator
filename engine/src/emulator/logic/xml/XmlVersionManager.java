@@ -14,14 +14,10 @@ public class XmlVersionManager {
         this.versionsDir = versionsDir;
     }
 
-    public void saveOrReplaceVersion(Path original, int version) {
-        try {
-            Files.createDirectories(versionsDir);
-            Path dest = versionsDir.resolve("program-v" + version + ".xml");
-            Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("[INFO] Saved version " + version + " to " + dest);
-        } catch (IOException e) {
-            System.err.println("[WARN] Could not save version: " + e.getMessage());
-        }
+    public Path saveOrReplaceVersion(Path original, int version) throws IOException {
+        Files.createDirectories(versionsDir);
+        Path dest = versionsDir.resolve("program-v" + version + ".xml");
+        Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING);
+        return dest;
     }
 }

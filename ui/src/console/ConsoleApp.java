@@ -1,42 +1,41 @@
 package console;
 
-import emulator.logic.execution.ProgramExecutor;
-import emulator.logic.execution.ProgramExecutorImpl;
-import emulator.logic.instruction.Instruction;
-import emulator.logic.instruction.InstructionData;
-import emulator.logic.label.FixedLabel;
-import emulator.logic.label.Label;
-import emulator.logic.print.InstructionFormatter;
-import emulator.logic.program.Program;
-import emulator.logic.variable.Variable;
-import emulator.logic.variable.VariableType;
-import emulator.logic.xml.*;
+import emulator.api.EmulatorEngine;
+import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.InstructionView;
+import emulator.api.dto.ProgramView;
+import emulator.api.dto.RunResult;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ConsoleApp {
-    private Program currentProgram = null;
-    private final List<String> runHistory = new ArrayList<>();
+    private final EmulatorEngine engine;
+    private Path lastXmlPath;
+
+    public ConsoleApp(EmulatorEngine engine) {
+        this.engine = engine;
+    }
 
     public static void main(String[] args) {
         ConsoleIO io = new ConsoleIO(System.in, System.out);
-        new ConsoleApp().loop(io);
+        EmulatorEngine engine = new EmulatorEngineImpl();
+        new ConsoleApp(engine).loop(io);
     }
 
     public void loop(ConsoleIO io) {
         io.println("S-Emulator (Console)");
         while (true) {
             showMenu(io);
-            String choice = io.ask("Choose action [1-5]: ").trim();
+            String choice = io.ask("Choose action [1-6]: ").trim();
             switch (choice) {
                 case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
                 case "3" -> doRun(io);
                 case "4" -> doHistory(io);
-                case "5" -> { io.println("Bye!"); return; }
+                case "5" -> doSaveVersion(io);
+                case "6" -> { io.println("Bye!"); return; }
                 default -> io.println("Invalid choice. Try again.");
             }
             io.println("");
@@ -49,66 +48,82 @@ public class ConsoleApp {
       2) Show program
       3) Run
       4) History
-      5) Exit
+      5) Save version
+      6) Exit
       """);
     }
 
     private void doLoad(ConsoleIO io) {
-        String pathStr = io.ask("Enter full XML path: ");
-        Path path = Paths.get(pathStr.trim());
-
-        try {
-            XmlProgramReader reader = new XmlProgramReader();
-            ProgramXml pxml = reader.read(path);
-
-            new XmlProgramValidator().validate(pxml);
-
-            Program program = XmlToObjects.toProgram(pxml);
-
-            this.currentProgram = program;
-            io.println("Program loaded successfully.");
-        } catch (XmlReadException e) {
-            io.println("Load failed: " + e.getMessage());
-        } catch (Exception e) {
-            io.println("Load failed: " + e);
+        Path path = Paths.get(io.ask("Path to XML: ").trim());
+        var res = engine.loadProgram(path);
+        io.println(res.ok() ? "Loaded." : "Failed: " + res.message());
+        if (res.ok()) {
+            lastXmlPath = path;
         }
     }
 
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
 
-        Program p = currentProgram;
-        io.println("Program: " + p.getName());
+        var pv = engine.programView();
 
-        List<String> inputs = p.getVariables().stream()
-                .filter(v -> v.getType() == VariableType.INPUT)
-                .sorted(Comparator.comparingInt(Variable::getNumber))
-                .map(Variable::getRepresentation)
-                .toList();
-        io.println("Inputs:  " + String.join(", ", inputs));
-
-        LinkedHashSet<String> labels = new LinkedHashSet<>();
-        for (Instruction instr : p.getInstructions()) {
-            Label l = instr.getLabel();
-            if (l != null && l != FixedLabel.EMPTY) {
-                labels.add(l.getLabelRepresentation());
-            }
-        }
-        labels.add(FixedLabel.EXIT.getLabelRepresentation());
-        io.println("Labels:  " + String.join(", ", labels));
-
-        io.println("--- Instructions ---");
-        List<Instruction> list = p.getInstructions();
-        for (int i = 0; i < list.size(); i++) {
-            io.println(formatInstruction(i + 1, list.get(i)));
+        for (var iv : pv.instructions()) {
+            String line = formatInstruction(iv);
+            io.println(line);
         }
     }
 
+    private String formatInstruction(InstructionView iv) {
+
+        String index = "#" + iv.index();
+        String type = iv.basic() ? "(B)" : "(S)";
+        String label = iv.label() == null ? "" : iv.label();
+        String labelField = String.format("[%-5s]", label);
+        String command = prettyCommand(iv);
+        String cycles = "(" + iv.cycles() + ")";
+
+        return String.format("%-4s %-4s %-8s %-20s %s",
+                index, type, labelField, command, cycles);
+    }
+
+    private String prettyCommand(InstructionView iv) {
+        var args = iv.args();
+        switch (iv.opcode()) {
+            case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
+            case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
+            case "NEUTRAL": return args.get(0) + "<-" + args.get(0);
+            case "ZERO_VARIABLE": return args.get(0) + "<-0";
+            case "JUMP_NOT_ZERO": return "IF " + args.get(0) + " != 0 GOTO " + getArg(args,"JNZLabel");
+            case "GOTO_LABEL": return "GOTO " + getArg(args,"gotoLabel");
+            case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
+            case "JUMP_ZERO": return "IF " + args.get(0) + " = 0 GOTO " + getArg(args,"JZLabel");
+            case "JUMP_EQUAL_CONSTANT": return "IF " + args.get(0) + " = " + getArg(args,"constantValue")
+                    + " GOTO " + getArg(args,"JEConstantLabel");
+            case "JUMP_EQUAL_VARIABLE": return "IF " + args.get(0) + " = " + getArg(args,"variableName")
+                    + " GOTO " + getArg(args,"JEVariableLabel");
+            default: return iv.opcode() + " " + String.join(", ", args);
+        }
+    }
+
+    private String getArg(List<String> args, String key) {
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0 && a.substring(0,eq).equals(key)) {
+                return a.substring(eq+1);
+            }
+        }
+        return "";
+    }
+
     private void doRun(ConsoleIO io) {
-        if (!requireLoaded(io)) return;
+        if (!engine.hasProgramLoaded()) {
+            io.println("No program loaded. Use 'Load program XML' first.");
+            return;
+        }
 
         String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ");
-        List<Long> inputs;
+        final List<Long> inputs;
         try {
             inputs = parseCsvLongs(csv);
         } catch (IllegalArgumentException ex) {
@@ -117,54 +132,40 @@ public class ConsoleApp {
         }
 
         try {
-            ProgramExecutor exec = new ProgramExecutorImpl(currentProgram);
-            long y = exec.run(inputs.toArray(new Long[0]));
-            io.println("Result y = " + y);
-
-            int cycles = exec.getLastExecutionCycles();
-            io.println("Total cycles: " + cycles);
-
-            String hist = String.format("run#%d | inputs=[%s] | y=%d | cycles=%d",
-                    runHistory.size() + 1,
-                    inputs.stream().map(Object::toString).collect(Collectors.joining(",")),
-                    y, cycles);
-            runHistory.add(hist);
+            RunResult res = engine.run(inputs.toArray(new Long[0]));
+            io.println("Result y = " + res.y());
+            io.println("Total cycles: " + res.cycles());
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
         }
     }
 
     private void doHistory(ConsoleIO io) {
-        if (runHistory.isEmpty()) {
+        var history = engine.history();
+        if (history.isEmpty()) {
             io.println("No runs yet.");
             return;
         }
-        io.println("#  | inputs                | y    | cycles");
-        io.println("----+-----------------------+------+-------");
-        for (int i = 0; i < runHistory.size(); i++) {
-            io.println(runHistory.get(i));
+
+        io.println("Run# | Degree | Inputs         | y   | Cycles");
+        io.println("-----+--------+----------------+-----+-------");
+
+        for (var r : history) {
+            io.println(String.format("%4d | %6d | %-14s | %3d | %5d",
+                    r.runNumber(),
+                    r.degree(),
+                    r.inputsCsv(),
+                    r.y(),
+                    r.cycles()));
         }
     }
 
     private boolean requireLoaded(ConsoleIO io) {
-        if (currentProgram == null) {
+        if (!engine.hasProgramLoaded()) {
             io.println("No program loaded. Use 'Load program XML' first.");
             return false;
         }
         return true;
-    }
-
-    private String formatInstruction(int index1, Instruction instr) {
-        String label = "";
-        if (instr.getLabel() != null && instr.getLabel() != FixedLabel.EMPTY) {
-            label = instr.getLabel().getLabelRepresentation();
-        }
-        InstructionData data = InstructionData.valueOf(instr.getName());
-        String type = data.isBasic() ? "B" : "S";
-        int cycles = data.getCycles();
-
-        String body = new InstructionFormatter().format(instr);
-        return String.format("#%-3d (%s) [%-3s] %s (%d)", index1, type, label, body, cycles);
     }
 
     private List<Long> parseCsvLongs(String csv) {
@@ -181,5 +182,39 @@ public class ConsoleApp {
             }
         }
         return out;
+    }
+
+    private void doSaveVersion(ConsoleIO io) {
+        if (!engine.hasProgramLoaded()) {
+            io.println("No program loaded. Load a program first.");
+            return;
+        }
+
+        Path xmlPath = this.lastXmlPath;
+        if (xmlPath == null) {
+            String p = io.ask("Path to XML to save as version: ").trim();
+            if (p.isEmpty()) {
+                io.println("No path provided.");
+                return;
+            }
+            xmlPath = Paths.get(p);
+        }
+
+        String vStr = io.ask("Version number (e.g. 1): ").trim();
+        int version;
+        try {
+            version = Integer.parseInt(vStr);
+            if (version < 0) throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+            io.println("Invalid version number: " + vStr);
+            return;
+        }
+
+        try {
+            Path saved = engine.saveOrReplaceVersion(xmlPath, version);
+            io.println("[INFO] Saved version " + version + " to " + saved);
+        } catch (Exception e) { // IOException או אחרות
+            io.println("[WARN] Could not save version: " + e.getMessage());
+        }
     }
 }

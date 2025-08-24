@@ -10,16 +10,14 @@ import emulator.logic.variable.Variable;
 import emulator.logic.variable.VariableImpl;
 import emulator.logic.variable.VariableType;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public abstract class AbstractInstruction implements Instruction {
 
     private final InstructionData instructionData;
     private final Label label;
     private final Variable variable;
+    private final Map<String, String> arguments = new HashMap<>();
     private int degree;
     private Instruction createdFrom;
 
@@ -41,19 +39,18 @@ public abstract class AbstractInstruction implements Instruction {
     }
 
     @Override
+    public InstructionData getInstructionData() { return instructionData; }
+
+    @Override
     public String getName() {
         return instructionData.getName();
     }
 
     @Override
-    public int cycles() {
-        return instructionData.getCycles();
-    }
+    public int cycles() { return instructionData.getCycles(); }
 
     @Override
-    public Label getLabel() {
-        return label;
-    }
+    public Label getLabel() { return label; }
 
     @Override
     public Variable getVariable() {
@@ -63,6 +60,15 @@ public abstract class AbstractInstruction implements Instruction {
     @Override
     public Collection<Variable> referencedVariables() {
         return getVariable() == null ? Collections.emptyList() : List.of(getVariable());
+    }
+
+    @Override
+    public Map<String, String> getArguments() {
+        return Collections.unmodifiableMap(arguments);
+    }
+
+    public void setArgument(String key, String value) {
+        arguments.put(key, value);
     }
 
     @Override

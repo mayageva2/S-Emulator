@@ -1,9 +1,8 @@
 package emulator.logic.xml;
 
-import jakarta.xml.bind.annotation.XmlAccessType;
-import jakarta.xml.bind.annotation.XmlAccessorType;
-import jakarta.xml.bind.annotation.XmlAttribute;
-import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.*;
+
+import java.util.List;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class InstructionXml {
@@ -19,8 +18,9 @@ public class InstructionXml {
     @XmlElement(name = "S-Label")
     private String label;
 
-    @XmlElement(name = "S-Instruction-Arguments")
-    private InstructionArgsXml args;
+    @XmlElementWrapper(name = "S-Instruction-Arguments")
+    @XmlElement(name = "S-Instruction-Argument")
+    private List<InstructionArgXml> arguments;
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -30,6 +30,6 @@ public class InstructionXml {
     public void setVariable(String variable) { this.variable = variable; }
     public String getLabel() { return label; }
     public void setLabel(String label) { this.label = label; }
-    public InstructionArgsXml getArgs() { return args; }
-    public void setArgs(InstructionArgsXml args) { this.args = args; }
+    public List<InstructionArgXml> getArguments() { return arguments; }
+    public void setArguments(List<InstructionArgXml> arguments) { this.arguments = arguments; }
 }

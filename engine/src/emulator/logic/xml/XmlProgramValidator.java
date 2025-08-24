@@ -65,8 +65,8 @@ public class XmlProgramValidator {
         List<String> out = new ArrayList<>();
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             for (InstructionXml i : p.getInstructions().getInstructions()) {
-                if (i.getArgs() == null || i.getArgs().getArgs() == null) continue;
-                for (InstructionArgXml a : i.getArgs().getArgs()) {
+                if (i.getArguments() == null) continue;
+                for (InstructionArgXml a : i.getArguments()) {
                     if (a.getName() == null) continue;
                     if (a.getName().equals("gotoLabel")
                             || a.getName().equals("JNZLabel")

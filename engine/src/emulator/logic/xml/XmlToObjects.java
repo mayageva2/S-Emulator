@@ -26,7 +26,9 @@ public final class XmlToObjects {
         Label lbl = toLabelObj(ix.getLabel());
 
         Map<String,String> args = toArgMap(ix);
-        return switch (name) {
+        Instruction ins;
+
+        ins = switch (name) {
             case "NEUTRAL" -> new NeutralInstruction(v, toLabelObj(ix.getLabel()));
             case "INCREASE" -> new IncreaseInstruction(v, toLabelObj(ix.getLabel()));
             case "DECREASE" -> new DecreaseInstruction(v, toLabelObj(ix.getLabel()));
@@ -62,14 +64,35 @@ public final class XmlToObjects {
                 Variable other = parseVariable(req(args, "variableName"));
                 yield new JumpEqualVariableInstruction(v, other, target);
             }
+         /*   case "QUOTE" -> {
+                String fn = req(args, "functionName");
+                String fnArgs = req(args, "functionArguments");
+                yield new QuotationInstruction(v, fn, fnArgs, attached);
+            }
+            case "JUMP_EQUAL_FUNCTION" -> {
+                Label target = parseJumpLabel(req(args, "JEFunctionLabel"));
+                String fn = req(args, "functionName");
+                String fnArgs = req(args, "functionArguments");
+                yield new JumpEqualFunctionInstruction(v, fn, fnArgs, target);
+            }*/
             default -> throw new XmlReadException("Unsupported instruction: " + name);
         };
+
+        if (ix.getArguments() != null) {
+            for (InstructionArgXml arg : ix.getArguments()) {
+                if (ins instanceof AbstractInstruction ai) {
+                    ai.setArgument(arg.getName(), arg.getValue());
+                }
+            }
+        }
+
+        return ins;
     }
 
     private static Map<String,String> toArgMap(InstructionXml ix) {
         Map<String,String> m = new LinkedHashMap<>();
-        if (ix.getArgs() != null && ix.getArgs().getArgs() != null) {
-            for (InstructionArgXml a : ix.getArgs().getArgs()) {
+        if (ix.getArguments() != null) {
+            for (InstructionArgXml a : ix.getArguments()) {
                 if (a.getName() != null) {
                     m.put(a.getName().trim(), safe(a.getValue()));
                 }
