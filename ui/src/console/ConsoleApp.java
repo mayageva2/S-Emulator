@@ -2,6 +2,7 @@ package console;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.RunResult;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,10 +59,13 @@ public class ConsoleApp {
     }
 
     private void doRun(ConsoleIO io) {
-        if (!requireLoaded(io)) return;
+        if (!engine.hasProgramLoaded()) {
+            io.println("No program loaded. Use 'Load program XML' first.");
+            return;
+        }
 
         String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ");
-        List<Long> inputs;
+        final List<Long> inputs;
         try {
             inputs = parseCsvLongs(csv);
         } catch (IllegalArgumentException ex) {
@@ -70,9 +74,9 @@ public class ConsoleApp {
         }
 
         try {
-            var result = engine.run(inputs.toArray(Long[]::new));
-            io.println("y = " + result.y() + " | cycles = " + result.cycles());
-
+            RunResult res = engine.run(inputs.toArray(new Long[0]));
+            io.println("Result y = " + res.y());
+            io.println("Total cycles: " + res.cycles());
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
         }

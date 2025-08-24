@@ -6,10 +6,7 @@ import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class ProgramExecutorImpl implements ProgramExecutor{
 
@@ -18,7 +15,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private int lastExecutionCycles = 0;
 
     public ProgramExecutorImpl(Program program) {
-        this.program = program;
+        this.program = Objects.requireNonNull(program, "program must not be null");
     }
 
     @Override
