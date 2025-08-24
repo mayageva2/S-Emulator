@@ -8,5 +8,5 @@ public interface ExecutionContext {
 
     long getVariableValue(Variable v);
     void updateVariable(Variable v, long value);
-    Map<String, Long> getAllVariables();
+    Map<Variable, Long> getAllVariables();
 }

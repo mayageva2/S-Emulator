@@ -57,7 +57,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     }
 
     @Override
-    public Map<String, Long> variableState() {
+    public Map<Variable, Long> variableState() {
         return context.getAllVariables();
     }
 

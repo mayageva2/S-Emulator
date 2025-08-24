@@ -1,4 +1,4 @@
-package emulator.api;
+package emulator.api.dto;
 
 import java.util.List;
 

@@ -76,8 +76,8 @@ public class XmlProgramReader {
         if (i.getVariable() != null) i.setVariable(i.getVariable().trim());
         if (i.getLabel() != null) i.setLabel(i.getLabel().trim());
 
-        if (i.getArgs() != null && i.getArgs().getArgs() != null) {
-            for (InstructionArgXml a : i.getArgs().getArgs()) {
+        if (i.getArguments() != null) {
+            for (InstructionArgXml a : i.getArguments()) {
                 if (a.getName() != null) a.setName(a.getName().trim());
                 if (a.getValue() != null) a.setValue(a.getValue().trim());
             }

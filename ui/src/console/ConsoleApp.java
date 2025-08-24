@@ -2,7 +2,9 @@ package console;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
-import emulator.api.RunResult;
+import emulator.api.dto.InstructionView;
+import emulator.api.dto.ProgramView;
+import emulator.api.dto.RunResult;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,7 +57,20 @@ public class ConsoleApp {
     }
 
     private void doShowProgram(ConsoleIO io) {
-        engine.programSummary().forEach(io::println);
+        if (!requireLoaded(io)) return;
+
+        ProgramView pv = engine.programView();
+
+        for (InstructionView iv : pv.instructions()) {
+            io.println(String.format(
+                    "[%03d] %s %-6s %s%s",
+                    iv.index(),
+                    iv.basic() ? "B" : "S",
+                    iv.label() == null ? "" : iv.label(),
+                    iv.opcode(),
+                    iv.args().isEmpty() ? "" : " " + String.join(", ", iv.args())
+            ));
+        }
     }
 
     private void doRun(ConsoleIO io) {

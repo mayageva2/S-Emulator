@@ -1,17 +1,21 @@
 package emulator.logic.xml;
 
-import jakarta.xml.bind.annotation.XmlAccessType;
-import jakarta.xml.bind.annotation.XmlAccessorType;
-import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class InstructionsXml {
-    @XmlElement(name = "S-Instruction", required = true)
-    private List<InstructionXml> instructions = new ArrayList<>();
 
+    @XmlElement(name = "S-Instruction")
+    private List<InstructionXml> instructions;
 
-    public List<InstructionXml> getInstructions() { return instructions; }
-    public void setInstructions(List<InstructionXml> instructions) { this.instructions = instructions; }
+    public List<InstructionXml> getInstructions() {
+        return instructions;
+    }
+
+    public void setInstructions(List<InstructionXml> instructions) {
+        this.instructions = instructions;
+    }
 }
