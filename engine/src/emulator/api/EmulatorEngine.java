@@ -14,10 +14,6 @@ public interface EmulatorEngine {
     ProgramView programView();
     LoadResult loadProgram(Path xmlPath);
     RunResult run(Long... input);
-
-    @Deprecated
-    List<String> programSummary();
-
     Map<Variable, Long> variableState();
     int lastCycles();
     List<RunRecord> history();

@@ -3,7 +3,6 @@ package emulator.api;
 import emulator.api.dto.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
-import emulator.logic.instruction.AbstractInstruction;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.label.Label;
@@ -19,7 +18,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.IntStream;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
@@ -101,18 +99,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         history.add(new RunRecord(List.of(input), y, cycles));
         return new RunResult(y, cycles, views);
-    }
-
-    @Override
-    public List<String> programSummary() {
-        requireLoaded();
-
-        var fmt  = new InstructionFormatter();
-        var list = current.getInstructions();
-
-        return IntStream.range(0, list.size())
-                .mapToObj(i -> fmt.formatInstruction(i + 1, list.get(i)))
-                .toList();
     }
 
     @Override
