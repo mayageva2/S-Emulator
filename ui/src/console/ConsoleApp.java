@@ -59,18 +59,55 @@ public class ConsoleApp {
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
 
-        ProgramView pv = engine.programView();
+        var pv = engine.programView();
 
-        for (InstructionView iv : pv.instructions()) {
-            io.println(String.format(
-                    "[%03d] %s %-6s %s%s",
-                    iv.index(),
-                    iv.basic() ? "B" : "S",
-                    iv.label() == null ? "" : iv.label(),
-                    iv.opcode(),
-                    iv.args().isEmpty() ? "" : " " + String.join(", ", iv.args())
-            ));
+        for (var iv : pv.instructions()) {
+            String line = formatInstruction(iv);
+            io.println(line);
         }
+    }
+
+    private String formatInstruction(InstructionView iv) {
+
+        String index = "#" + iv.index();
+        String type = iv.basic() ? "(B)" : "(S)";
+        String label = iv.label() == null ? "" : iv.label();
+        String labelField = String.format("[%-5s]", label);
+        String command = prettyCommand(iv);
+        String cycles = "(" + iv.cycles() + ")";
+
+        return String.format("%-4s %-4s %-8s %-20s %s",
+                index, type, labelField, command, cycles);
+    }
+
+    private String prettyCommand(InstructionView iv) {
+        var args = iv.args();
+        switch (iv.opcode()) {
+            case "INCREASE": return args.get(0) + " ← " + args.get(0) + " + 1";
+            case "DECREASE": return args.get(0) + " ← " + args.get(0) + " - 1";
+            case "NEUTRAL": return args.get(0) + " ← " + args.get(0);
+            case "ZERO_VARIABLE": return args.get(0) + " ← 0";
+            case "JUMP_NOT_ZERO": return "IF " + args.get(0) + " != 0 GOTO " + getArg(args,"JNZLabel");
+            case "GOTO_LABEL": return "GOTO " + getArg(args,"gotoLabel");
+            case "ASSIGNMENT": return args.get(0) + " ← " + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT": return args.get(0) + " ← " + getArg(args,"constantValue");
+            case "JUMP_ZERO": return "IF " + args.get(0) + " = 0 GOTO " + getArg(args,"JZLabel");
+            case "JUMP_EQUAL_CONSTANT": return "IF " + args.get(0) + " = " + getArg(args,"constantValue")
+                    + " GOTO " + getArg(args,"JEConstantLabel");
+            case "JUMP_EQUAL_VARIABLE": return "IF " + args.get(0) + " = " + getArg(args,"variableName")
+                    + " GOTO " + getArg(args,"JEVariableLabel");
+            default: return iv.opcode() + " " + String.join(", ", args);
+        }
+    }
+
+    private String getArg(List<String> args, String key) {
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0 && a.substring(0,eq).equals(key)) {
+                return a.substring(eq+1);
+            }
+        }
+        return "";
     }
 
     private void doRun(ConsoleIO io) {
