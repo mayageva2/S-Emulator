@@ -68,13 +68,17 @@ public class ConsoleApp {
     }
 
     private void doShowProgram(ConsoleIO io) {
-        if (!requireLoaded(io)) return;
-
-        var pv = engine.programView();
-
-        for (var iv : pv.instructions()) {
-            String line = formatInstruction(iv);
-            io.println(line);
+        try {
+            var view = engine.programView();
+            int width = String.valueOf(view.instructions().size()).length();
+            for (var row : view.instructions()) {
+                String idx = String.format("%" + width + "d", row.index());
+                String lbl = row.label().isEmpty() ? "" : (" [" + row.label() + "]");
+                io.println(idx + ". " + row.opcode() + " " + row.args() + lbl
+                        + " (cycles=" + row.cycles() + ")");
+            }
+        } catch (ProgramException ex) {
+            io.println("Show error: " + ex.getMessage());
         }
     }
 
@@ -150,7 +154,7 @@ public class ConsoleApp {
             RunResult res = engine.run(degree, inputs.toArray(new Long[0]));
             io.println("Result y = " + res.y());
             io.println("Total cycles: " + res.cycles());
-        } catch (Exception e) {
+        } catch (ProgramException e) {
             io.println("Run failed: " + e.getMessage());
         }
     }
