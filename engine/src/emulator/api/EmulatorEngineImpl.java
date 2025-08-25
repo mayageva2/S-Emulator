@@ -116,8 +116,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
 
         long[] in = Arrays.stream(input).mapToLong(Long::longValue).toArray();
-        history.add(RunRecord.of(++runCounter, 0, in, y, cycles));
-
+        history.add(RunRecord.of(++runCounter, degree, in, y, cycles));
         return new RunResult(y, cycles, views);
     }
 
