@@ -4,8 +4,8 @@ import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.RunResult;
-import emulator.exception.ProgramException;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -54,15 +54,27 @@ public class ConsoleApp {
     }
 
     private void doLoad(ConsoleIO io) {
-        Path path = Paths.get(io.ask("Path to XML: ").trim());
+        String raw = io.ask("Enter full XML path: ").trim();
+        if (raw.isEmpty()) {
+            io.println("Path cannot be empty.");
+            return;
+        }
+
+        Path path = Paths.get(raw);
+        if (!Files.exists(path)) {
+            io.println("File not found: " + path.toAbsolutePath());
+            return;
+        }
+        if (!raw.toLowerCase(Locale.ROOT).endsWith(".xml")) {
+            io.println("Please select a .xml file.");
+            return;
+        }
+
         try {
             var res = engine.loadProgram(path);
-            io.println("Program loaded: " + res.programName()
-                    + " | instructions=" + res.instructionCount()
-                    + " | maxDegree=" + res.maxDegree());
-            lastXmlPath = path;
-        } catch (ProgramException ex) {
-            io.println("Load error: " + ex.getMessage());
+            io.println("Load finished.");
+        } catch (Exception ex) {
+            io.println("Load failed: " + (ex.getMessage() == null ? "Unknown error" : ex.getMessage()));
         }
     }
 
