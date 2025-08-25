@@ -3,7 +3,6 @@ package console;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.InstructionView;
-import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
 import emulator.exception.ProgramException;
 
@@ -68,17 +67,13 @@ public class ConsoleApp {
     }
 
     private void doShowProgram(ConsoleIO io) {
-        try {
-            var view = engine.programView();
-            int width = String.valueOf(view.instructions().size()).length();
-            for (var row : view.instructions()) {
-                String idx = String.format("%" + width + "d", row.index());
-                String lbl = row.label().isEmpty() ? "" : (" [" + row.label() + "]");
-                io.println(idx + ". " + row.opcode() + " " + row.args() + lbl
-                        + " (cycles=" + row.cycles() + ")");
-            }
-        } catch (ProgramException ex) {
-            io.println("Show error: " + ex.getMessage());
+        if (!requireLoaded(io)) return;
+
+        var pv = engine.programView();
+
+        for (var iv : pv.instructions()) {
+            String line = formatInstruction(iv);
+            io.println(line);
         }
     }
 
@@ -154,7 +149,7 @@ public class ConsoleApp {
             RunResult res = engine.run(degree, inputs.toArray(new Long[0]));
             io.println("Result y = " + res.y());
             io.println("Total cycles: " + res.cycles());
-        } catch (ProgramException e) {
+        } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
         }
     }
@@ -232,7 +227,7 @@ public class ConsoleApp {
         try {
             Path saved = engine.saveOrReplaceVersion(xmlPath, version);
             io.println("[INFO] Saved version " + version + " to " + saved);
-        } catch (Exception e) { // IOException או אחרות
+        } catch (Exception e) {
             io.println("[WARN] Could not save version: " + e.getMessage());
         }
     }
