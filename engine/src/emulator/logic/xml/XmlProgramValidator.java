@@ -8,30 +8,11 @@ import java.util.regex.Pattern;
 public class XmlProgramValidator {
 
     private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$");
-    private enum ArgType { LABEL, VAR, CONST_INT }
-    private static final class ReqArg {
-        final String name;
-        final ArgType type;
-        ReqArg(String name, ArgType type) { this.name = name; this.type = type; }
-    }
-    private static final Set<String> SUPPORTED_OPCODES = Set.of("INC", "DEC", "SET", "GOTO_LABEL", "JNZ", "JZ", "JE_CONST", "JE_VAR");
-    private static final Map<String, List<ReqArg>> OPCODE_REQS = Map.of(
-            "GOTO_LABEL", List.of(new ReqArg("gotoLabel", ArgType.LABEL)),
-            "JNZ",        List.of(new ReqArg("JNZLabel",  ArgType.LABEL)),
-            "JZ",         List.of(new ReqArg("JZLabel",   ArgType.LABEL)),
-            "JE_CONST",   List.of(
-                    new ReqArg("JEConstantLabel", ArgType.LABEL),
-                    new ReqArg("const", ArgType.CONST_INT)
-            ),
-            "JE_VAR",     List.of(new ReqArg("JEVariableLabel", ArgType.LABEL))
-    );
-
 
     public void validate(ProgramXml p) throws XmlReadException {
         validateBasic(p);
         validateLabelDuplicatesAndFormat(p);
         validateLabelsExist(p);
-        validateOpcodeSemantics(p);
     }
 
     public void validateBasic(ProgramXml p) throws XmlReadException {
@@ -97,110 +78,15 @@ public class XmlProgramValidator {
         }
     }
 
-    private void validateOpcodeSemantics(ProgramXml p) throws XmlReadException {
-        if (p.getInstructions() == null || p.getInstructions().getInstructions() == null) return;
-
-        int idx = 0;
-        for (InstructionXml ins : p.getInstructions().getInstructions()) {
-            idx++;
-            String opcode = upperOrEmpty(ins.getName());
-
-            // 4.1 opcode נתמך?
-            if (opcode.isEmpty() || !SUPPORTED_OPCODES.contains(opcode)) {
-                // יש לך InvalidInstructionException – נשתמש בה ל-unknown opcode (Unchecked)
-                throw new emulator.exception.InvalidInstructionException(opcode, "Unsupported opcode");
-            }
-
-            // 4.2 משתנה ראשי (פקודות שמחייבות variable)
-            if (requiresMainVariable(opcode)) {
-                String var = (ins.getVariable() == null) ? "" : ins.getVariable().trim();
-                if (var.isEmpty() || !isValidVarName(var)) {
-                    throw new XmlReadException(
-                            "Opcode " + opcode + " requires a valid variable (x#, z#, or y). " +
-                                    "Found: '" + (var.isEmpty() ? "<empty>" : var) + "' at instruction #" + idx
-                    );
-                }
-            }
-
-            // 4.3 ארגומנטים נדרשים לפי המפה
-            Map<String,String> args = argsToMap(ins.getArguments()); // name->value (null→"")
-            List<ReqArg> reqs = OPCODE_REQS.getOrDefault(opcode, List.of());
-            for (ReqArg r : reqs) {
-                String val = args.getOrDefault(r.name, "").trim();
-                if (val.isEmpty()) {
-                    throw new XmlReadException(
-                            "Missing required argument '" + r.name + "' for opcode " + opcode +
-                                    " at instruction #" + idx
-                    );
-                }
-                switch (r.type) {
-                    case LABEL -> {
-                        if (!val.equalsIgnoreCase("EXIT") && !LABEL_FMT.matcher(val).matches()) {
-                            throw new XmlReadException(
-                                    "Invalid label format in '" + r.name + "' for opcode " + opcode +
-                                            ": " + val + " at instruction #" + idx + " (expected L<number> or EXIT)"
-                            );
-                        }
-                    }
-                    case VAR -> {
-                        if (!isValidVarName(val)) {
-                            throw new XmlReadException(
-                                    "Invalid variable format in '" + r.name + "' for opcode " + opcode +
-                                            ": " + val + " at instruction #" + idx + " (expected x#, z#, or y)"
-                            );
-                        }
-                    }
-                    case CONST_INT -> {
-                        if (!isInteger(val)) {
-                            throw new XmlReadException(
-                                    "Invalid integer constant in '" + r.name + "' for opcode " + opcode +
-                                            ": " + val + " at instruction #" + idx
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private static String upperOrEmpty(String s) {
-        return (s == null) ? "" : s.trim().toUpperCase(Locale.ROOT);
-    }
-
-    private static Map<String,String> argsToMap(List<InstructionArgXml> args) {
-        if (args == null || args.isEmpty()) return Collections.emptyMap();
-        Map<String,String> m = new LinkedHashMap<>();
-        for (InstructionArgXml a : args) {
-            String k = (a.getName()  == null) ? "" : a.getName().trim();
-            String v = (a.getValue() == null) ? "" : a.getValue().trim();
-            if (!k.isEmpty()) m.put(k, v);
-        }
-        return m;
-    }
-
-    private static boolean requiresMainVariable(String opcode) {
-        return switch (opcode) {
-            case "INC", "DEC", "SET", "JNZ", "JZ", "JE_VAR" -> true;
-            default -> false;
-        };
-    }
-
-    private static boolean isInteger(String s) {
-        if (s == null || s.isBlank()) return false;
-        try { Long.parseLong(s.trim()); return true; } catch (NumberFormatException e) { return false; }
-    }
-
-    private static boolean isValidVarName(String v) {
-        if (v == null) return false;
-        String s = v.trim();
-        return s.equalsIgnoreCase("y")
-                || s.matches("^[xX]\\d+$")
-                || s.matches("^[zZ]\\d+$");
-    }
-
     public XmlResult<Void> tryValidate(ProgramXml p) {
-        try { validate(p); return XmlResult.ok(null);
-        } catch (RuntimeException | XmlReadException e) { return XmlResult.error(e.getMessage()); }
+        try {
+            validate(p);
+            return XmlResult.ok(null);
+        } catch (RuntimeException e) {
+            return XmlResult.error(e.getMessage());
+        } catch (XmlReadException e) {
+            return XmlResult.error(e.getMessage());
+        }
     }
 
     private Set<String> collectDefinedLabels(ProgramXml p) {
