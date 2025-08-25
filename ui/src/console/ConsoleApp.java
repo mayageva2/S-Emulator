@@ -13,6 +13,7 @@ import java.util.*;
 public class ConsoleApp {
     private final EmulatorEngine engine;
     private Path lastXmlPath;
+    private int lastMaxDegree = 0;
 
     public ConsoleApp(EmulatorEngine engine) {
         this.engine = engine;
@@ -72,7 +73,8 @@ public class ConsoleApp {
 
         try {
             var res = engine.loadProgram(path);
-            io.println("Load finished.");
+            lastMaxDegree = res.maxDegree();
+            io.println("Loaded '" + res.programName() + "' with " + res.instructionCount() + " instructions. Max degree: " + lastMaxDegree);
         } catch (Exception ex) {
             io.println("Load failed: " + (ex.getMessage() == null ? "Unknown error" : ex.getMessage()));
         }
@@ -138,29 +140,28 @@ public class ConsoleApp {
             return;
         }
 
-        String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ");
-        final List<Long> inputs;
+        String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
+        Long[] inputs = csv.isEmpty() ? new Long[0]
+                : Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty())
+                .map(Long::parseLong).toArray(Long[]::new);
+        String dg = io.ask("Choose expansion degree (0.." + lastMaxDegree + "): ").trim();
+        int degree;
         try {
-            inputs = parseCsvLongs(csv);
-        } catch (IllegalArgumentException ex) {
-            io.println("Invalid input list: " + ex.getMessage());
-            return;
-        }
-
-        int degree = 0;
-        try {
-            String d = io.ask("Choose expansion degree (0 = none): ").trim();
-            degree = d.isEmpty() ? 0 : Integer.parseInt(d);
-            if (degree < 0) degree = 0;
-        } catch (NumberFormatException ex) {
-            io.println("Invalid degree. Using 0.");
+            degree = Integer.parseInt(dg);
+        } catch (NumberFormatException e) {
             degree = 0;
         }
 
+        if (degree < 0) degree = 0;
+        if (degree > lastMaxDegree) {
+            io.println("Degree " + degree + " exceeds max; using " + lastMaxDegree + " instead.");
+            degree = lastMaxDegree;
+        }
+
         try {
-            RunResult res = engine.run(degree, inputs.toArray(new Long[0]));
-            io.println("Result y = " + res.y());
-            io.println("Total cycles: " + res.cycles());
+            var result = engine.run(degree, inputs);
+            io.println("Result y = " + result.y());
+            io.println("Total cycles = " + result.cycles());
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
         }
