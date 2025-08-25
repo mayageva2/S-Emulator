@@ -1,6 +1,9 @@
 package emulator.logic.xml;
 
+import emulator.exception.InvalidInstructionException;
 import emulator.exception.MissingLabelException;
+import emulator.exception.XmlInvalidContentException;
+import emulator.exception.XmlReadException;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -9,26 +12,36 @@ public class XmlProgramValidator {
 
     private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$");
 
-    public void validate(ProgramXml p) throws XmlReadException {
+    public void validate(ProgramXml p) {
         validateBasic(p);
         validateLabelDuplicatesAndFormat(p);
         validateLabelsExist(p);
     }
 
-    public void validateBasic(ProgramXml p) throws XmlReadException {
+    public void validateBasic(ProgramXml p) {
         if (p == null) {
-            throw new XmlReadException("Empty program document.");
+            throw new XmlInvalidContentException(
+                    "Empty program document.",
+                    Map.of("section", "S-Program")
+            );
         }
         if (p.getName() == null || p.getName().isBlank()) {
-            throw new XmlReadException("Missing S-Program@name.");
+            throw new XmlInvalidContentException(
+                    "Missing S-Program@name.",
+                    Map.of("section", "S-Program", "field", "name")
+            );
         }
-        if (p.getInstructions() == null || p.getInstructions().getInstructions() == null
+        if (p.getInstructions() == null
+                || p.getInstructions().getInstructions() == null
                 || p.getInstructions().getInstructions().isEmpty()) {
-            throw new XmlReadException("Missing or empty S-Instructions section.");
+            throw new XmlInvalidContentException(
+                    "Missing or empty S-Instructions section.",
+                    Map.of("section", "S-Instructions")
+            );
         }
     }
 
-    private void validateLabelDuplicatesAndFormat(ProgramXml p) throws XmlReadException {
+    private void validateLabelDuplicatesAndFormat(ProgramXml p) {
         Set<String> seen = new HashSet<>();
         Set<String> duplicates = new LinkedHashSet<>();
         List<String> badFormat = new ArrayList<>();
@@ -49,15 +62,23 @@ public class XmlProgramValidator {
         }
 
         if (!duplicates.isEmpty()) {
-            throw new XmlReadException("Duplicate labels found: " + new ArrayList<>(duplicates));
+            throw new InvalidInstructionException(
+                    "LABEL",
+                    "Duplicate labels found: " + new ArrayList<>(duplicates),
+                    -1
+            );
         }
         if (!badFormat.isEmpty()) {
-            throw new XmlReadException("Invalid label format: " + badFormat + " (expected L<number>)");
+            throw new InvalidInstructionException(
+                    "LABEL",
+                    "Invalid label format: " + badFormat + " (expected L<number>)",
+                    -1
+            );
         }
     }
 
 
-    public void validateLabelsExist(ProgramXml p) throws XmlReadException {
+    public void validateLabelsExist(ProgramXml p) {
         Set<String> defined = collectDefinedLabels(p);
         List<String> refs = collectReferencedLabels(p);
 
@@ -73,7 +94,11 @@ public class XmlProgramValidator {
             if (missing.size() == 1) {
                 throw new MissingLabelException(missing.get(0));
             } else {
-                throw new XmlReadException("Unknown labels referenced: " + missing);
+                throw new InvalidInstructionException(
+                        "LABEL",
+                        "Unknown labels referenced: " + missing,
+                        -1
+                );
             }
         }
     }
@@ -83,8 +108,6 @@ public class XmlProgramValidator {
             validate(p);
             return XmlResult.ok(null);
         } catch (RuntimeException e) {
-            return XmlResult.error(e.getMessage());
-        } catch (XmlReadException e) {
             return XmlResult.error(e.getMessage());
         }
     }
@@ -101,7 +124,7 @@ public class XmlProgramValidator {
         return out;
     }
 
-    private List<String> collectReferencedLabels(ProgramXml p) throws XmlReadException{
+    private List<String> collectReferencedLabels(ProgramXml p) {
         List<String> out = new ArrayList<>();
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             int idx = 0;
@@ -124,7 +147,8 @@ public class XmlProgramValidator {
 
                     String val = a.getValue();
                     if (val == null || val.isBlank()) {
-                        throw new XmlReadException("Missing required label value for argument '" + name + "' at instruction #" + idx);
+                        String opcode = (i.getName() == null ? "<unknown>" : i.getName());
+                        throw new InvalidInstructionException(opcode, "Missing required label value for argument '" + name + "' at instruction #" + idx, idx);
                     }
                     out.add(val.trim());
                 }

@@ -3,6 +3,7 @@ package emulator.api;
 import emulator.api.dto.*;
 import emulator.exception.ProgramNotLoadedException;
 import emulator.exception.XmlInvalidContentException;
+import emulator.exception.XmlReadException;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.ProgramExpander;
@@ -10,7 +11,6 @@ import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
-import emulator.logic.variable.Variable;
 import emulator.logic.xml.*;
 
 import java.io.IOException;
