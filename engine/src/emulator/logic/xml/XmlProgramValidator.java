@@ -1,11 +1,17 @@
 package emulator.logic.xml;
 
+import emulator.exception.MissingLabelException;
+
 import java.util.*;
+import java.util.regex.Pattern;
 
 public class XmlProgramValidator {
 
+    private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$");
+
     public void validate(ProgramXml p) throws XmlReadException {
         validateBasic(p);
+        validateLabelDuplicatesAndFormat(p);
         validateLabelsExist(p);
     }
 
@@ -22,6 +28,35 @@ public class XmlProgramValidator {
         }
     }
 
+    private void validateLabelDuplicatesAndFormat(ProgramXml p) throws XmlReadException {
+        Set<String> seen = new HashSet<>();
+        Set<String> duplicates = new LinkedHashSet<>();
+        List<String> badFormat = new ArrayList<>();
+
+        if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
+            for (InstructionXml i : p.getInstructions().getInstructions()) {
+                String raw = i.getLabel();
+                if (raw == null || raw.isBlank()) continue;
+
+                String label = raw.trim();
+                if (!LABEL_FMT.matcher(label).matches()) {
+                    badFormat.add(label);
+                }
+                if (!seen.add(label)) {
+                    duplicates.add(label);
+                }
+            }
+        }
+
+        if (!duplicates.isEmpty()) {
+            throw new XmlReadException("Duplicate labels found: " + new ArrayList<>(duplicates));
+        }
+        if (!badFormat.isEmpty()) {
+            throw new XmlReadException("Invalid label format: " + badFormat + " (expected L<number>)");
+        }
+    }
+
+
     public void validateLabelsExist(ProgramXml p) throws XmlReadException {
         Set<String> defined = collectDefinedLabels(p);
         List<String> refs = collectReferencedLabels(p);
@@ -35,15 +70,20 @@ public class XmlProgramValidator {
             }
         }
         if (!missing.isEmpty()) {
-            throw new XmlReadException("Unknown labels referenced: " + missing);
+            if (missing.size() == 1) {
+                throw new MissingLabelException(missing.get(0));
+            } else {
+                throw new XmlReadException("Unknown labels referenced: " + missing);
+            }
         }
     }
 
     public XmlResult<Void> tryValidate(ProgramXml p) {
         try {
-            validateBasic(p);
-            validateLabelsExist(p);
+            validate(p);
             return XmlResult.ok(null);
+        } catch (RuntimeException e) {
+            return XmlResult.error(e.getMessage());
         } catch (XmlReadException e) {
             return XmlResult.error(e.getMessage());
         }
@@ -61,20 +101,32 @@ public class XmlProgramValidator {
         return out;
     }
 
-    private List<String> collectReferencedLabels(ProgramXml p) {
+    private List<String> collectReferencedLabels(ProgramXml p) throws XmlReadException{
         List<String> out = new ArrayList<>();
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
+            int idx = 0;
             for (InstructionXml i : p.getInstructions().getInstructions()) {
+                idx++;
                 if (i.getArguments() == null) continue;
+
                 for (InstructionArgXml a : i.getArguments()) {
-                    if (a.getName() == null) continue;
-                    if (a.getName().equals("gotoLabel")
-                            || a.getName().equals("JNZLabel")
-                            || a.getName().equals("JZLabel")
-                            || a.getName().equals("JEConstantLabel")
-                            || a.getName().equals("JEVariableLabel")) {
-                        out.add(a.getValue());
+                    String name = a.getName();
+                    if (name == null) continue;
+
+                    boolean isLabelArg =
+                            name.equals("gotoLabel")
+                                    || name.equals("JNZLabel")
+                                    || name.equals("JZLabel")
+                                    || name.equals("JEConstantLabel")
+                                    || name.equals("JEVariableLabel");
+
+                    if (!isLabelArg) continue;
+
+                    String val = a.getValue();
+                    if (val == null || val.isBlank()) {
+                        throw new XmlReadException("Missing required label value for argument '" + name + "' at instruction #" + idx);
                     }
+                    out.add(val.trim());
                 }
             }
         }
