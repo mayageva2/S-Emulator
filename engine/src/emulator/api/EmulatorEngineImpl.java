@@ -1,6 +1,7 @@
 package emulator.api;
 
 import emulator.api.dto.*;
+import emulator.exception.XmlInvalidContentException;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.ProgramExpander;
@@ -76,11 +77,16 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             history.clear();
             runCounter = 0;
 
-            return new LoadResult(true, "Program loaded");
+            return new LoadResult(
+                    current.getName(),
+                    current.getInstructions().size(),
+                    current.calculateMaxDegree()
+            );
         } catch (XmlReadException e) {
-            this.current = null;
-            this.executor = null;
-            return new LoadResult(false, e.getMessage());
+            throw new XmlInvalidContentException(
+                    e.getMessage(),
+                    Map.of("path", String.valueOf(xmlPath), "cause", e.getClass().getSimpleName())
+            );
         }
     }
 
