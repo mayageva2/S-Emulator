@@ -32,6 +32,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         requireLoaded();
         List<Instruction> instructions = current.getInstructions();
         List<InstructionView> views = new ArrayList<>(instructions.size());
+        int maxDegree = current.calculateMaxDegree();
 
         for (int i = 0; i < instructions.size(); i++) {
             Instruction ins = instructions.get(i);
@@ -61,7 +62,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args));
         }
 
-        return new ProgramView(views);
+        return new ProgramView(views, maxDegree);
     }
 
     @Override
