@@ -1,6 +1,9 @@
 package emulator.api;
 
 import emulator.api.dto.*;
+import emulator.exception.ProgramNotLoadedException;
+import emulator.exception.XmlInvalidContentException;
+import emulator.exception.XmlReadException;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.ProgramExpander;
@@ -8,7 +11,6 @@ import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
-import emulator.logic.variable.Variable;
 import emulator.logic.xml.*;
 
 import java.io.IOException;
@@ -27,12 +29,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     @Override
     public ProgramView programView() {
+        requireLoaded();
         List<Instruction> instructions = current.getInstructions();
         List<InstructionView> views = new ArrayList<>(instructions.size());
 
         for (int i = 0; i < instructions.size(); i++) {
             Instruction ins = instructions.get(i);
-
             InstructionData data = ins.getInstructionData();
 
             String opcode = data.getName();
@@ -47,8 +49,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 args.add(ins.getVariable().getRepresentation());
             }
 
-            if (ins.getArguments() != null && !ins.getArguments().isEmpty()) {
-                for (Map.Entry<String, String> entry : ins.getArguments().entrySet()) {
+            Map<String, String> extraArgs = ins.getArguments();
+            if (extraArgs != null && !extraArgs.isEmpty()) {
+                for (Map.Entry<String, String> entry : extraArgs.entrySet()) {
                     String k = entry.getKey();
                     String v = entry.getValue();
                     args.add(k + "=" + (v == null ? "" : v));
@@ -76,11 +79,16 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             history.clear();
             runCounter = 0;
 
-            return new LoadResult(true, "Program loaded");
+            return new LoadResult(
+                    current.getName(),
+                    current.getInstructions().size(),
+                    current.calculateMaxDegree()
+            );
         } catch (XmlReadException e) {
-            this.current = null;
-            this.executor = null;
-            return new LoadResult(false, e.getMessage());
+            throw new XmlInvalidContentException(
+                    e.getMessage(),
+                    Map.of("path", String.valueOf(xmlPath), "cause", e.getClass().getSimpleName())
+            );
         }
     }
 
@@ -93,31 +101,23 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public RunResult run(int degree, Long... input) {
         requireLoaded();
 
-        Program toRun = (degree <= 0)
-                ? current
-                : programExpander.expandToDegree(current, degree);
+        Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
 
-        this.executor = new ProgramExecutorImpl(toRun);
-        long y = executor.run(input);
+        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun) : this.executor;
+        long y = exec.run(input);
         int cycles = executor.getLastExecutionCycles();
-        Map<Variable, Long> state = executor.variableState();
-
-        List<VariableView> views = state.entrySet().stream()
+        var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
                         e.getKey().getRepresentation(),
-                        switch (e.getKey().getType()) {
-                            case RESULT -> VarType.RESULT;
-                            case INPUT  -> VarType.INPUT;
-                            case WORK   -> VarType.WORK;
-                        },
+                        // ממפים Enum פנימי ל-DTO VarType (בהנחה שהם בעלי אותם שמות):
+                        VarType.valueOf(e.getKey().getType().name()),
                         e.getKey().getNumber(),
                         e.getValue()
                 ))
                 .toList();
 
-        long[] in = Arrays.stream(input).mapToLong(Long::longValue).toArray();
-        history.add(RunRecord.of(++runCounter, degree, in, y, cycles));
-        return new RunResult(y, cycles, views);
+        history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
+        return new RunResult(y, cycles, vars);
     }
 
     @Override
@@ -147,7 +147,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     private void requireLoaded() {
         if (current == null || executor == null) {
-            throw new IllegalStateException("No program loaded");
+            throw new ProgramNotLoadedException();
         }
     }
 }

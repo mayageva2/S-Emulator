@@ -1,5 +1,9 @@
 package emulator.logic.xml;
 
+import emulator.exception.XmlInvalidContentException;
+import emulator.exception.XmlNotFoundException;
+import emulator.exception.XmlReadException;
+import emulator.exception.XmlWrongExtensionException;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
@@ -8,7 +12,9 @@ import jakarta.xml.bind.Unmarshaller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Map;
 
 public class XmlProgramReader {
 
@@ -16,7 +22,7 @@ public class XmlProgramReader {
         requireXmlFile(xmlPath);
         try {
             if (Files.size(xmlPath) == 0) {
-                throw new XmlReadException("Empty XML file: " + xmlPath.getFileName());
+                throw new XmlInvalidContentException("Empty XML file: " + xmlPath.getFileName(), Collections.emptyMap());
             }
         } catch (IOException io) {
             throw new XmlReadException("Failed to read file size: " + xmlPath, io);
@@ -26,7 +32,10 @@ public class XmlProgramReader {
             Unmarshaller um = ctx.createUnmarshaller();
             return (ProgramXml) um.unmarshal(xmlPath.toFile());
         } catch (JAXBException e) {
-            throw new XmlReadException("Failed to parse XML: " + xmlPath.getFileName(), e);
+            throw new XmlInvalidContentException(
+                    "Failed to parse XML: " + xmlPath.getFileName(),
+                    Map.of("exception", e.getClass().getSimpleName())
+            );
         }
     }
 
@@ -40,14 +49,14 @@ public class XmlProgramReader {
 
     private static void requireXmlFile(Path path) throws XmlReadException {
         if (path == null) {
-            throw new XmlReadException("No path provided.");
+            throw new XmlNotFoundException("No path provided.");
         }
         if (!Files.exists(path)) {
-            throw new XmlReadException("File does not exist: " + path);
+            throw new XmlNotFoundException("File does not exist: " + path);
         }
         String n = path.getFileName().toString().toLowerCase(Locale.ROOT);
         if (!n.endsWith(".xml")) {
-            throw new XmlReadException("Expected an .xml file: " + n);
+            throw new XmlWrongExtensionException("Expected an .xml file: " + n);
         }
     }
 

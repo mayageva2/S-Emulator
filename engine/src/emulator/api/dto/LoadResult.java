@@ -1,3 +1,7 @@
 package emulator.api.dto;
 
-public record LoadResult(boolean ok, String message) { }
+public record LoadResult(
+        String programName,
+        int instructionCount,
+        int maxDegree
+) {}

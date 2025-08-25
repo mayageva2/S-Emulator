@@ -3,8 +3,8 @@ package console;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.InstructionView;
-import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
+import emulator.exception.ProgramException;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,10 +55,14 @@ public class ConsoleApp {
 
     private void doLoad(ConsoleIO io) {
         Path path = Paths.get(io.ask("Path to XML: ").trim());
-        var res = engine.loadProgram(path);
-        io.println(res.ok() ? "Loaded." : "Failed: " + res.message());
-        if (res.ok()) {
+        try {
+            var res = engine.loadProgram(path);
+            io.println("Program loaded: " + res.programName()
+                    + " | instructions=" + res.instructionCount()
+                    + " | maxDegree=" + res.maxDegree());
             lastXmlPath = path;
+        } catch (ProgramException ex) {
+            io.println("Load error: " + ex.getMessage());
         }
     }
 
@@ -223,7 +227,7 @@ public class ConsoleApp {
         try {
             Path saved = engine.saveOrReplaceVersion(xmlPath, version);
             io.println("[INFO] Saved version " + version + " to " + saved);
-        } catch (Exception e) { // IOException או אחרות
+        } catch (Exception e) {
             io.println("[WARN] Could not save version: " + e.getMessage());
         }
     }
