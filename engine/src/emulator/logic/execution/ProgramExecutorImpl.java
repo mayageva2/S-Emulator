@@ -5,6 +5,7 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableType;
 
 import java.util.*;
 
@@ -25,6 +26,13 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         final int len = instructions.size();
         if (len == 0) throw new IllegalStateException("empty program");
+
+        int need = requiredInputCount();
+        if (input.length < need) {
+            throw new IllegalArgumentException(
+                    "Not enough input values: got " + input.length + ", need " + need + " (for x1..x" + need + ")"
+            );
+        }
 
         for (Variable v : program.getVariables()) {
             switch (v.getType()) {
@@ -64,5 +72,15 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public int getLastExecutionCycles() {
         return lastExecutionCycles;
+    }
+
+    private int requiredInputCount() {
+        int maxIdx = 0;
+        for (Variable v : program.getVariables()) {
+            if (v.getType() == VariableType.INPUT) {
+                maxIdx = Math.max(maxIdx, v.getNumber());
+            }
+        }
+        return maxIdx;
     }
 }
