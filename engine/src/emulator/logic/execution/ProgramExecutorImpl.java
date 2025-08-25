@@ -38,20 +38,20 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         }
 
         int currentIndex = 0;
-        Instruction currentInstruction = instructions.get(currentIndex);
-        Label nextLabel;
-        do {
-            nextLabel = currentInstruction.execute(context);
+        while (currentIndex >= 0 && currentIndex < len) {
+            Instruction currentInstruction = instructions.get(currentIndex);
+            Label nextLabel = currentInstruction.execute(context);
             lastExecutionCycles += currentInstruction.cycles();
 
-            if (nextLabel == FixedLabel.EMPTY) {
+            if (nextLabel == FixedLabel.EXIT) {
+                break;
+            } else if (nextLabel == FixedLabel.EMPTY) {
                 currentIndex++;
-                if (currentIndex < len) currentInstruction = instructions.get(currentIndex);
-            } else if (nextLabel != FixedLabel.EXIT) {
-                currentInstruction = program.instructionAt(nextLabel);
-                currentIndex = instructions.indexOf(currentInstruction);
+            } else {
+                Instruction target = program.instructionAt(nextLabel);
+                currentIndex = instructions.indexOf(target);
             }
-        } while (nextLabel != FixedLabel.EXIT && currentIndex < len);
+        }
 
         return context.getVariableValue(Variable.RESULT);
     }
