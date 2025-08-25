@@ -71,11 +71,6 @@ public class ProgramImpl implements Program {
     }
 
     @Override
-    public boolean validate() {
-        return false;
-    }
-
-    @Override
     public int calculateMaxDegree() {
         int max = 0;
         for (Instruction ins : instructions) {
@@ -84,10 +79,5 @@ public class ProgramImpl implements Program {
             }
         }
         return max;
-    }
-
-    @Override
-    public int calculateCycles() {
-        return 0;
     }
 }
