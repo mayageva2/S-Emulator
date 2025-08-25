@@ -115,7 +115,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 ))
                 .toList();
 
-        history.add(new RunRecord(List.of(input), y, cycles));
+        long[] in = Arrays.stream(input).mapToLong(Long::longValue).toArray();
+        history.add(RunRecord.of(++runCounter, degree, in, y, cycles));
         return new RunResult(y, cycles, views);
     }
 
@@ -134,6 +135,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     @Override
     public List<RunRecord> history() { return List.copyOf(history); }
+
+    @Override
+    public void clearHistory() {
+        history.clear();
+        runCounter = 0;
+    }
 
     @Override
     public boolean hasProgramLoaded() { return current != null; }

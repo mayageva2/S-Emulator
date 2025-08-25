@@ -151,8 +151,23 @@ public class ConsoleApp {
     }
 
     private void doHistory(ConsoleIO io) {
-        if (engine.history().isEmpty()) { io.println("No runs yet."); return; }
-        //history print add
+        var history = engine.history();
+        if (history.isEmpty()) {
+            io.println("No runs yet.");
+            return;
+        }
+
+        io.println("Run# | Degree | Inputs         | y   | Cycles");
+        io.println("-----+--------+----------------+-----+-------");
+
+        for (var r : history) {
+            io.println(String.format("%4d | %6d | %-14s | %3d | %5d",
+                    r.runNumber(),
+                    r.degree(),
+                    r.inputsCsv(),
+                    r.y(),
+                    r.cycles()));
+        }
     }
 
     private boolean requireLoaded(ConsoleIO io) {
