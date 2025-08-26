@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
@@ -158,5 +160,22 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (current == null || executor == null) {
             throw new ProgramNotLoadedException();
         }
+    }
+
+    @Override
+    public List<String> extractInputVars(ProgramView pv) {
+        Pattern VAR_X = Pattern.compile("\\bx([1-9]\\d*)\\b");
+        Set<String> uniq = new LinkedHashSet<>();
+        for (InstructionView iv : pv.instructions()) {
+            for (String arg : iv.args()) {
+                Matcher m = VAR_X.matcher(arg);
+                while (m.find()) {
+                    uniq.add("x" + m.group(1));
+                }
+            }
+        }
+        List<String> out = new ArrayList<>(uniq);
+        out.sort(Comparator.comparingInt(s -> Integer.parseInt(s.substring(1))));
+        return out;
     }
 }
