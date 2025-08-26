@@ -19,6 +19,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
@@ -34,12 +35,27 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public ProgramView programView() {
         requireLoaded();
         Program base = (lastViewProgram != null) ? lastViewProgram : current;
+        return buildProgramView(base);
+    }
+
+    @Override
+    public ProgramView programView(int degree) {
+        requireLoaded();
+        int max = current.calculateMaxDegree();
+        if (degree < 0 || degree > max) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
+        }
+        Program base = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
+        return buildProgramView(base);
+    }
+
+    private ProgramView buildProgramView(Program base) {
         List<Instruction> instructions = base.getInstructions();
         int maxDegree = base.calculateMaxDegree();
 
-        IdentityHashMap<Instruction, Integer> indexOf = new IdentityHashMap<>();
+        IdentityHashMap<Instruction, Integer> indexOfReal = new IdentityHashMap<>();
         for (int i = 0; i < instructions.size(); i++) {
-            indexOf.put(instructions.get(i), i);
+            indexOfReal.put(instructions.get(i), i);
         }
 
         IdentityHashMap<Instruction, List<Integer>> childrenIndicesOfAncestor = new IdentityHashMap<>();
@@ -54,11 +70,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             }
         }
 
-        List<InstructionView> views = new ArrayList<>(instructions.size());
-        for (int i = 0; i < instructions.size(); i++) {
-            Instruction ins = instructions.get(i);
-            InstructionData data = ins.getInstructionData();
+        IdentityHashMap<Instruction, Integer> indexOfAll = new IdentityHashMap<>(indexOfReal);
 
+        java.util.function.Function<Instruction, InstructionView> makeViewSkeleton = (Instruction ins) -> {
+            InstructionData data = ins.getInstructionData();
             String opcode = data.getName();
             int cycles = data.getCycles();
             boolean basic = data.isBasic();
@@ -69,44 +84,72 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             if (ins.getVariable() != null) {
                 args.add(ins.getVariable().getRepresentation());
             }
-
             Map<String, String> extraArgs = ins.getArguments();
             if (extraArgs != null && !extraArgs.isEmpty()) {
-                var sortedKeys = new ArrayList<>(extraArgs.keySet());
-                Collections.sort(sortedKeys);
-                for (String k : sortedKeys) {
+                var keys = new ArrayList<>(extraArgs.keySet());
+                Collections.sort(keys);
+                for (String k : keys) {
                     String v = extraArgs.get(k);
                     args.add(k + "=" + (v == null ? "" : v));
                 }
             }
+            return new InstructionView(-1, opcode, label, basic, cycles, args, List.of());
+        };
 
-            List<Integer> chain = new ArrayList<>();
-            Instruction cur = ins.getCreatedFrom();
-            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
-            while (cur != null && !seen.containsKey(cur)) {
-                seen.put(cur, Boolean.TRUE);
-                Integer idx0 = indexOf.get(cur);
-                if (idx0 == null) {
-                    List<Integer> kids = childrenIndicesOfAncestor.get(cur);
-                    if (kids != null && !kids.isEmpty()) {
-                        int curIdx0 = i;
-                        int chosen = kids.get(0);
-                        for (int k : kids) {
-                            if (k <= curIdx0 && k >= chosen) {
-                                chosen = k;
-                            }
+        List<InstructionView> realViews = new ArrayList<>(instructions.size());
+        List<InstructionView> virtualViews = new ArrayList<>();
+
+        final AtomicInteger nextVirtualIndex = new AtomicInteger(instructions.size() + 1);
+
+        java.util.function.BiFunction<Instruction, Integer, List<Integer>> buildChain =
+                (Instruction ins, Integer selfZeroBased) -> {
+                    List<Integer> chain = new ArrayList<>();
+                    IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
+                    Instruction cur = ins.getCreatedFrom();
+
+                    while (cur != null && !seen.containsKey(cur)) {
+                        seen.put(cur, Boolean.TRUE);
+
+                        Integer zeroBased = indexOfAll.get(cur);
+                        if (zeroBased == null) {
+                            InstructionView vv = makeViewSkeleton.apply(cur);
+                            int assigned = nextVirtualIndex.getAndIncrement();
+                            vv = new InstructionView(assigned, vv.opcode(), vv.label(),
+                                    vv.basic(), vv.cycles(), vv.args(), List.of());
+                            virtualViews.add(vv);
+                            zeroBased = assigned - 1;
+                            indexOfAll.put(cur, zeroBased);
                         }
-                        if (idx0 == null) break;
-                        chain.add(idx0 + 1);
+
+                        if (selfZeroBased == null || zeroBased.intValue() != selfZeroBased.intValue()) {
+                            chain.add(zeroBased + 1);
+                        }
+
                         cur = cur.getCreatedFrom();
                     }
-                }
-            }
+                    return chain;
+                };
 
-            views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args, chain));
+        for (int i = 0; i < instructions.size(); i++) {
+            Instruction ins = instructions.get(i);
+            InstructionView skel = makeViewSkeleton.apply(ins);
+            List<Integer> chain = buildChain.apply(ins, i);
+            realViews.add(new InstructionView(
+                    i + 1,
+                    skel.opcode(),
+                    skel.label(),
+                    skel.basic(),
+                    skel.cycles(),
+                    skel.args(),
+                    chain
+            ));
         }
 
-        return new ProgramView(views, maxDegree);
+        List<InstructionView> all = new ArrayList<>(realViews.size() + virtualViews.size());
+        all.addAll(realViews);
+        all.addAll(virtualViews);
+
+        return new ProgramView(all, maxDegree);
     }
 
     @Override
