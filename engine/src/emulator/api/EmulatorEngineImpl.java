@@ -32,6 +32,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         requireLoaded();
         List<Instruction> instructions = current.getInstructions();
         List<InstructionView> views = new ArrayList<>(instructions.size());
+        int maxDegree = current.calculateMaxDegree();
 
         for (int i = 0; i < instructions.size(); i++) {
             Instruction ins = instructions.get(i);
@@ -61,7 +62,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args));
         }
 
-        return new ProgramView(views);
+        return new ProgramView(views, maxDegree);
     }
 
     @Override
@@ -101,15 +102,23 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public RunResult run(int degree, Long... input) {
         requireLoaded();
 
-        Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
+        int maxDegree = current.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree) {
+            throw new IllegalArgumentException(
+                    "Invalid expansion degree: " + degree +
+                            ". Allowed range is 0.." + maxDegree
+            );
+        }
 
+        Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
         var exec = (degree > 0) ? new ProgramExecutorImpl(toRun) : this.executor;
+
         long y = exec.run(input);
-        int cycles = executor.getLastExecutionCycles();
+        int cycles = exec.getLastExecutionCycles();
+
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
                         e.getKey().getRepresentation(),
-                        // ממפים Enum פנימי ל-DTO VarType (בהנחה שהם בעלי אותם שמות):
                         VarType.valueOf(e.getKey().getType().name()),
                         e.getKey().getNumber(),
                         e.getValue()

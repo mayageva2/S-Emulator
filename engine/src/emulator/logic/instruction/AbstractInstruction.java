@@ -73,19 +73,7 @@ public abstract class AbstractInstruction implements Instruction {
 
     @Override
     public int degree() {
-
-        if (!(this instanceof Expandable expandable)) {
-            return 0;
-        }
-
-        List<Instruction> children = expandable.expand(degreeHelper());
-        if (children == null || children.isEmpty()) {
-            return 0;
-        }
-        return 1 + children.stream()
-                .mapToInt(Instruction::degree)
-                .max()
-                .orElse(0);
+        return getInstructionData().getDegree();
     }
 
     protected ExpansionHelper degreeHelper() {

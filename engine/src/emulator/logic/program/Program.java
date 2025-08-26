@@ -14,8 +14,5 @@ public interface Program {
     List<Instruction> getInstructions();
     Set<Variable> getVariables();
     Instruction instructionAt(Label label);
-
-    boolean validate();
     int calculateMaxDegree();
-    int calculateCycles();
 }

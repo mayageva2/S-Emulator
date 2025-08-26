@@ -5,6 +5,7 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableType;
 
 import java.util.*;
 
@@ -26,6 +27,15 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         final int len = instructions.size();
         if (len == 0) throw new IllegalStateException("empty program");
 
+        int need = requiredInputCount();
+        int provided = (input == null) ? 0 : input.length;
+        long[] finalInputs = new long[Math.max(need, 0)];
+        int copyLen = Math.min(provided, need);
+        for (int i = 0; i < copyLen; i++) {
+            Long val = input[i];
+            finalInputs[i] = (val != null) ? val : 0L;
+        }
+
         for (Variable v : program.getVariables()) {
             switch (v.getType()) {
                 case INPUT -> {
@@ -38,20 +48,20 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         }
 
         int currentIndex = 0;
-        Instruction currentInstruction = instructions.get(currentIndex);
-        Label nextLabel;
-        do {
-            nextLabel = currentInstruction.execute(context);
+        while (currentIndex >= 0 && currentIndex < len) {
+            Instruction currentInstruction = instructions.get(currentIndex);
+            Label nextLabel = currentInstruction.execute(context);
             lastExecutionCycles += currentInstruction.cycles();
 
-            if (nextLabel == FixedLabel.EMPTY) {
+            if (nextLabel == FixedLabel.EXIT) {
+                break;
+            } else if (nextLabel == FixedLabel.EMPTY) {
                 currentIndex++;
-                if (currentIndex < len) currentInstruction = instructions.get(currentIndex);
-            } else if (nextLabel != FixedLabel.EXIT) {
-                currentInstruction = program.instructionAt(nextLabel);
-                currentIndex = instructions.indexOf(currentInstruction);
+            } else {
+                Instruction target = program.instructionAt(nextLabel);
+                currentIndex = instructions.indexOf(target);
             }
-        } while (nextLabel != FixedLabel.EXIT && currentIndex < len);
+        }
 
         return context.getVariableValue(Variable.RESULT);
     }
@@ -64,5 +74,15 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public int getLastExecutionCycles() {
         return lastExecutionCycles;
+    }
+
+    private int requiredInputCount() {
+        int maxIdx = 0;
+        for (Variable v : program.getVariables()) {
+            if (v.getType() == VariableType.INPUT) {
+                maxIdx = Math.max(maxIdx, v.getNumber());
+            }
+        }
+        return maxIdx;
     }
 }

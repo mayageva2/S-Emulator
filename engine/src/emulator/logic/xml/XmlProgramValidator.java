@@ -3,7 +3,6 @@ package emulator.logic.xml;
 import emulator.exception.InvalidInstructionException;
 import emulator.exception.MissingLabelException;
 import emulator.exception.XmlInvalidContentException;
-import emulator.exception.XmlReadException;
 
 import java.util.*;
 import java.util.regex.Pattern;
