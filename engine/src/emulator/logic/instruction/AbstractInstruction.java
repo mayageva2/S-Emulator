@@ -31,8 +31,15 @@ public abstract class AbstractInstruction implements Instruction {
         this.degree = 0;
     }
 
+    public AbstractInstruction(InstructionData instructionData, Label label) {
+        this.instructionData = Objects.requireNonNull(instructionData, "instructionData");
+        this.variable = null;
+        this.label = (label == null) ? FixedLabel.EMPTY : label;
+        this.degree = 0;
+    }
+
     public AbstractInstruction(InstructionData instructionData, Variable variable, Label label) {
-        this.instructionData = java.util.Objects.requireNonNull(instructionData, "instructionData");
+        this.instructionData = Objects.requireNonNull(instructionData, "instructionData");
         this.label = (label == null) ? FixedLabel.EMPTY : label;
         this.variable = variable;
         this.degree = 0;

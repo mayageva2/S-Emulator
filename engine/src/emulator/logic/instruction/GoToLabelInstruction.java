@@ -16,8 +16,8 @@ public class GoToLabelInstruction extends AbstractInstruction implements Expanda
         this.gtlLabel = gtlLabel;
     }
 
-    public GoToLabelInstruction(Variable variable, Label label, Label gtlLabel) {
-        super(InstructionData.GOTO_LABEL, variable, label);
+    public GoToLabelInstruction(Label label, Label gtlLabel) {
+        super(InstructionData.GOTO_LABEL, label);
         this.gtlLabel = gtlLabel;
     }
 

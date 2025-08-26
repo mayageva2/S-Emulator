@@ -57,24 +57,24 @@ public final class XmlToObjects {
 
             case "GOTO_LABEL" -> {
                 Label target = parseJumpLabel(req(args, "gotoLabel", opcode, index), opcode, index);
-                yield new GoToLabelInstruction(target);
+                yield new GoToLabelInstruction(lbl, target);
             }
 
             case "JUMP_ZERO" -> {
                 Label target = parseJumpLabel(req(args, "JZLabel", opcode, index), opcode, index);
-                yield new JumpZeroInstruction(v, target);
+                yield new JumpZeroInstruction(v, target, lbl);
             }
 
             case "JUMP_EQUAL_CONSTANT" -> {
                 Label target = parseJumpLabel(req(args, "JEConstantLabel", opcode, index), opcode, index);
                 long k = parseNonNegInt(req(args, "constantValue", opcode, index), opcode, index);
-                yield new JumpEqualConstantInstruction(v, k, target);
+                yield new JumpEqualConstantInstruction(v, k, target, lbl);
             }
 
             case "JUMP_EQUAL_VARIABLE" -> {
                 Label target = parseJumpLabel(req(args, "JEVariableLabel", opcode, index), opcode, index);
                 Variable other = parseVariable(req(args, "variableName", opcode, index), opcode, index);
-                yield new JumpEqualVariableInstruction(v, other, target);
+                yield new JumpEqualVariableInstruction(v, other, target, lbl);
             }
          /*   case "QUOTE" -> {
                 String fn = req(args, "functionName");
