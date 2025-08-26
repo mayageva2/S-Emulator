@@ -154,6 +154,10 @@ public class ConsoleApp {
             degree = lastMaxDegree;
         }
 
+        var pv = engine.programView();
+        List<String> usedInputIdx = engine.extractInputVars(pv);
+        io.println("The inputs of this program are:");
+        io.println(String.join(", ", usedInputIdx));
 
         String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
         Long[] inputs = csv.isEmpty() ? new Long[0]
