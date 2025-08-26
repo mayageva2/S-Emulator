@@ -3,6 +3,7 @@ package console;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.InstructionView;
+import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
 
 import java.nio.file.Files;
@@ -83,6 +84,11 @@ public class ConsoleApp {
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
 
+        printInstructions(io);
+
+    }
+
+    private void printInstructions(ConsoleIO io) {
         var pv = engine.programView();
 
         for (var iv : pv.instructions()) {
@@ -96,7 +102,7 @@ public class ConsoleApp {
         String index = "#" + iv.index();
         String type = iv.basic() ? "(B)" : "(S)";
         String label = iv.label() == null ? "" : iv.label();
-        String labelField = String.format("[%-5s]", label);
+        String labelField = String.format("[ %-3s ]", label);
         String command = prettyCommand(iv);
         String cycles = "(" + iv.cycles() + ")";
 
@@ -166,6 +172,9 @@ public class ConsoleApp {
 
         try {
             var result = engine.run(degree, inputs);
+            if (degree == 0) {
+                printInstructions(io);
+            }
             io.println("Result y = " + result.y());
             io.println("Total cycles = " + result.cycles());
         } catch (Exception e) {
