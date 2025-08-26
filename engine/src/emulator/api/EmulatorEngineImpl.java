@@ -23,6 +23,7 @@ import java.util.regex.Matcher;
 public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program current;
+    private Program lastViewProgram;
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
@@ -32,9 +33,25 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public ProgramView programView() {
         requireLoaded();
-        List<Instruction> instructions = current.getInstructions();
+        Program base = (lastViewProgram != null) ? lastViewProgram : current;
+        List<Instruction> instructions = base.getInstructions();
         List<InstructionView> views = new ArrayList<>(instructions.size());
-        int maxDegree = current.calculateMaxDegree();
+        int maxDegree = base.calculateMaxDegree();
+
+        IdentityHashMap<Instruction, Integer> indexOf = new IdentityHashMap<>();
+        for (int i = 0; i < instructions.size(); i++) {
+            indexOf.put(instructions.get(i), i);
+        }
+
+        IdentityHashMap<Instruction, Integer> firstChildIndexOfAncestor = new IdentityHashMap<>();
+        for (int i = 0; i < instructions.size(); i++) {
+            Instruction ins = instructions.get(i);
+            Instruction anc = ins.getCreatedFrom();
+            while (anc != null) {
+                firstChildIndexOfAncestor.putIfAbsent(anc, i);
+                anc = anc.getCreatedFrom();
+            }
+        }
 
         for (int i = 0; i < instructions.size(); i++) {
             Instruction ins = instructions.get(i);
@@ -47,7 +64,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             String label = (lbl == null) ? null : lbl.getLabelRepresentation();
 
             List<String> args = new ArrayList<>();
-
             if (ins.getVariable() != null) {
                 args.add(ins.getVariable().getRepresentation());
             }
@@ -61,7 +77,19 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 }
             }
 
-            views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args));
+            List<Integer> chain = new ArrayList<>();
+            Instruction cur = ins.getCreatedFrom();
+            while (cur != null) {
+                Integer idx0 = indexOf.get(cur);
+                if (idx0 == null) {
+                    idx0 = firstChildIndexOfAncestor.get(cur);
+                }
+                if (idx0 == null) break;
+                chain.add(idx0 + 1);
+                cur = cur.getCreatedFrom();
+            }
+
+            views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args, chain));
         }
 
         return new ProgramView(views, maxDegree);
@@ -108,13 +136,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException(
                     "Invalid expansion degree: " + degree +
-                            ". Allowed range is 0.." + maxDegree
+                            ". Allowed range is 0-" + maxDegree
             );
         }
 
         Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
         var exec = (degree > 0) ? new ProgramExecutorImpl(toRun) : this.executor;
 
+        this.lastViewProgram = (degree > 0) ? toRun : current;
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 

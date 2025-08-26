@@ -174,6 +174,8 @@ public class ConsoleApp {
             var result = engine.run(degree, inputs);
             if (degree == 0) {
                 printInstructions(io);
+            } else {
+                printInstructionsWithProvenance(io);
             }
             io.println("Result y = " + result.y());
             io.println("Total cycles = " + result.cycles());
@@ -224,6 +226,30 @@ public class ConsoleApp {
             }
         }
         return out;
+    }
+
+    private void printInstructionsWithProvenance(ConsoleIO io) {
+        var pv = engine.programView();
+
+        Map<Integer, InstructionView> byIndex = new HashMap<>();
+        for (InstructionView iv : pv.instructions()) byIndex.put(iv.index(), iv);
+
+        for (InstructionView iv : pv.instructions()) {
+            String base = formatInstruction(iv);
+            String chain = formatProvenanceChain(iv, byIndex);
+            io.println(chain.isEmpty() ? base : (base + "  <<<   " + chain));
+        }
+    }
+
+    private String formatProvenanceChain(InstructionView iv, Map<Integer, InstructionView> byIndex) {
+        List<Integer> chain = iv.createdFromChain();
+        if (chain == null || chain.isEmpty()) return "";
+        List<String> parts = new ArrayList<>();
+        for (Integer idx : chain) {
+            InstructionView parent = byIndex.get(idx);
+            if (parent != null) parts.add(formatInstruction(parent));
+        }
+        return String.join("  <<<   ", parts);
     }
 
     private void doSaveVersion(ConsoleIO io) {

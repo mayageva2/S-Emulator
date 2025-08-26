@@ -91,11 +91,12 @@ public abstract class AbstractInstruction implements Instruction {
         );
     }
 
+    @Override
+    public Instruction getCreatedFrom() { return createdFrom; }
+
     public int getDegree() { return degree; }
     public void setDegree(int degree) { this.degree = degree; }
 
     public abstract Label execute(ExecutionContext context);
-
-    public Instruction getCreatedFrom() { return createdFrom; }
     public void setCreatedFrom(Instruction origin) { this.createdFrom = origin; }
 }

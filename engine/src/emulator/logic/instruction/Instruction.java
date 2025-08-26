@@ -19,4 +19,5 @@ public interface Instruction {
     Map<String, String> getArguments();
     default Collection<Variable> referencedVariables() { return Collections.emptyList(); }
     InstructionData getInstructionData();
+    default Instruction getCreatedFrom() { return null; }
 }
