@@ -64,55 +64,17 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
         Label L2 = helper.freshLabel();
         Label L3 = helper.freshLabel();
 
-        for (Instruction zi : new ZeroVariableInstruction(dst, firstLabel).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        JumpNotZeroInstruction jnzToL1 = new JumpNotZeroInstruction(src, L1);
-        jnzToL1.setCreatedFrom(this);
-        out.add(jnzToL1);
-
-        for (Instruction zi : new GoToLabelInstruction(L3).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        DecreaseInstruction decSrc = new DecreaseInstruction(src, L1);
-        decSrc.setCreatedFrom(this);
-        out.add(decSrc);
-
-        IncreaseInstruction incTmp = new IncreaseInstruction(tmp);
-        incTmp.setCreatedFrom(this);
-        out.add(incTmp);
-
-        JumpNotZeroInstruction jnzSrc = new JumpNotZeroInstruction(src, L1);
-        jnzSrc.setCreatedFrom(this);
-        out.add(jnzSrc);
-
-        DecreaseInstruction decTmpRestore = new DecreaseInstruction(tmp, L2);
-        decTmpRestore.setCreatedFrom(this);
-        out.add(decTmpRestore);
-
-        IncreaseInstruction incDst = new IncreaseInstruction(dst);
-        incDst.setCreatedFrom(this);
-        out.add(incDst);
-
-        IncreaseInstruction incSrc = new IncreaseInstruction(src);
-        incSrc.setCreatedFrom(this);
-        out.add(incSrc);
-
-        JumpNotZeroInstruction jnzTmpRestore = new JumpNotZeroInstruction(tmp, L2);
-        jnzTmpRestore.setCreatedFrom(this);
-        out.add(jnzTmpRestore);
-
-        NeutralInstruction neutral = new NeutralInstruction(dst, L3);
-        neutral.setCreatedFrom(this);
-        out.add(neutral);
+        out.add(new ZeroVariableInstruction(dst, firstLabel));
+        out.add(new JumpNotZeroInstruction(src, L1));
+        out.add(new GoToLabelInstruction(L3));
+        out.add(new DecreaseInstruction(src, L1));
+        out.add(new IncreaseInstruction(tmp));
+        out.add(new JumpNotZeroInstruction(src, L1));
+        out.add(new DecreaseInstruction(tmp, L2));
+        out.add(new IncreaseInstruction(dst));
+        out.add(new IncreaseInstruction(src));
+        out.add(new JumpNotZeroInstruction(tmp, L2));
+        out.add(new NeutralInstruction(dst, L3));
 
         return out;
     }

@@ -7,6 +7,7 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ZeroVariableInstruction extends AbstractInstruction implements Expandable {
@@ -25,6 +26,7 @@ public class ZeroVariableInstruction extends AbstractInstruction implements Expa
 
    @Override
    public List<Instruction> expand(ExpansionHelper helper) {
+       List<Instruction> out = new ArrayList<>();
        if (getVariable() == null) {
            throw new IllegalStateException("ZERO_VARIABLE missing variable");
        }
@@ -34,12 +36,9 @@ public class ZeroVariableInstruction extends AbstractInstruction implements Expa
        Label original  = getLabel();
        Label loopLabel = (original == null || FixedLabel.EMPTY.equals(original)) ? helper.freshLabel() : original;
 
-       DecreaseInstruction dec = new DecreaseInstruction(var, loopLabel);
-       dec.setCreatedFrom(this);
-       JumpNotZeroInstruction jnz = new JumpNotZeroInstruction(var, loopLabel);
-       jnz.setCreatedFrom(this);
-
-       return List.of(dec, jnz);
+       out.add(new DecreaseInstruction(var, loopLabel));
+       out.add(new JumpNotZeroInstruction(var, loopLabel));
+       return out;
    }
 
 }

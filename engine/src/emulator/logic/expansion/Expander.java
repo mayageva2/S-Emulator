@@ -1,8 +1,10 @@
 package emulator.logic.expansion;
 
+import emulator.logic.instruction.AbstractInstruction;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.label.LabelImpl;
 import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,12 +20,19 @@ public final class Expander {
         List<Instruction> out = new ArrayList<>(Math.max(16, input.size() * 2));
 
         for (Instruction ins : input) {
+            if (ins == null) continue;
             if (ins instanceof Expandable e) {
                 List<Instruction> produced = e.expand(helper);
                 if (produced == null || produced.isEmpty()) {
                     out.add(ins);
                 } else {
-                    out.addAll(produced);
+                    for (Instruction child : produced) {
+                        if (child == null) continue;
+                        if (child instanceof AbstractInstruction ai && ai.getCreatedFrom() == null) {
+                            ai.setCreatedFrom(ins);
+                        }
+                        out.add(child);
+                    }
                 }
             } else {
                 out.add(ins);
@@ -35,17 +44,46 @@ public final class Expander {
     private ExpansionHelper buildHelper(List<Instruction> input) {
         return ExpansionHelper.fromInstructions(
                 input,
-                name -> new VariableImpl(null, -1),
                 name -> {
-                    int num;
-                    try {
-                        num = Integer.parseInt(name.replaceAll("[^\\d]", ""));
-                    } catch (Exception e) {
-                        num = 0;
-                    }
-                    return new LabelImpl(num);
-                }
+                    String rep = (name == null) ? "" : name.trim();
+                    int num = extractInt(rep);
+                    VariableType vt = mapVarType(rep);
+                    return new VariableImpl(vt, num);
+                },
+                name -> new LabelImpl(extractInt(name))
         );
+    }
+
+    private static VariableType mapVarType(String rep) {
+        if (rep == null || rep.isEmpty()) return VariableType.WORK;
+        char c = Character.toLowerCase(rep.charAt(0));
+        if (c == 'x') return VariableType.INPUT;
+        if (c == 'z') return VariableType.WORK;
+        if (c == 'y') return VariableType.RESULT;
+        return VariableType.WORK;
+    }
+
+    private static int extractInt(String s) {
+        if (s == null) return 0;
+        int n = 0, len = s.length();
+        for (int i = 0; i < len; i++) {
+            char c = s.charAt(i);
+            if (c >= '0' && c <= '9') {
+
+                int j = i;
+                long val = 0;
+                while (j < len) {
+                    char d = s.charAt(j);
+                    if (d < '0' || d > '9') break;
+                    val = val * 10 + (d - '0');
+                    if (val > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+                    j++;
+                }
+                n = (int) val;
+                break;
+            }
+        }
+        return n;
     }
 
     public List<Instruction> expandToDegree(List<Instruction> original, int degree) {
@@ -86,10 +124,22 @@ public final class Expander {
         for (Instruction ins : src) {
             if (ins == null) continue;
 
-            List<Instruction> expanded =
-                    (ins instanceof Expandable ex) ? ex.expand(helper) : List.of(ins);
-
-            out.addAll(expanded);
+            if (ins instanceof Expandable ex) {
+                List<Instruction> expanded = ex.expand(helper);
+                if (expanded == null || expanded.isEmpty()) {
+                    out.add(ins);
+                } else {
+                    for (Instruction child : expanded) {
+                        if (child == null) continue;
+                        if (child instanceof AbstractInstruction ai && ai.getCreatedFrom() == null) {
+                            ai.setCreatedFrom(ins);
+                        }
+                        out.add(child);
+                    }
+                }
+            } else {
+                out.add(ins);
+            }
         }
         return out;
     }

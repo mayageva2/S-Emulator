@@ -6,6 +6,7 @@ import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class GoToLabelInstruction extends AbstractInstruction implements Expandable {
@@ -28,19 +29,16 @@ public class GoToLabelInstruction extends AbstractInstruction implements Expanda
 
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
+        List<Instruction> out = new ArrayList<>();
         if (gtlLabel == null || gtlLabel.getLabelRepresentation().trim().isEmpty()) {
             throw new IllegalStateException("GOTO_LABEL missing target label");
         }
 
         Variable var = helper.freshVar();
+        out.add(new IncreaseInstruction(var));
+        out.add(new JumpNotZeroInstruction(var, gtlLabel));
 
-        IncreaseInstruction inc = new IncreaseInstruction(var, this.getLabel());
-        inc.setCreatedFrom(this);
-
-        JumpNotZeroInstruction jnz = new JumpNotZeroInstruction(var, gtlLabel);
-        jnz.setCreatedFrom(this);
-
-        return List.of(inc, jnz);
+        return out;
     }
 
     public Label getgtlLabel() { return gtlLabel; }

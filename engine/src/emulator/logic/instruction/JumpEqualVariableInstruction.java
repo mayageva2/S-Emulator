@@ -69,59 +69,15 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
             firstLabel = helper.freshLabel();
         }
 
-        for (Instruction zi : new AssignmentInstruction(z1, var, firstLabel).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        for (Instruction zi : new AssignmentInstruction(z2, compareVar).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        for (Instruction zi : new JumpZeroInstruction(z1, L3, L2).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        for (Instruction zi : new JumpZeroInstruction(z2, L1).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        DecreaseInstruction decZ1 = new DecreaseInstruction(z1);
-        decZ1.setCreatedFrom(this);
-        out.add(decZ1);
-
-        DecreaseInstruction decZ2 = new DecreaseInstruction(z2);
-        decZ2.setCreatedFrom(this);
-        out.add(decZ2);
-
-        for (Instruction zi : new GoToLabelInstruction(L2).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        for (Instruction zi : new JumpZeroInstruction(z2, L, L3).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        NeutralInstruction neutral = new NeutralInstruction(y, L1);
-        neutral.setCreatedFrom(this);
-        out.add(neutral);
+        out.add(new AssignmentInstruction(z1, var, firstLabel));
+        out.add(new AssignmentInstruction(z2, compareVar));
+        out.add(new JumpZeroInstruction(z1, L3, L2));
+        out.add(new JumpZeroInstruction(z2, L1));
+        out.add(new DecreaseInstruction(z1));
+        out.add(new DecreaseInstruction(z2));
+        out.add(new GoToLabelInstruction(L2));
+        out.add(new JumpZeroInstruction(z2, L, L3));
+        out.add(new NeutralInstruction(y, L1));
 
         return out;
     }

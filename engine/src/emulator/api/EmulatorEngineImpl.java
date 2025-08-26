@@ -35,7 +35,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         requireLoaded();
         Program base = (lastViewProgram != null) ? lastViewProgram : current;
         List<Instruction> instructions = base.getInstructions();
-        List<InstructionView> views = new ArrayList<>(instructions.size());
         int maxDegree = base.calculateMaxDegree();
 
         IdentityHashMap<Instruction, Integer> indexOf = new IdentityHashMap<>();
@@ -43,16 +42,19 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             indexOf.put(instructions.get(i), i);
         }
 
-        IdentityHashMap<Instruction, Integer> firstChildIndexOfAncestor = new IdentityHashMap<>();
+        IdentityHashMap<Instruction, List<Integer>> childrenIndicesOfAncestor = new IdentityHashMap<>();
         for (int i = 0; i < instructions.size(); i++) {
             Instruction ins = instructions.get(i);
             Instruction anc = ins.getCreatedFrom();
             while (anc != null) {
-                firstChildIndexOfAncestor.putIfAbsent(anc, i);
+                childrenIndicesOfAncestor
+                        .computeIfAbsent(anc, k -> new ArrayList<>())
+                        .add(i);
                 anc = anc.getCreatedFrom();
             }
         }
 
+        List<InstructionView> views = new ArrayList<>(instructions.size());
         for (int i = 0; i < instructions.size(); i++) {
             Instruction ins = instructions.get(i);
             InstructionData data = ins.getInstructionData();
@@ -70,23 +72,35 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             Map<String, String> extraArgs = ins.getArguments();
             if (extraArgs != null && !extraArgs.isEmpty()) {
-                for (Map.Entry<String, String> entry : extraArgs.entrySet()) {
-                    String k = entry.getKey();
-                    String v = entry.getValue();
+                var sortedKeys = new ArrayList<>(extraArgs.keySet());
+                Collections.sort(sortedKeys);
+                for (String k : sortedKeys) {
+                    String v = extraArgs.get(k);
                     args.add(k + "=" + (v == null ? "" : v));
                 }
             }
 
             List<Integer> chain = new ArrayList<>();
             Instruction cur = ins.getCreatedFrom();
-            while (cur != null) {
+            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
+            while (cur != null && !seen.containsKey(cur)) {
+                seen.put(cur, Boolean.TRUE);
                 Integer idx0 = indexOf.get(cur);
                 if (idx0 == null) {
-                    idx0 = firstChildIndexOfAncestor.get(cur);
+                    List<Integer> kids = childrenIndicesOfAncestor.get(cur);
+                    if (kids != null && !kids.isEmpty()) {
+                        int curIdx0 = i;
+                        int chosen = kids.get(0);
+                        for (int k : kids) {
+                            if (k <= curIdx0 && k >= chosen) {
+                                chosen = k;
+                            }
+                        }
+                        if (idx0 == null) break;
+                        chain.add(idx0 + 1);
+                        cur = cur.getCreatedFrom();
+                    }
                 }
-                if (idx0 == null) break;
-                chain.add(idx0 + 1);
-                cur = cur.getCreatedFrom();
             }
 
             views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args, chain));
@@ -107,6 +121,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.current = XmlToObjects.toProgram(pxml);
             this.executor = new ProgramExecutorImpl(this.current);
 
+            this.lastViewProgram = null;
             history.clear();
             runCounter = 0;
 
