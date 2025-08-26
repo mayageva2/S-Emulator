@@ -140,11 +140,7 @@ public class ConsoleApp {
             return;
         }
 
-        String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
-        Long[] inputs = csv.isEmpty() ? new Long[0]
-                : Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty())
-                .map(Long::parseLong).toArray(Long[]::new);
-        String dg = io.ask("Choose expansion degree (0.." + lastMaxDegree + "): ").trim();
+        String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
         int degree;
         try {
             degree = Integer.parseInt(dg);
@@ -157,6 +153,12 @@ public class ConsoleApp {
             io.println("Degree " + degree + " exceeds max; using " + lastMaxDegree + " instead.");
             degree = lastMaxDegree;
         }
+
+
+        String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
+        Long[] inputs = csv.isEmpty() ? new Long[0]
+                : Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty())
+                .map(Long::parseLong).toArray(Long[]::new);
 
         try {
             var result = engine.run(degree, inputs);

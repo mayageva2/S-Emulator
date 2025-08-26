@@ -6,17 +6,14 @@ public enum InstructionData {
     DECREASE("DECREASE", 1, true, 0),
     JUMP_NOT_ZERO("JUMP_NOT_ZERO", 2, true, 0),
     NEUTRAL("NEUTRAL", 0, true, 0),
-
     ZERO_VARIABLE("ZERO_VARIABLE", 1, false, 1),
     GOTO_LABEL("GOTO_LABEL", 1, false, 1),
-    JUMP_ZERO("JUMP_ZERO", 2, false, 1),
-
     ASSIGNMENT("ASSIGNMENT", 4, false, 2),
     CONSTANT_ASSIGNMENT("CONSTANT_ASSIGNMENT", 2, false, 2),
-
+    JUMP_ZERO("JUMP_ZERO", 2, false, 2),
     JUMP_EQUAL_CONSTANT("JUMP_EQUAL_CONSTANT", 2, false, 3),
     JUMP_EQUAL_VARIABLE("JUMP_EQUAL_VARIABLE", 2, false, 3),
-    QUOTATION("QUOTE", 5, false, 3),
+    QUOTATION("QUOTE", 5, false, 0), //not implemented
 
     ;
 

@@ -28,10 +28,12 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         if (len == 0) throw new IllegalStateException("empty program");
 
         int need = requiredInputCount();
-        if (input.length < need) {
-            throw new IllegalArgumentException(
-                    "Not enough input values: got " + input.length + ", need " + need + " (for x1..x" + need + ")"
-            );
+        int provided = (input == null) ? 0 : input.length;
+        long[] finalInputs = new long[Math.max(need, 0)];
+        int copyLen = Math.min(provided, need);
+        for (int i = 0; i < copyLen; i++) {
+            Long val = input[i];
+            finalInputs[i] = (val != null) ? val : 0L;
         }
 
         for (Variable v : program.getVariables()) {
