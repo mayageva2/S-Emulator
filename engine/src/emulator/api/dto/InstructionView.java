@@ -8,5 +8,6 @@ public record InstructionView(
         String label,
         boolean basic,
         int cycles,
-        List<String> args
+        List<String> args,
+        List<Integer> createdFromChain
 ) {}

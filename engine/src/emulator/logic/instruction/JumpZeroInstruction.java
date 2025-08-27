@@ -20,6 +20,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
     public JumpZeroInstruction(Variable variable, Label jzLabel) {
         super(InstructionData.JUMP_ZERO, Objects.requireNonNull(variable, "variable"));
         this.jzLabel = Objects.requireNonNull(jzLabel, "jzLabel");
+        setArgument("gotoLabel", jzLabel.getLabelRepresentation());
     }
 
     public JumpZeroInstruction(Variable variable, Label jzLabel, Label myLabel) {
@@ -27,6 +28,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
                 Objects.requireNonNull(variable, "variable"),
                 Objects.requireNonNull(myLabel, "label"));
         this.jzLabel = Objects.requireNonNull(jzLabel, "jzLabel");
+        setArgument("gotoLabel", jzLabel.getLabelRepresentation());
     }
 
     @Override
@@ -50,21 +52,9 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         Label L1 = helper.freshLabel();
         Label L = jzLabel;
 
-        JumpNotZeroInstruction jnzToL1 = new JumpNotZeroInstruction(var, L1, firstLabel);
-        jnzToL1.setCreatedFrom(this);
-        out.add(jnzToL1);
-
-        for (Instruction zi : new GoToLabelInstruction(L).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        NeutralInstruction neutral = new NeutralInstruction(y, L1);
-        neutral.setCreatedFrom(this);
-        out.add(neutral);
-
+        out.add(new JumpNotZeroInstruction(var, L1, firstLabel));
+        out.add(new GoToLabelInstruction(L));
+        out.add(new NeutralInstruction(y, L1));
         return out;
     }
 

@@ -48,18 +48,8 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
             firstLabel = helper.freshLabel();
         }
 
-        for (Instruction zi : new ZeroVariableInstruction(var, firstLabel).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        for (long i = 0; i < constantValue; i++) {
-            IncreaseInstruction inc = new IncreaseInstruction(var);
-            inc.setCreatedFrom(this);
-            out.add(inc);
-        }
+        out.add(new ZeroVariableInstruction(var, firstLabel));
+        out.add(new IncreaseInstruction(var));
 
         return out;
     }

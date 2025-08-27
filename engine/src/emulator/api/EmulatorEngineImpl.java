@@ -17,12 +17,15 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program current;
+    private Program lastViewProgram;
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
@@ -32,14 +35,46 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public ProgramView programView() {
         requireLoaded();
-        List<Instruction> instructions = current.getInstructions();
-        List<InstructionView> views = new ArrayList<>(instructions.size());
-        int maxDegree = current.calculateMaxDegree();
+        Program base = (lastViewProgram != null) ? lastViewProgram : current;
+        return buildProgramView(base);
+    }
 
-        for (int i = 0; i < instructions.size(); i++) {
-            Instruction ins = instructions.get(i);
+    @Override
+    public ProgramView programView(int degree) {
+        requireLoaded();
+        int max = current.calculateMaxDegree();
+        if (degree < 0 || degree > max) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
+        }
+        Program base = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
+        return buildProgramView(base);
+    }
+
+    private ProgramView buildProgramView(Program base) {
+        List<Instruction> real = base.getInstructions();
+        int maxDegree = base.calculateMaxDegree();
+
+        IdentityHashMap<Instruction, Integer> indexOfReal = new IdentityHashMap<>();
+        for (int i = 0; i < real.size(); i++) indexOfReal.put(real.get(i), i);
+
+        IdentityHashMap<Instruction, Integer> firstChildIdx = new IdentityHashMap<>();
+        for (int i = 0; i < real.size(); i++) {
+            Instruction ins = real.get(i);
+            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
+            Instruction anc = ins.getCreatedFrom();
+            while (anc != null && !seen.containsKey(anc)) {
+                seen.put(anc, Boolean.TRUE);
+                Integer curMin = firstChildIdx.get(anc);
+                if (curMin == null || i < curMin) firstChildIdx.put(anc, i);
+                anc = anc.getCreatedFrom();
+            }
+        }
+
+        List<InstructionView> out = new ArrayList<>();
+        IdentityHashMap<Instruction, Integer> outIndex = new IdentityHashMap<>();
+
+        Function<Instruction, InstructionView> mkView = (Instruction ins) -> {
             InstructionData data = ins.getInstructionData();
-
             String opcode = data.getName();
             int cycles = data.getCycles();
             boolean basic = data.isBasic();
@@ -47,24 +82,74 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             String label = (lbl == null) ? null : lbl.getLabelRepresentation();
 
             List<String> args = new ArrayList<>();
-
-            if (ins.getVariable() != null) {
-                args.add(ins.getVariable().getRepresentation());
-            }
-
-            Map<String, String> extraArgs = ins.getArguments();
-            if (extraArgs != null && !extraArgs.isEmpty()) {
-                for (Map.Entry<String, String> entry : extraArgs.entrySet()) {
-                    String k = entry.getKey();
-                    String v = entry.getValue();
+            if (ins.getVariable() != null) args.add(ins.getVariable().getRepresentation());
+            Map<String, String> extra = ins.getArguments();
+            if (extra != null && !extra.isEmpty()) {
+                var keys = new ArrayList<>(extra.keySet());
+                Collections.sort(keys);
+                for (String k : keys) {
+                    String v = extra.get(k);
                     args.add(k + "=" + (v == null ? "" : v));
                 }
             }
+            return new InstructionView(-1, opcode, label, basic, cycles, args, List.of());
+        };
 
-            views.add(new InstructionView(i + 1, opcode, label, basic, cycles, args));
+        for (int i = 0; i < real.size(); i++) {
+            Instruction ins = real.get(i);
+            List<Instruction> ancNearest = new ArrayList<>();
+            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
+            Instruction cur = ins.getCreatedFrom();
+            while (cur != null && !seen.containsKey(cur)) {
+                seen.put(cur, Boolean.TRUE);
+                ancNearest.add(cur);
+                cur = cur.getCreatedFrom();
+            }
+
+            if (!ancNearest.isEmpty()) {
+                List<Instruction> farthestFirst = new ArrayList<>(ancNearest);
+                Collections.reverse(farthestFirst);
+                for (Instruction anc : farthestFirst) {
+                    if (outIndex.containsKey(anc)) continue;
+                    if (indexOfReal.containsKey(anc)) continue;
+                    Integer fci = firstChildIdx.get(anc);
+                    if (fci != null && fci == i) {
+                        List<Integer> vChain = new ArrayList<>();
+                        Instruction up = anc.getCreatedFrom();
+                        IdentityHashMap<Instruction, Boolean> seenUp = new IdentityHashMap<>();
+                        while (up != null && !seenUp.containsKey(up)) {
+                            seenUp.put(up, Boolean.TRUE);
+                            Integer idx = outIndex.get(up);
+                            if (idx != null) vChain.add(idx);
+                            up = up.getCreatedFrom();
+                        }
+                        InstructionView skel = mkView.apply(anc);
+                        List<String> vArgs = new ArrayList<>(skel.args());
+                        vArgs.add("__virtual__=1");
+                        int newIdx = out.size() + 1;
+                        out.add(new InstructionView(newIdx, skel.opcode(), skel.label(),
+                                skel.basic(), skel.cycles(), vArgs, vChain));
+                        outIndex.put(anc, newIdx);
+                    }
+                }
+            }
+
+            List<Integer> chain = new ArrayList<>();
+            for (Instruction anc : ancNearest) {
+                Integer idx = outIndex.get(anc);
+                if (idx != null && (chain.isEmpty() || !Objects.equals(chain.get(chain.size()-1), idx))) {
+                    chain.add(idx);
+                }
+            }
+
+            InstructionView rSkel = mkView.apply(ins);
+            int myIdx = out.size() + 1;
+            out.add(new InstructionView(myIdx, rSkel.opcode(), rSkel.label(),
+                    rSkel.basic(), rSkel.cycles(), rSkel.args(), chain));
+            outIndex.put(ins, myIdx);
         }
 
-        return new ProgramView(views, maxDegree);
+        return new ProgramView(out, maxDegree);
     }
 
     @Override
@@ -79,6 +164,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.current = XmlToObjects.toProgram(pxml);
             this.executor = new ProgramExecutorImpl(this.current);
 
+            this.lastViewProgram = null;
             history.clear();
             runCounter = 0;
 
@@ -108,13 +194,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException(
                     "Invalid expansion degree: " + degree +
-                            ". Allowed range is 0.." + maxDegree
+                            ". Allowed range is 0-" + maxDegree
             );
         }
 
         Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
         var exec = (degree > 0) ? new ProgramExecutorImpl(toRun) : this.executor;
 
+        this.lastViewProgram = (degree > 0) ? toRun : current;
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 

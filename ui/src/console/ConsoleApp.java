@@ -2,8 +2,7 @@ package console;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
-import emulator.api.dto.InstructionView;
-import emulator.api.dto.RunResult;
+import emulator.api.dto.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,14 +28,15 @@ public class ConsoleApp {
         io.println("S-Emulator (Console)");
         while (true) {
             showMenu(io);
-            String choice = io.ask("Choose action [1-6]: ").trim();
+            String choice = io.ask("Choose action [1-7]: ").trim();
             switch (choice) {
                 case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
-                case "3" -> doRun(io);
-                case "4" -> doHistory(io);
-                case "5" -> doSaveVersion(io);
-                case "6" -> { io.println("Bye!"); return; }
+                case "3" -> doExpand(io);
+                case "4" -> doRun(io);
+                case "5" -> doHistory(io);
+                case "6" -> doSaveVersion(io);
+                case "7" -> { io.println("Bye!"); return; }
                 default -> io.println("Invalid choice. Try again.");
             }
             io.println("");
@@ -47,10 +47,11 @@ public class ConsoleApp {
         io.println("""
       1) Load program XML
       2) Show program
-      3) Run
-      4) History
-      5) Save version
-      6) Exit
+      3) Show Expanded program
+      4) Run
+      5) History
+      6) Save version
+      7) Exit
       """);
     }
 
@@ -74,6 +75,7 @@ public class ConsoleApp {
         try {
             var res = engine.loadProgram(path);
             lastMaxDegree = res.maxDegree();
+            lastXmlPath = path;
             io.println("Loaded '" + res.programName() + "' with " + res.instructionCount() + " instructions. Max degree: " + lastMaxDegree);
         } catch (Exception ex) {
             io.println("Load failed: " + (ex.getMessage() == null ? "Unknown error" : ex.getMessage()));
@@ -82,56 +84,21 @@ public class ConsoleApp {
 
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
-
-        var pv = engine.programView();
-
-        for (var iv : pv.instructions()) {
-            String line = formatInstruction(iv);
-            io.println(line);
-        }
+        ProgramView pv = engine.programView();
+        printInstructions(io, pv);
     }
 
-    private String formatInstruction(InstructionView iv) {
+    private void doExpand(ConsoleIO io) {
+        if (!requireLoaded(io)) return;
 
-        String index = "#" + iv.index();
-        String type = iv.basic() ? "(B)" : "(S)";
-        String label = iv.label() == null ? "" : iv.label();
-        String labelField = String.format("[%-5s]", label);
-        String command = prettyCommand(iv);
-        String cycles = "(" + iv.cycles() + ")";
+        String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
+        int degree;
+        try { degree = Integer.parseInt(dg); } catch (NumberFormatException e) { degree = 0; }
+        if (degree < 0) degree = 0;
+        if (degree > lastMaxDegree) degree = lastMaxDegree;
 
-        return String.format("%-4s %-4s %-8s %-20s %s",
-                index, type, labelField, command, cycles);
-    }
-
-    private String prettyCommand(InstructionView iv) {
-        var args = iv.args();
-        switch (iv.opcode()) {
-            case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
-            case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
-            case "NEUTRAL": return args.get(0) + "<-" + args.get(0);
-            case "ZERO_VARIABLE": return args.get(0) + "<-0";
-            case "JUMP_NOT_ZERO": return "IF " + args.get(0) + " != 0 GOTO " + getArg(args,"JNZLabel");
-            case "GOTO_LABEL": return "GOTO " + getArg(args,"gotoLabel");
-            case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
-            case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
-            case "JUMP_ZERO": return "IF " + args.get(0) + " = 0 GOTO " + getArg(args,"JZLabel");
-            case "JUMP_EQUAL_CONSTANT": return "IF " + args.get(0) + " = " + getArg(args,"constantValue")
-                    + " GOTO " + getArg(args,"JEConstantLabel");
-            case "JUMP_EQUAL_VARIABLE": return "IF " + args.get(0) + " = " + getArg(args,"variableName")
-                    + " GOTO " + getArg(args,"JEVariableLabel");
-            default: return iv.opcode() + " " + String.join(", ", args);
-        }
-    }
-
-    private String getArg(List<String> args, String key) {
-        for (String a : args) {
-            int eq = a.indexOf('=');
-            if (eq > 0 && a.substring(0,eq).equals(key)) {
-                return a.substring(eq+1);
-            }
-        }
-        return "";
+        ProgramView pv = engine.programView(degree);
+        printInstructionsWithProvenance(io, pv);
     }
 
     private void doRun(ConsoleIO io) {
@@ -154,8 +121,8 @@ public class ConsoleApp {
             degree = lastMaxDegree;
         }
 
-        var pv = engine.programView();
-        List<String> usedInputIdx = engine.extractInputVars(pv);
+        var pv0 = engine.programView();
+        List<String> usedInputIdx = engine.extractInputVars(pv0);
         io.println("The inputs of this program are:");
         io.println(String.join(", ", usedInputIdx));
 
@@ -166,7 +133,16 @@ public class ConsoleApp {
 
         try {
             var result = engine.run(degree, inputs);
+
+            ProgramView pv = engine.programView();
+            if (degree == 0) {
+                printInstructions(io, pv);
+            } else {
+                printInstructionsWithProvenance(io, pv);
+            }
+
             io.println("Result y = " + result.y());
+            printAllVariables(io, result);
             io.println("Total cycles = " + result.cycles());
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
@@ -201,20 +177,100 @@ public class ConsoleApp {
         return true;
     }
 
-    private List<Long> parseCsvLongs(String csv) {
-        if (csv == null || csv.trim().isEmpty()) return List.of();
-        String[] parts = csv.split(",");
-        List<Long> out = new ArrayList<>();
-        for (String p : parts) {
-            String s = p.trim();
-            if (s.isEmpty()) continue;
-            try {
-                out.add(Long.parseLong(s));
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid number: " + s);
+    private int countRealRows(ProgramView pv) {
+        int expect = 1, count = 0;
+        for (InstructionView iv : pv.instructions()) {
+            if (iv.index() == expect) { count++; expect++; } else break;
+        }
+        return count;
+    }
+
+    private void printInstructions(ConsoleIO io, ProgramView pv) {
+        for (InstructionView iv : pv.instructions()) {
+            if (isVirtual(iv)) continue;
+            io.println(formatInstruction(iv));
+        }
+    }
+
+    private void printInstructionsWithProvenance(ConsoleIO io, ProgramView pv) {
+        Map<Integer, InstructionView> byIndex = new HashMap<>();
+        for (InstructionView iv : pv.instructions()) byIndex.put(iv.index(), iv);
+
+        for (InstructionView iv : pv.instructions()) {
+            if (isVirtual(iv)) continue;
+            String base = formatInstruction(iv);
+            String chain = formatProvenanceChain(iv, byIndex);
+            io.println(chain.isEmpty() ? base : (base + "  <<<   " + chain));
+        }
+    }
+
+    private String formatProvenanceChain(InstructionView iv, Map<Integer, InstructionView> byIndex) {
+        List<Integer> chain = iv.createdFromChain();
+        if (chain == null || chain.isEmpty()) return "";
+        int self = iv.index();
+        List<String> parts = new ArrayList<>();
+        for (Integer idx : chain) {
+            if (idx != null && !idx.equals(self)) {
+                InstructionView parent = byIndex.get(idx);
+                if (parent != null) parts.add(formatInstruction(parent));
             }
         }
-        return out;
+        return String.join("  <<<   ", parts);
+    }
+
+    private String formatInstruction(InstructionView iv) {
+        String index = "#" + iv.index();
+        String type = iv.basic() ? "(B)" : "(S)";
+        String label = iv.label() == null ? "" : iv.label();
+        String labelField = String.format("[ %-3s ]", label); // 5-wide label, as spec
+        String command = prettyCommand(iv);
+        String cycles = "(" + iv.cycles() + ")";
+        return String.format("%-4s %-4s %-8s %-20s %s", index, type, labelField, command, cycles);
+    }
+
+    private String prettyCommand(InstructionView iv) {
+        var args = iv.args();
+        switch (iv.opcode()) {
+            case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
+            case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
+            case "NEUTRAL":  return args.get(0) + "<-" + args.get(0);
+            case "ZERO_VARIABLE": return args.get(0) + "<-0";
+
+            case "JUMP_NOT_ZERO": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " != 0 GOTO " + tgt;
+            }
+            case "JUMP_ZERO": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = 0 GOTO " + tgt;
+            }
+            case "GOTO_LABEL": {
+                String tgt = findLabel(args);
+                return "GOTO " + tgt;
+            }
+            case "JUMP_EQUAL_CONSTANT": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = " + getArg(args, "constantValue") + " GOTO " + tgt;
+            }
+            case "JUMP_EQUAL_VARIABLE": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = " + getArg(args, "variableName") + " GOTO " + tgt;
+            }
+
+            case "ASSIGNMENT":           return args.get(0) + "<-" + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT":  return args.get(0) + "<-" + getArg(args,"constantValue");
+            default: return iv.opcode() + " " + String.join(", ", args);
+        }
+    }
+
+    private String getArg(List<String> args, String key) {
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0 && a.substring(0,eq).equals(key)) {
+                return a.substring(eq+1);
+            }
+        }
+        return "";
     }
 
     private void doSaveVersion(ConsoleIO io) {
@@ -250,4 +306,79 @@ public class ConsoleApp {
             io.println("[WARN] Could not save version: " + e.getMessage());
         }
     }
+
+    private boolean isVirtual(InstructionView iv) {
+        for (String a : iv.args()) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String k = a.substring(0, eq);
+                String v = a.substring(eq + 1);
+                if ("__virtual__".equals(k) && "1".equals(v)) return true;
+            }
+        }
+        return false;
+    }
+
+    private String findLabel(List<String> args) {
+
+        String v;
+        if (!(v = getArg(args, "JNZLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "gotoLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JZLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JEConstantLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JEVariableLabel")).isEmpty()) return v;
+
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String k = a.substring(0, eq).toLowerCase(Locale.ROOT);
+                if (k.contains("label") || k.contains("goto") || k.contains("target")) {
+                    return a.substring(eq + 1);
+                }
+            }
+        }
+
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String val = a.substring(eq + 1);
+                if (val.matches("[A-Za-z]?\\d+") || val.matches("L\\d+")) return val;
+            }
+        }
+        return "";
+    }
+
+    private void printAllVariables(ConsoleIO io, RunResult result) {
+        List<VariableView> vars = (result == null) ? List.of() : result.vars();
+        if (vars == null) vars = List.of();
+
+        VariableView yVar = null;
+        List<VariableView> xs = new ArrayList<>();
+        List<VariableView> zs = new ArrayList<>();
+
+        for (VariableView v : vars) {
+            if (v == null) continue;
+            if (v.type() == VarType.RESULT) {
+                yVar = v;
+            } else if (v.type() == VarType.INPUT) {
+                xs.add(v);
+            } else if (v.type() == VarType.WORK) {
+                zs.add(v);
+            }
+        }
+
+        xs.sort(Comparator.comparingInt(VariableView::number));
+        zs.sort(Comparator.comparingInt(VariableView::number));
+        io.println("Variables:");
+        if (yVar != null) {
+            io.println(yVar.name() + " = " + yVar.value());
+            for (VariableView v : xs) {
+                io.println(v.name() + " = " + v.value());
+            }
+            for (VariableView v : zs) {
+                io.println(v.name() + " = " + v.value());
+            }
+        }
+    }
+
 }

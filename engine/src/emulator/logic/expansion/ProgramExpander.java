@@ -3,48 +3,40 @@ package emulator.logic.expansion;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramImpl;
-import emulator.logic.variable.VariableImpl;
-import emulator.logic.label.LabelImpl;
 
 import java.util.List;
+import java.util.Objects;
 
 public class ProgramExpander {
-    public Program expandToDegree(Program src, int degree) {
-        if (degree <= 0) return src;
-        Program cur = src;
-        for (int d = 0; d < degree; d++) {
-            cur = expandOnce(cur);
-        }
-        return cur;
+    private final Expander expander = new Expander();
+
+    public Program expandToDegree(Program original, int degree) {
+        Objects.requireNonNull(original, "original");
+        List<Instruction> out = expander.expandToDegree(original.getInstructions(), degree);
+        return toProgramImpl(original.getName(), out);
     }
 
-    private Program expandOnce(Program src) {
-        var helper = ExpansionHelper.fromInstructions(
-                src.getInstructions(),
-                VariableImpl::new,
-                LabelImpl::new
-        );
-        List<Instruction> cur = Expander.expandInstructions(src.getInstructions(), helper);
-        boolean changed;
-        int guard = 0;
-        do {
-            changed = false;
-            List<Instruction> next = new java.util.ArrayList<>();
-            for (Instruction ins : cur) {
-                boolean isBasic = ins.getInstructionData().isBasic();
-                if (!isBasic && ins instanceof emulator.logic.expansion.Expandable ex) {
-                    List<Instruction> more = ex.expand(helper);
-                    next.addAll(more);
-                    changed = true;
-                } else {
-                    next.add(ins);
-                }
-            }
-            cur = next;
-        } while (changed && ++guard < 5);
+    public Program expandOnce(Program original) {
+        Objects.requireNonNull(original, "original");
+        List<Instruction> out = expander.expandOnce(original.getInstructions());
+        return toProgramImpl(original.getName(), out);
+    }
 
-        Program out = new ProgramImpl(src.getName() + "_exp");
-        for (Instruction ins : cur) out.addInstruction(ins);
-        return out;
+    public int calculateMaxDegree(Program original) {
+        Objects.requireNonNull(original, "original");
+        return expander.calculateMaxDegree(original.getInstructions());
+    }
+
+    public boolean isFullyBasic(Program original) {
+        Objects.requireNonNull(original, "original");
+        return expander.isFullyBasic(original.getInstructions());
+    }
+
+    private static Program toProgramImpl(String name, List<Instruction> instructions) {
+        ProgramImpl p = new ProgramImpl(name);
+        for (Instruction ins : instructions) {
+            p.addInstruction(ins);
+        }
+        return p;
     }
 }

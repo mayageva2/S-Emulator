@@ -11,6 +11,7 @@ import java.util.List;
 
 public interface EmulatorEngine {
     ProgramView programView();
+    ProgramView programView(int degree);
     LoadResult loadProgram(Path xmlPath);
     RunResult run(Long... input);
     RunResult run(int degree, Long... input);

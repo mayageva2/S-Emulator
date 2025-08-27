@@ -11,11 +11,13 @@ public class JumpNotZeroInstruction extends AbstractInstruction{
 
     public JumpNotZeroInstruction(Variable variable, Label jnzLabel) {
         this(variable, jnzLabel, FixedLabel.EMPTY);
+        setArgument("gotoLabel", jnzLabel.getLabelRepresentation());
     }
 
     public JumpNotZeroInstruction(Variable variable, Label jnzLabel, Label label) {
         super(InstructionData.JUMP_NOT_ZERO, variable, label);
         this.jnzLabel = jnzLabel;
+        setArgument("gotoLabel", jnzLabel.getLabelRepresentation());
     }
 
     @Override

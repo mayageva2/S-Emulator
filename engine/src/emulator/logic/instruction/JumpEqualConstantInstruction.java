@@ -25,6 +25,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
             throw new IllegalArgumentException("constantValue (K) must be non-negative");
         }
         this.constantValue = constantValue;
+        setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
     }
 
     public JumpEqualConstantInstruction(Variable variable, long constantValue, Label jeConstantLabel, Label myLabel) {
@@ -36,6 +37,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
             throw new IllegalArgumentException("constantValue (K) must be non-negative");
         }
         this.constantValue = constantValue;
+        setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
     }
 
     @Override
@@ -60,41 +62,16 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
             firstLabel = helper.freshLabel();
         }
 
-        for (Instruction zi : new AssignmentInstruction(z1, var, firstLabel).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
+        out.add(new AssignmentInstruction(z1, var, firstLabel));
 
         for(long i = 0; i < constantValue; i++) {
-            for (Instruction zi : new JumpZeroInstruction(z1, L1).expand(helper)) {
-                if (zi instanceof AbstractInstruction ai) {
-                    ai.setCreatedFrom(this);
-                }
-                out.add(zi);
-            }
-
-            DecreaseInstruction dec = new DecreaseInstruction(z1);
-            dec.setCreatedFrom(this);
-            out.add(dec);
+            out.add(new JumpNotZeroInstruction(z1, L1));
+            out.add(new DecreaseInstruction(z1));
         }
 
-        JumpNotZeroInstruction jnz = new JumpNotZeroInstruction(z1, L1);
-        jnz.setCreatedFrom(this);
-        out.add(jnz);
-
-        for (Instruction zi : new GoToLabelInstruction(L).expand(helper)) {
-            if (zi instanceof AbstractInstruction ai) {
-                ai.setCreatedFrom(this);
-            }
-            out.add(zi);
-        }
-
-        NeutralInstruction neutral = new NeutralInstruction(y, L1);
-        neutral.setCreatedFrom(this);
-        out.add(neutral);
-
+        out.add(new JumpNotZeroInstruction(z1, L1));
+        out.add(new GoToLabelInstruction(L));
+        out.add(new NeutralInstruction(y, L1));
         return out;
     }
 
