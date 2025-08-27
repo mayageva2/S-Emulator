@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,29 +51,29 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     private ProgramView buildProgramView(Program base) {
-        List<Instruction> instructions = base.getInstructions();
+        List<Instruction> real = base.getInstructions();
         int maxDegree = base.calculateMaxDegree();
 
         IdentityHashMap<Instruction, Integer> indexOfReal = new IdentityHashMap<>();
-        for (int i = 0; i < instructions.size(); i++) {
-            indexOfReal.put(instructions.get(i), i);
-        }
+        for (int i = 0; i < real.size(); i++) indexOfReal.put(real.get(i), i);
 
-        IdentityHashMap<Instruction, List<Integer>> childrenIndicesOfAncestor = new IdentityHashMap<>();
-        for (int i = 0; i < instructions.size(); i++) {
-            Instruction ins = instructions.get(i);
+        IdentityHashMap<Instruction, Integer> firstChildIdx = new IdentityHashMap<>();
+        for (int i = 0; i < real.size(); i++) {
+            Instruction ins = real.get(i);
+            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
             Instruction anc = ins.getCreatedFrom();
-            while (anc != null) {
-                childrenIndicesOfAncestor
-                        .computeIfAbsent(anc, k -> new ArrayList<>())
-                        .add(i);
+            while (anc != null && !seen.containsKey(anc)) {
+                seen.put(anc, Boolean.TRUE);
+                Integer curMin = firstChildIdx.get(anc);
+                if (curMin == null || i < curMin) firstChildIdx.put(anc, i);
                 anc = anc.getCreatedFrom();
             }
         }
 
-        IdentityHashMap<Instruction, Integer> indexOfAll = new IdentityHashMap<>(indexOfReal);
+        List<InstructionView> out = new ArrayList<>();
+        IdentityHashMap<Instruction, Integer> outIndex = new IdentityHashMap<>();
 
-        java.util.function.Function<Instruction, InstructionView> makeViewSkeleton = (Instruction ins) -> {
+        Function<Instruction, InstructionView> mkView = (Instruction ins) -> {
             InstructionData data = ins.getInstructionData();
             String opcode = data.getName();
             int cycles = data.getCycles();
@@ -81,75 +82,74 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             String label = (lbl == null) ? null : lbl.getLabelRepresentation();
 
             List<String> args = new ArrayList<>();
-            if (ins.getVariable() != null) {
-                args.add(ins.getVariable().getRepresentation());
-            }
-            Map<String, String> extraArgs = ins.getArguments();
-            if (extraArgs != null && !extraArgs.isEmpty()) {
-                var keys = new ArrayList<>(extraArgs.keySet());
+            if (ins.getVariable() != null) args.add(ins.getVariable().getRepresentation());
+            Map<String, String> extra = ins.getArguments();
+            if (extra != null && !extra.isEmpty()) {
+                var keys = new ArrayList<>(extra.keySet());
                 Collections.sort(keys);
                 for (String k : keys) {
-                    String v = extraArgs.get(k);
+                    String v = extra.get(k);
                     args.add(k + "=" + (v == null ? "" : v));
                 }
             }
             return new InstructionView(-1, opcode, label, basic, cycles, args, List.of());
         };
 
-        List<InstructionView> realViews = new ArrayList<>(instructions.size());
-        List<InstructionView> virtualViews = new ArrayList<>();
+        for (int i = 0; i < real.size(); i++) {
+            Instruction ins = real.get(i);
+            List<Instruction> ancNearest = new ArrayList<>();
+            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
+            Instruction cur = ins.getCreatedFrom();
+            while (cur != null && !seen.containsKey(cur)) {
+                seen.put(cur, Boolean.TRUE);
+                ancNearest.add(cur);
+                cur = cur.getCreatedFrom();
+            }
 
-        final AtomicInteger nextVirtualIndex = new AtomicInteger(instructions.size() + 1);
-
-        java.util.function.BiFunction<Instruction, Integer, List<Integer>> buildChain =
-                (Instruction ins, Integer selfZeroBased) -> {
-                    List<Integer> chain = new ArrayList<>();
-                    IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
-                    Instruction cur = ins.getCreatedFrom();
-
-                    while (cur != null && !seen.containsKey(cur)) {
-                        seen.put(cur, Boolean.TRUE);
-
-                        Integer zeroBased = indexOfAll.get(cur);
-                        if (zeroBased == null) {
-                            InstructionView vv = makeViewSkeleton.apply(cur);
-                            int assigned = nextVirtualIndex.getAndIncrement();
-                            vv = new InstructionView(assigned, vv.opcode(), vv.label(),
-                                    vv.basic(), vv.cycles(), vv.args(), List.of());
-                            virtualViews.add(vv);
-                            zeroBased = assigned - 1;
-                            indexOfAll.put(cur, zeroBased);
+            if (!ancNearest.isEmpty()) {
+                List<Instruction> farthestFirst = new ArrayList<>(ancNearest);
+                Collections.reverse(farthestFirst);
+                for (Instruction anc : farthestFirst) {
+                    if (outIndex.containsKey(anc)) continue;
+                    if (indexOfReal.containsKey(anc)) continue;
+                    Integer fci = firstChildIdx.get(anc);
+                    if (fci != null && fci == i) {
+                        List<Integer> vChain = new ArrayList<>();
+                        Instruction up = anc.getCreatedFrom();
+                        IdentityHashMap<Instruction, Boolean> seenUp = new IdentityHashMap<>();
+                        while (up != null && !seenUp.containsKey(up)) {
+                            seenUp.put(up, Boolean.TRUE);
+                            Integer idx = outIndex.get(up);
+                            if (idx != null) vChain.add(idx);
+                            up = up.getCreatedFrom();
                         }
-
-                        if (selfZeroBased == null || zeroBased.intValue() != selfZeroBased.intValue()) {
-                            chain.add(zeroBased + 1);
-                        }
-
-                        cur = cur.getCreatedFrom();
+                        InstructionView skel = mkView.apply(anc);
+                        List<String> vArgs = new ArrayList<>(skel.args());
+                        vArgs.add("__virtual__=1");
+                        int newIdx = out.size() + 1;
+                        out.add(new InstructionView(newIdx, skel.opcode(), skel.label(),
+                                skel.basic(), skel.cycles(), vArgs, vChain));
+                        outIndex.put(anc, newIdx);
                     }
-                    return chain;
-                };
+                }
+            }
 
-        for (int i = 0; i < instructions.size(); i++) {
-            Instruction ins = instructions.get(i);
-            InstructionView skel = makeViewSkeleton.apply(ins);
-            List<Integer> chain = buildChain.apply(ins, i);
-            realViews.add(new InstructionView(
-                    i + 1,
-                    skel.opcode(),
-                    skel.label(),
-                    skel.basic(),
-                    skel.cycles(),
-                    skel.args(),
-                    chain
-            ));
+            List<Integer> chain = new ArrayList<>();
+            for (Instruction anc : ancNearest) {
+                Integer idx = outIndex.get(anc);
+                if (idx != null && (chain.isEmpty() || !Objects.equals(chain.get(chain.size()-1), idx))) {
+                    chain.add(idx);
+                }
+            }
+
+            InstructionView rSkel = mkView.apply(ins);
+            int myIdx = out.size() + 1;
+            out.add(new InstructionView(myIdx, rSkel.opcode(), rSkel.label(),
+                    rSkel.basic(), rSkel.cycles(), rSkel.args(), chain));
+            outIndex.put(ins, myIdx);
         }
 
-        List<InstructionView> all = new ArrayList<>(realViews.size() + virtualViews.size());
-        all.addAll(realViews);
-        all.addAll(virtualViews);
-
-        return new ProgramView(all, maxDegree);
+        return new ProgramView(out, maxDegree);
     }
 
     @Override
