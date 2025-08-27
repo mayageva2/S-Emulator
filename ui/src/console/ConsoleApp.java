@@ -2,8 +2,7 @@ package console;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
-import emulator.api.dto.InstructionView;
-import emulator.api.dto.ProgramView;
+import emulator.api.dto.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -143,6 +142,7 @@ public class ConsoleApp {
             }
 
             io.println("Result y = " + result.y());
+            printAllVariables(io, result);
             io.println("Total cycles = " + result.cycles());
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
@@ -346,6 +346,39 @@ public class ConsoleApp {
             }
         }
         return "";
+    }
+
+    private void printAllVariables(ConsoleIO io, RunResult result) {
+        List<VariableView> vars = (result == null) ? List.of() : result.vars();
+        if (vars == null) vars = List.of();
+
+        VariableView yVar = null;
+        List<VariableView> xs = new ArrayList<>();
+        List<VariableView> zs = new ArrayList<>();
+
+        for (VariableView v : vars) {
+            if (v == null) continue;
+            if (v.type() == VarType.RESULT) {
+                yVar = v;
+            } else if (v.type() == VarType.INPUT) {
+                xs.add(v);
+            } else if (v.type() == VarType.WORK) {
+                zs.add(v);
+            }
+        }
+
+        xs.sort(Comparator.comparingInt(VariableView::number));
+        zs.sort(Comparator.comparingInt(VariableView::number));
+        io.println("Variables:");
+        if (yVar != null) {
+            io.println(yVar.name() + " = " + yVar.value());
+            for (VariableView v : xs) {
+                io.println(v.name() + " = " + v.value());
+            }
+            for (VariableView v : zs) {
+                io.println(v.name() + " = " + v.value());
+            }
+        }
     }
 
 }
