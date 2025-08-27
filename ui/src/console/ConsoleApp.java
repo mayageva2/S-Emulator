@@ -29,7 +29,7 @@ public class ConsoleApp {
         io.println("S-Emulator (Console)");
         while (true) {
             showMenu(io);
-            String choice = io.ask("Choose action [1-6]: ").trim();
+            String choice = io.ask("Choose action [1-7]: ").trim();
             switch (choice) {
                 case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
@@ -186,9 +186,8 @@ public class ConsoleApp {
     }
 
     private void printInstructions(ConsoleIO io, ProgramView pv) {
-        int realCount = countRealRows(pv);
-        for (int i = 0; i < realCount; i++) {
-            InstructionView iv = pv.instructions().get(i);
+        for (InstructionView iv : pv.instructions()) {
+            if (isVirtual(iv)) continue;
             io.println(formatInstruction(iv));
         }
     }
@@ -197,9 +196,8 @@ public class ConsoleApp {
         Map<Integer, InstructionView> byIndex = new HashMap<>();
         for (InstructionView iv : pv.instructions()) byIndex.put(iv.index(), iv);
 
-        int realCount = countRealRows(pv);
-        for (int i = 0; i < realCount; i++) {
-            InstructionView iv = pv.instructions().get(i);
+        for (InstructionView iv : pv.instructions()) {
+            if (isVirtual(iv)) continue;
             String base = formatInstruction(iv);
             String chain = formatProvenanceChain(iv, byIndex);
             io.println(chain.isEmpty() ? base : (base + "  <<<   " + chain));
@@ -235,21 +233,33 @@ public class ConsoleApp {
         switch (iv.opcode()) {
             case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
             case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
-            case "NEUTRAL": return args.get(0) + "<-" + args.get(0);
+            case "NEUTRAL":  return args.get(0) + "<-" + args.get(0);
             case "ZERO_VARIABLE": return args.get(0) + "<-0";
-            case "JUMP_NOT_ZERO": return "IF " + args.get(0) + " != 0 GOTO " + getArg(args,"JNZLabel");
-            case "GOTO_LABEL": return "GOTO " + getArg(args,"gotoLabel");
-            case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
-            case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
-            case "JUMP_ZERO": return "IF " + args.get(0) + " = 0 GOTO " + getArg(args,"JZLabel");
-            case "JUMP_EQUAL_CONSTANT":
-                return "IF " + args.get(0) + " = " + getArg(args,"constantValue")
-                        + " GOTO " + getArg(args,"JEConstantLabel");
-            case "JUMP_EQUAL_VARIABLE":
-                return "IF " + args.get(0) + " = " + getArg(args,"variableName")
-                        + " GOTO " + getArg(args,"JEVariableLabel");
-            default:
-                return iv.opcode() + " " + String.join(", ", args);
+
+            case "JUMP_NOT_ZERO": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " != 0 GOTO " + tgt;
+            }
+            case "JUMP_ZERO": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = 0 GOTO " + tgt;
+            }
+            case "GOTO_LABEL": {
+                String tgt = findLabel(args);
+                return "GOTO " + tgt;
+            }
+            case "JUMP_EQUAL_CONSTANT": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = " + getArg(args, "constantValue") + " GOTO " + tgt;
+            }
+            case "JUMP_EQUAL_VARIABLE": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = " + getArg(args, "variableName") + " GOTO " + tgt;
+            }
+
+            case "ASSIGNMENT":           return args.get(0) + "<-" + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT":  return args.get(0) + "<-" + getArg(args,"constantValue");
+            default: return iv.opcode() + " " + String.join(", ", args);
         }
     }
 
@@ -296,4 +306,46 @@ public class ConsoleApp {
             io.println("[WARN] Could not save version: " + e.getMessage());
         }
     }
+
+    private boolean isVirtual(InstructionView iv) {
+        for (String a : iv.args()) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String k = a.substring(0, eq);
+                String v = a.substring(eq + 1);
+                if ("__virtual__".equals(k) && "1".equals(v)) return true;
+            }
+        }
+        return false;
+    }
+
+    private String findLabel(List<String> args) {
+
+        String v;
+        if (!(v = getArg(args, "JNZLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "gotoLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JZLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JEConstantLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JEVariableLabel")).isEmpty()) return v;
+
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String k = a.substring(0, eq).toLowerCase(Locale.ROOT);
+                if (k.contains("label") || k.contains("goto") || k.contains("target")) {
+                    return a.substring(eq + 1);
+                }
+            }
+        }
+
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String val = a.substring(eq + 1);
+                if (val.matches("[A-Za-z]?\\d+") || val.matches("L\\d+")) return val;
+            }
+        }
+        return "";
+    }
+
 }

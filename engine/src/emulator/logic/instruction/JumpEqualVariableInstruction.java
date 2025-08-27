@@ -25,6 +25,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         super(InstructionData.JUMP_EQUAL_VARIABLE, Objects.requireNonNull(variable, "variable"));
         this.compareVariable = Objects.requireNonNull(compareVariable, "compareVariable");
         this.jeVariableLabel = Objects.requireNonNull(jeVariableLabel, "jeVariableLabel");
+        setArgument("gotoLabel", jeVariableLabel.getLabelRepresentation());
     }
 
     public JumpEqualVariableInstruction(Variable variable,
@@ -36,6 +37,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
                 Objects.requireNonNull(myLabel, "label"));
         this.compareVariable = Objects.requireNonNull(compareVariable, "compareVariable");
         this.jeVariableLabel = Objects.requireNonNull(jeVariableLabel, "jeVariableLabel");
+        setArgument("gotoLabel", jeVariableLabel.getLabelRepresentation());
     }
 
     @Override

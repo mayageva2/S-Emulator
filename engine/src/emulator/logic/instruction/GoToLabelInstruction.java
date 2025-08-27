@@ -15,11 +15,13 @@ public class GoToLabelInstruction extends AbstractInstruction implements Expanda
     public GoToLabelInstruction(Label gtlLabel) {
         super(InstructionData.GOTO_LABEL);
         this.gtlLabel = gtlLabel;
+        setArgument("gotoLabel", gtlLabel.getLabelRepresentation());
     }
 
     public GoToLabelInstruction(Label label, Label gtlLabel) {
         super(InstructionData.GOTO_LABEL, label);
         this.gtlLabel = gtlLabel;
+        setArgument("gotoLabel", gtlLabel.getLabelRepresentation());
     }
 
     @Override

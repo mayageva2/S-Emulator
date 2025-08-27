@@ -25,6 +25,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
             throw new IllegalArgumentException("constantValue (K) must be non-negative");
         }
         this.constantValue = constantValue;
+        setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
     }
 
     public JumpEqualConstantInstruction(Variable variable, long constantValue, Label jeConstantLabel, Label myLabel) {
@@ -36,6 +37,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
             throw new IllegalArgumentException("constantValue (K) must be non-negative");
         }
         this.constantValue = constantValue;
+        setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
     }
 
     @Override

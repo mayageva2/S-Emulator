@@ -20,6 +20,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
     public JumpZeroInstruction(Variable variable, Label jzLabel) {
         super(InstructionData.JUMP_ZERO, Objects.requireNonNull(variable, "variable"));
         this.jzLabel = Objects.requireNonNull(jzLabel, "jzLabel");
+        setArgument("gotoLabel", jzLabel.getLabelRepresentation());
     }
 
     public JumpZeroInstruction(Variable variable, Label jzLabel, Label myLabel) {
@@ -27,6 +28,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
                 Objects.requireNonNull(variable, "variable"),
                 Objects.requireNonNull(myLabel, "label"));
         this.jzLabel = Objects.requireNonNull(jzLabel, "jzLabel");
+        setArgument("gotoLabel", jzLabel.getLabelRepresentation());
     }
 
     @Override
