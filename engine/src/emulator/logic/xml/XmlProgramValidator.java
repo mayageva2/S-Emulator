@@ -9,7 +9,15 @@ import java.util.regex.Pattern;
 
 public class XmlProgramValidator {
 
-    private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$");
+    private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$", Pattern.CASE_INSENSITIVE);
+
+    private static String norm(String s) {
+        return (s == null) ? "" : s.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
 
     public void validate(ProgramXml p) {
         validateBasic(p);
@@ -41,20 +49,22 @@ public class XmlProgramValidator {
     }
 
     private void validateLabelDuplicatesAndFormat(ProgramXml p) {
-        Set<String> seen = new HashSet<>();
+        Set<String> seenKeys = new HashSet<>();
         Set<String> duplicates = new LinkedHashSet<>();
         List<String> badFormat = new ArrayList<>();
 
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             for (InstructionXml i : p.getInstructions().getInstructions()) {
                 String raw = i.getLabel();
-                if (raw == null || raw.isBlank()) continue;
+                if (isBlank(raw)) continue;
 
                 String label = raw.trim();
+                String key = norm(label);
+
                 if (!LABEL_FMT.matcher(label).matches()) {
                     badFormat.add(label);
                 }
-                if (!seen.add(label)) {
+                if (!seenKeys.add(key)) {
                     duplicates.add(label);
                 }
             }
@@ -63,7 +73,7 @@ public class XmlProgramValidator {
         if (!duplicates.isEmpty()) {
             throw new InvalidInstructionException(
                     "LABEL",
-                    "Duplicate labels found: " + new ArrayList<>(duplicates),
+                    "Duplicate labels found (case-insensitive): " + new ArrayList<>(duplicates),
                     -1
             );
         }
@@ -83,7 +93,7 @@ public class XmlProgramValidator {
 
         List<String> missing = new ArrayList<>();
         for (String ref : refs) {
-            if (ref == null || ref.isBlank()) continue;
+            if (isBlank(ref)) continue;
             if ("EXIT".equals(ref)) continue;
             if (!defined.contains(ref)) {
                 missing.add(ref);
@@ -115,8 +125,9 @@ public class XmlProgramValidator {
         Set<String> out = new HashSet<>();
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             for (InstructionXml i : p.getInstructions().getInstructions()) {
-                if (i.getLabel() != null && !i.getLabel().isBlank()) {
-                    out.add(i.getLabel());
+                String lbl = i.getLabel();
+                if (!isBlank(lbl)) {
+                    out.add(norm(lbl));
                 }
             }
         }
@@ -132,24 +143,29 @@ public class XmlProgramValidator {
                 if (i.getArguments() == null) continue;
 
                 for (InstructionArgXml a : i.getArguments()) {
-                    String name = a.getName();
-                    if (name == null) continue;
+                    String nameRaw = a.getName();
+                    if (nameRaw == null) continue;
 
+                    String name = norm(nameRaw);
                     boolean isLabelArg =
-                            name.equals("gotoLabel")
-                                    || name.equals("JNZLabel")
-                                    || name.equals("JZLabel")
-                                    || name.equals("JEConstantLabel")
-                                    || name.equals("JEVariableLabel");
+                            "GOTOLABEL".equals(name)
+                                    || "JNZLABEL".equals(name)
+                                    || "JZLABEL".equals(name)
+                                    || "JECONSTANTLABEL".equals(name)
+                                    || "JEVARIABLELABEL".equals(name);
 
                     if (!isLabelArg) continue;
 
-                    String val = a.getValue();
-                    if (val == null || val.isBlank()) {
+                    String valRaw = a.getValue();
+                    if (isBlank(valRaw)) {
                         String opcode = (i.getName() == null ? "<unknown>" : i.getName());
-                        throw new InvalidInstructionException(opcode, "Missing required label value for argument '" + name + "' at instruction #" + idx, idx);
+                        throw new InvalidInstructionException(
+                                norm(opcode),
+                                "Missing required label value for argument '" + nameRaw + "' at instruction #" + idx,
+                                idx
+                        );
                     }
-                    out.add(val.trim());
+                    out.add(norm(valRaw));
                 }
             }
         }
