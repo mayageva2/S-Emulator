@@ -8,11 +8,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ConsoleApp {
     private final EmulatorEngine engine;
     private Path lastXmlPath;
     private int lastMaxDegree = 0;
+    private String lastProgramName;
 
     public ConsoleApp(EmulatorEngine engine) {
         this.engine = engine;
@@ -74,6 +77,7 @@ public class ConsoleApp {
 
         try {
             var res = engine.loadProgram(path);
+            lastProgramName = res.programName();
             lastMaxDegree = res.maxDegree();
             lastXmlPath = path;
             io.println("Loaded '" + res.programName() + "' with " + res.instructionCount() + " instructions. Max degree: " + lastMaxDegree);
@@ -85,20 +89,37 @@ public class ConsoleApp {
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
         ProgramView pv = engine.programView();
+        io.println("Program: " + (lastProgramName == null ? "(unknown)" : lastProgramName));
+
+        List<String> inputsInUseOrder = extractInputsInUseOrder(pv);
+        io.println("Inputs: " + (inputsInUseOrder.isEmpty() ? "(none)" : String.join(", ", inputsInUseOrder)));
+
+        List<String> labelsInUseOrder = extractLabelsInUseOrder(pv);
+        io.println("Labels: " + (labelsInUseOrder.isEmpty() ? "(none)" : String.join(", ", labelsInUseOrder)));
         printInstructions(io, pv);
     }
 
     private void doExpand(ConsoleIO io) {
         if (!requireLoaded(io)) return;
 
-        String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
-        int degree;
-        try { degree = Integer.parseInt(dg); } catch (NumberFormatException e) { degree = 0; }
-        if (degree < 0) degree = 0;
-        if (degree > lastMaxDegree) degree = lastMaxDegree;
 
-        ProgramView pv = engine.programView(degree);
-        printInstructionsWithProvenance(io, pv);
+        if (lastMaxDegree == 0) {
+            ProgramView pv = engine.programView(0);
+            printInstructions(io, pv);
+        } else {
+            String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
+            int degree;
+            try {
+                degree = Integer.parseInt(dg);
+            } catch (NumberFormatException e) {
+                degree = 0;
+            }
+            if (degree < 0) degree = 0;
+            if (degree > lastMaxDegree) degree = lastMaxDegree;
+
+            ProgramView pv = engine.programView(degree);
+            printInstructionsWithProvenance(io, pv);
+        }
     }
 
     private void doRun(ConsoleIO io) {
@@ -142,7 +163,7 @@ public class ConsoleApp {
             }
 
             io.println("Result y = " + result.y());
-            printAllVariables(io, result);
+            printAllVariables(io, result, inputs);
             io.println("Total cycles = " + result.cycles());
         } catch (Exception e) {
             io.println("Run failed: " + e.getMessage());
@@ -156,17 +177,55 @@ public class ConsoleApp {
             return;
         }
 
-        io.println("Run# | Degree | Inputs         | y   | Cycles");
-        io.println("-----+--------+----------------+-----+-------");
+        List<String> inputsPretty = new ArrayList<>(history.size());
+        int inputsColWidth = "Inputs".length();
 
         for (var r : history) {
-            io.println(String.format("%4d | %6d | %-14s | %3d | %5d",
+            String s = formatInputsByPosition(r.inputsCsv());
+            inputsPretty.add(s);
+            if (s.length() > inputsColWidth) inputsColWidth = s.length();
+        }
+
+        io.println(String.format("Run# | Degree | %-" + inputsColWidth + "s | y   | Cycles", "Inputs"));
+        io.println(
+                repeat('-', 5) + "+" +
+                repeat('-', 8) + "+" +
+                repeat('-', inputsColWidth + 2) + "+" +
+                repeat('-', 5) + "+" +
+                repeat('-', 7)
+        );
+
+        String rowFmt = "%4d | %6d | %-" + inputsColWidth + "s | %3d | %5d";
+        for (int i = 0; i < history.size(); i++) {
+            var r = history.get(i);
+            io.println(String.format(
+                    rowFmt,
                     r.runNumber(),
                     r.degree(),
-                    r.inputsCsv(),
+                    inputsPretty.get(i),
                     r.y(),
-                    r.cycles()));
+                    r.cycles()
+            ));
         }
+    }
+
+    private String formatInputsByPosition(String csv) {
+        if (csv == null || csv.isBlank()) return "";
+        String[] parts = csv.split(",");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            String s = parts[i].trim();
+            if (s.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(", ");
+            sb.append('x').append(i + 1).append('=').append(s);
+        }
+        return sb.toString();
+    }
+
+    private static String repeat(char c, int n) {
+        StringBuilder sb = new StringBuilder(Math.max(0, n));
+        for (int i = 0; i < n; i++) sb.append(c);
+        return sb.toString();
     }
 
     private boolean requireLoaded(ConsoleIO io) {
@@ -348,37 +407,110 @@ public class ConsoleApp {
         return "";
     }
 
-    private void printAllVariables(ConsoleIO io, RunResult result) {
-        List<VariableView> vars = (result == null) ? List.of() : result.vars();
-        if (vars == null) vars = List.of();
+    private void printAllVariables(ConsoleIO io, RunResult result, Long[] inputs) {
+        List<VariableView> vars = (result == null || result.vars() == null) ? List.of() : result.vars();
 
         VariableView yVar = null;
-        List<VariableView> xs = new ArrayList<>();
-        List<VariableView> zs = new ArrayList<>();
+        Map<Integer, Long> xValues = new TreeMap<>();
+        Map<Integer, Long> zValues = new TreeMap<>();
 
         for (VariableView v : vars) {
             if (v == null) continue;
-            if (v.type() == VarType.RESULT) {
+            String name = v.name() == null ? "" : v.name().toLowerCase(Locale.ROOT);
+            if (v.type() == VarType.RESULT || "y".equals(name)) {
                 yVar = v;
-            } else if (v.type() == VarType.INPUT) {
-                xs.add(v);
-            } else if (v.type() == VarType.WORK) {
-                zs.add(v);
+            } else if (v.type() == VarType.INPUT || name.startsWith("x")) {
+                xValues.put(v.number(), v.value());
+            } else if (v.type() == VarType.WORK || name.startsWith("z")) {
+                zValues.put(v.number(), v.value());
             }
         }
 
-        xs.sort(Comparator.comparingInt(VariableView::number));
-        zs.sort(Comparator.comparingInt(VariableView::number));
+        if (inputs != null) {
+            for (int i = 0; i < inputs.length; i++) {
+                int idx = i + 1;
+                xValues.putIfAbsent(idx, inputs[i]);
+            }
+        }
+
         io.println("Variables:");
         if (yVar != null) {
             io.println(yVar.name() + " = " + yVar.value());
-            for (VariableView v : xs) {
-                io.println(v.name() + " = " + v.value());
-            }
-            for (VariableView v : zs) {
-                io.println(v.name() + " = " + v.value());
+        } else {
+            io.println("y = " + (result == null ? 0 : result.y()));
+        }
+
+        for (Map.Entry<Integer, Long> e : xValues.entrySet()) {
+            io.println("x" + e.getKey() + " = " + e.getValue());
+        }
+
+        for (Map.Entry<Integer, Long> e : zValues.entrySet()) {
+            io.println("z" + e.getKey() + " = " + e.getValue());
+        }
+    }
+
+    private List<String> extractInputsInUseOrder(ProgramView pv) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        Pattern PX = Pattern.compile("\\bx(\\d+)\\b");
+
+        for (var iv : pv.instructions()) {
+            for (String a : iv.args()) {
+                scanForInputs(PX, tokenRaw(a), seen);
+                int eq = a.indexOf('=');
+                if (eq > 0) scanForInputs(PX, a.substring(eq + 1), seen);
             }
         }
+        return new ArrayList<>(seen);
+    }
+
+    private static void scanForInputs(Pattern PX, String text, LinkedHashSet<String> out) {
+        if (text == null || text.isBlank()) return;
+        Matcher m = PX.matcher(text);
+        while (m.find()) out.add("x" + m.group(1));
+    }
+
+    private List<String> extractLabelsInUseOrder(ProgramView pv) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+
+        for (var iv : pv.instructions()) {
+            String lbl = iv.label();
+            if (isLabelToken(lbl)) seen.add(lbl);
+
+            for (String a : iv.args()) {
+                int eq = a.indexOf('=');
+                if (eq > 0) {
+                    String val = a.substring(eq + 1).trim();
+                    if (isLabelToken(val)) seen.add(val);
+                }
+            }
+        }
+
+        ArrayList<String> ordered = new ArrayList<>(seen);
+        int exitIdx = indexOfIgnoreCase(ordered, "EXIT");
+        if (exitIdx >= 0) {
+            String exit = ordered.remove(exitIdx);
+            ordered.add(exit);
+        }
+        return ordered;
+    }
+
+    private static boolean isLabelToken(String s) {
+        if (s == null || s.isBlank()) return false;
+        if (s.equalsIgnoreCase("EXIT")) return true;
+        return s.matches("[Ll]\\d+");
+    }
+
+    private static int indexOfIgnoreCase(List<String> list, String target) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).equalsIgnoreCase(target)) return i;
+        }
+        return -1;
+    }
+
+    private static String tokenRaw(String arg) {
+        if (arg == null) return "";
+        int eq = arg.indexOf('=');
+        return (eq > 0) ? arg.substring(0, eq).trim() : arg.trim();
     }
 
 }
