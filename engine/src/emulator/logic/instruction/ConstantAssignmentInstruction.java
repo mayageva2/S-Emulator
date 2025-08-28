@@ -42,6 +42,9 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
     public List<Instruction> expand(ExpansionHelper helper) {
         List<Instruction> out = new ArrayList<>();
         Variable var = getVariable();
+        if (var == null) {
+            throw new IllegalStateException("CONSTANT_ASSIGNMENT missing variable");
+        }
 
         Label firstLabel = getLabel();
         if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {

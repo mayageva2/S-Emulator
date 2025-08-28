@@ -50,6 +50,10 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
     public List<Instruction> expand(ExpansionHelper helper) {
 
         Variable var = getVariable();
+        if (var == null) {
+            throw new IllegalStateException("JUMP_EQUAL_VARIABLE missing variable");
+        }
+
         Variable z1 = helper.freshVar();
         Variable y = new VariableImpl(VariableType.RESULT, 0);
 

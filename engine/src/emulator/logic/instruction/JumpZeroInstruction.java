@@ -42,6 +42,9 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
 
         List<Instruction> out = new ArrayList<>();
         Variable var =  getVariable();
+        if (var == null) {
+            throw new IllegalStateException("JUMP_ZERO missing variable");
+        }
         Variable y = new VariableImpl(VariableType.RESULT, 0);
 
         Label firstLabel = getLabel();

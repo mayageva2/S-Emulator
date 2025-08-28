@@ -54,8 +54,16 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
 
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
+
         Variable var = getVariable();
         Variable compareVar = compareVariable;
+        if (var == null) {
+            throw new IllegalStateException("JUMP_EQUAL_VARIABLE missing variable");
+        }
+        if (compareVariable == null) {
+            throw new IllegalStateException("JUMP_EQUAL_VARIABLE missing compare variable");
+        }
+
         Variable z1 = helper.freshVar();
         Variable z2 = helper.freshVar();
         Variable y = new VariableImpl(VariableType.RESULT, 0);
