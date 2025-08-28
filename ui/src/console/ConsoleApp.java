@@ -261,28 +261,44 @@ public class ConsoleApp {
         }
     }
 
-    private void printInstructionsWithProvenance(ConsoleIO io, ProgramView pv) {
-        Map<Integer, InstructionView> byIndex = new HashMap<>();
-        for (InstructionView iv : pv.instructions()) byIndex.put(iv.index(), iv);
+    private void printInstructionsWithProvenance(ConsoleIO io, ProgramView pvExpanded) {
+        ProgramView pvOriginal = engine.programView(0);
+        Map<Integer, InstructionView> originalByIndex = new HashMap<>();
+        for (InstructionView iv0 : pvOriginal.instructions()) {
+            originalByIndex.put(iv0.index(), iv0);
+        }
 
-        for (InstructionView iv : pv.instructions()) {
+        for (InstructionView iv : pvExpanded.instructions()) {
             if (isVirtual(iv)) continue;
             String base = formatInstruction(iv);
-            String chain = formatProvenanceChain(iv, byIndex);
-            io.println(chain.isEmpty() ? base : (base + "  <<<   " + chain));
+
+            String chain;
+            if (iv.createdFromViews() != null && !iv.createdFromViews().isEmpty()) {
+                chain = formatProvenanceChainFromViews(iv.createdFromViews());
+            } else {
+                chain = formatProvenanceChain(iv, originalByIndex);
+            }
+
+            io.println(chain == null || chain.isEmpty() ? base : (base + "  <<<   " + chain));
         }
     }
 
-    private String formatProvenanceChain(InstructionView iv, Map<Integer, InstructionView> byIndex) {
+    private String formatProvenanceChainFromViews(List<InstructionView> chainViews) {
+        List<String> parts = new ArrayList<>();
+        for (InstructionView v : chainViews) {
+            parts.add(formatInstruction(v));
+        }
+        return String.join("  <<<   ", parts);
+    }
+
+    private String formatProvenanceChain(InstructionView iv, Map<Integer, InstructionView> originalByIndex) {
         List<Integer> chain = iv.createdFromChain();
         if (chain == null || chain.isEmpty()) return "";
-        int self = iv.index();
         List<String> parts = new ArrayList<>();
         for (Integer idx : chain) {
-            if (idx != null && !idx.equals(self)) {
-                InstructionView parent = byIndex.get(idx);
-                if (parent != null) parts.add(formatInstruction(parent));
-            }
+            if (idx == null) continue;
+            InstructionView origin = originalByIndex.get(idx);
+            if (origin != null) parts.add(formatInstruction(origin));
         }
         return String.join("  <<<   ", parts);
     }

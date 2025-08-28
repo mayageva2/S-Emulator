@@ -28,7 +28,7 @@ public final class Expander {
                 } else {
                     for (Instruction child : produced) {
                         if (child == null) continue;
-                        if (child instanceof AbstractInstruction ai && ai.getCreatedFrom() == null) {
+                        if (child instanceof AbstractInstruction ai) {
                             ai.setCreatedFrom(ins);
                         }
                         out.add(child);
