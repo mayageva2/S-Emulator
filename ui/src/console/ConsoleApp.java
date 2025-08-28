@@ -128,18 +128,28 @@ public class ConsoleApp {
             return;
         }
 
-        String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
         int degree;
-        try {
-            degree = Integer.parseInt(dg);
-        } catch (NumberFormatException e) {
-            degree = 0;
-        }
-
-        if (degree < 0) degree = 0;
-        if (degree > lastMaxDegree) {
-            io.println("Degree " + degree + " exceeds max; using " + lastMaxDegree + " instead.");
-            degree = lastMaxDegree;
+        while (true) {
+            String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
+            if (dg.isEmpty()) {
+                degree = 0;
+                break;
+            }
+            try {
+                degree = Integer.parseInt(dg);
+            } catch (NumberFormatException e) {
+                io.println("Invalid number. Please enter an integer between 0 and " + lastMaxDegree + ".");
+                continue;
+            }
+            if (degree < 0) {
+                io.println("Degree cannot be negative. Try again.");
+                continue;
+            }
+            if (degree > lastMaxDegree) {
+                io.println("Degree " + degree + " exceeds max (" + lastMaxDegree + "). Try again.");
+                continue;
+            }
+            break;
         }
 
         var pv0 = engine.programView();
