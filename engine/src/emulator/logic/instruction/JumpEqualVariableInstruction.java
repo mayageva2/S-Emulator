@@ -19,25 +19,46 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
     private final Label jeVariableLabel;
     private final Variable compareVariable;
 
-    public JumpEqualVariableInstruction(Variable variable,
-                                        Variable compareVariable,
-                                        Label jeVariableLabel) {
-        super(InstructionData.JUMP_EQUAL_VARIABLE, Objects.requireNonNull(variable, "variable"));
-        this.compareVariable = Objects.requireNonNull(compareVariable, "compareVariable");
-        this.jeVariableLabel = Objects.requireNonNull(jeVariableLabel, "jeVariableLabel");
+    private JumpEqualVariableInstruction(Builder b) {
+        super(InstructionData.JUMP_EQUAL_VARIABLE,
+                Objects.requireNonNull(b.variable, "variable"),
+                b.myLabel); // optional
+        this.compareVariable = Objects.requireNonNull(b.compareVariable, "compareVariable");
+        this.jeVariableLabel = Objects.requireNonNull(b.jeVariableLabel, "jeVariableLabel");
+
         setArgument("gotoLabel", jeVariableLabel.getLabelRepresentation());
     }
 
-    public JumpEqualVariableInstruction(Variable variable,
-                                        Variable compareVariable,
-                                        Label jeVariableLabel,
-                                        Label myLabel) {
-        super(InstructionData.JUMP_EQUAL_VARIABLE,
-                Objects.requireNonNull(variable, "variable"),
-                Objects.requireNonNull(myLabel, "label"));
-        this.compareVariable = Objects.requireNonNull(compareVariable, "compareVariable");
-        this.jeVariableLabel = Objects.requireNonNull(jeVariableLabel, "jeVariableLabel");
-        setArgument("gotoLabel", jeVariableLabel.getLabelRepresentation());
+    //This func builds instruction
+    public static class Builder {
+        private Variable variable;
+        private Variable compareVariable;
+        private Label jeVariableLabel;
+        private Label myLabel; // optional
+
+        public Builder variable(Variable variable) {
+            this.variable = variable;
+            return this;
+        }
+
+        public Builder compareVariable(Variable compareVariable) {
+            this.compareVariable = compareVariable;
+            return this;
+        }
+
+        public Builder jeVariableLabel(Label label) {
+            this.jeVariableLabel = label;
+            return this;
+        }
+
+        public Builder myLabel(Label label) {
+            this.myLabel = label; // may be null (optional)
+            return this;
+        }
+
+        public JumpEqualVariableInstruction build() {
+            return new JumpEqualVariableInstruction(this);
+        }
     }
 
     //This func executes the instruction

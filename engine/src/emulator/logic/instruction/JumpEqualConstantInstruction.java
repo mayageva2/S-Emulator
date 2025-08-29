@@ -18,24 +18,48 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
     private final Label jeConstantLabel;
     private final long constantValue;
 
-    public JumpEqualConstantInstruction(Variable variable, long constantValue, Label jeConstantLabel) {
-        super(InstructionData.JUMP_EQUAL_CONSTANT, Objects.requireNonNull(variable, "variable"));
-        if (constantValue < 0) throw new IllegalArgumentException("constantValue (K) must be non-negative");
-        this.constantValue = constantValue;
-        this.jeConstantLabel = Objects.requireNonNull(jeConstantLabel, "jeConstantLabel");
+    private JumpEqualConstantInstruction(Builder builder) {
+        super(InstructionData.JUMP_EQUAL_CONSTANT, builder.variable, builder.myLabel);
+        if (builder.constantValue < 0) {
+            throw new IllegalArgumentException("constantValue (K) must be non-negative");
+        }
+        this.constantValue = builder.constantValue;
+        this.jeConstantLabel = Objects.requireNonNull(builder.jeConstantLabel, "jeConstantLabel");
+
         setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
         setArgument("constantValue", String.valueOf(constantValue));
     }
 
-    public JumpEqualConstantInstruction(Variable variable, long constantValue, Label jeConstantLabel, Label myLabel) {
-        super(InstructionData.JUMP_EQUAL_CONSTANT,
-                Objects.requireNonNull(variable, "variable"),
-                Objects.requireNonNull(myLabel, "label"));
-        if (constantValue < 0) throw new IllegalArgumentException("constantValue (K) must be non-negative");
-        this.constantValue = constantValue;
-        this.jeConstantLabel = Objects.requireNonNull(jeConstantLabel, "jeConstantLabel");
-        setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
-        setArgument("constantValue", String.valueOf(constantValue));
+    //This func builds instruction
+    public static class Builder {
+        private Variable variable;
+        private long constantValue;
+        private Label jeConstantLabel;
+        private Label myLabel;
+
+        public Builder variable(Variable variable) {
+            this.variable = variable;
+            return this;
+        }
+
+        public Builder constantValue(long value) {
+            this.constantValue = value;
+            return this;
+        }
+
+        public Builder jeConstantLabel(Label label) {
+            this.jeConstantLabel = label;
+            return this;
+        }
+
+        public Builder myLabel(Label label) {
+            this.myLabel = label;
+            return this;
+        }
+
+        public JumpEqualConstantInstruction build() {
+            return new JumpEqualConstantInstruction(this);
+        }
     }
 
     //This func executes the instruction

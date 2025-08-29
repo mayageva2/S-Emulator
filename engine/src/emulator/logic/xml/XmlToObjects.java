@@ -82,12 +82,16 @@ public final class XmlToObjects {
             case "JUMP_EQUAL_CONSTANT" -> {
                 Label target = parseLabel(req(args, "JECONSTANTLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JECONSTANTLABEL");
                 long k = parseNonNegInt(req(args, "CONSTANTVALUE", opcode, index), opcode, index);
-                yield new JumpEqualConstantInstruction(v, k, target, lbl);
+                JumpEqualConstantInstruction.Builder b = new JumpEqualConstantInstruction.Builder().variable(v).constantValue(k).jeConstantLabel(target);
+                if (lbl != null) b.myLabel(lbl);
+                yield b.build();
             }
             case "JUMP_EQUAL_VARIABLE" -> {
                 Label target = parseLabel(req(args, "JEVARIABLELABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JEVARIABLELABEL");
                 Variable other = parseVariable(req(args, "VARIABLENAME", opcode, index), opcode, index);
-                yield new JumpEqualVariableInstruction(v, other, target, lbl);
+                JumpEqualVariableInstruction.Builder b = new JumpEqualVariableInstruction.Builder().variable(v).compareVariable(other).jeVariableLabel(target);
+                if (lbl != null) b.myLabel(lbl);
+                yield b.build();
             }
 
             default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);
