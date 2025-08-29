@@ -104,30 +104,39 @@ public class ConsoleApp {
     //This func displays the currently loaded program details
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
-        ProgramView pv = engine.programView();
-        io.println("Program: " + (lastProgramName == null ? "(unknown)" : lastProgramName));
+        try {
+            ProgramView pv = engine.programView();
+            io.println("Program: " + (lastProgramName == null ? "(unknown)" : lastProgramName));
 
-        List<String> inputsInUseOrder = extractInputsInUseOrder(pv);
-        io.println("Inputs: " + (inputsInUseOrder.isEmpty() ? "(none)" : String.join(", ", inputsInUseOrder)));
+            List<String> inputsInUseOrder = extractInputsInUseOrder(pv);
+            io.println("Inputs: " + (inputsInUseOrder.isEmpty() ? "(none)" : String.join(", ", inputsInUseOrder)));
 
-        List<String> labelsInUseOrder = extractLabelsInUseOrder(pv);
-        io.println("Labels: " + (labelsInUseOrder.isEmpty() ? "(none)" : String.join(", ", labelsInUseOrder)));
-        printInstructions(io, pv);
+            List<String> labelsInUseOrder = extractLabelsInUseOrder(pv);
+            io.println("Labels: " + (labelsInUseOrder.isEmpty() ? "(none)" : String.join(", ", labelsInUseOrder)));
+            printInstructions(io, pv);
+        } catch (Exception e) {
+            io.println("Show program failed: " + friendlyMsg(e));
+        }
     }
 
     //This func displays the currently loaded program expended instructions details
     private void doExpand(ConsoleIO io) {
         if (!requireLoaded(io)) return;
 
-        if (lastMaxDegree == 0) {
-            ProgramView pv = engine.programView(0);
-            printInstructions(io, pv);
-        } else {
-            int degree = promptExpansionDegree(io, lastMaxDegree);
-            ProgramView pv = engine.programView(degree);
-            printInstructionsWithProvenance(io, pv);
+        try {
+            if (lastMaxDegree == 0) {
+                ProgramView pv = engine.programView(0);
+                printInstructions(io, pv);
+            } else {
+                int degree = promptExpansionDegree(io, lastMaxDegree);
+                ProgramView pv = engine.programView(degree);
+                printInstructionsWithProvenance(io, pv);
+            }
+        } catch (Exception e) {
+            io.println("Expand failed: " + friendlyMsg(e));
         }
     }
+
 
     //This func runs the program
     private void doRun(ConsoleIO io) {
@@ -139,7 +148,14 @@ public class ConsoleApp {
         int degree = promptExpansionDegree(io, lastMaxDegree);
         var pv0 = engine.programView();
         List<String> usedInputIdx = engine.extractInputVars(pv0);
-        Long[] inputs = readInputs(io, usedInputIdx);
+
+        Long[] inputs;
+        try {
+            inputs = readInputs(io, usedInputIdx);
+        } catch (Exception e) {
+            io.println("Run cancelled: " + friendlyMsg(e));
+            return;
+        }
 
         try {
             var result = engine.run(degree, inputs);
@@ -155,7 +171,7 @@ public class ConsoleApp {
             printAllVariables(io, result, inputs);
             io.println("Total cycles = " + result.cycles());
         } catch (Exception e) {
-            io.println("Run failed: " + e.getMessage());
+            io.println("Run failed: " + friendlyMsg(e));
         }
     }
 
@@ -185,13 +201,16 @@ public class ConsoleApp {
         io.println(usedInputIdx.isEmpty() ? "(none)" : String.join(", ", usedInputIdx));
 
         String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
-        return csv.isEmpty()
-                ? new Long[0]
-                : Arrays.stream(csv.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(Long::parseLong)
-                .toArray(Long[]::new);
+        if (csv.isEmpty()) return new Long[0];
+        try {
+            return Arrays.stream(csv.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Long::parseLong)
+                    .toArray(Long[]::new);
+        } catch (NumberFormatException nfe) {
+            throw nfe;
+        }
     }
 
     //This func prints previous runs
@@ -539,5 +558,29 @@ public class ConsoleApp {
         if (arg == null) return "";
         int eq = arg.indexOf('=');
         return (eq > 0) ? arg.substring(0, eq).trim() : arg.trim();
+    }
+
+    // --- Error helpers --- //
+    private static String friendlyMsg(Throwable t) {
+        for (Throwable cur = t; cur != null; cur = cur.getCause()) {
+            // XML/load-time issues
+            if (cur instanceof XmlWrongExtensionException)   return "file must have .xml extension.";
+            if (cur instanceof XmlNotFoundException)         return "file not found.";
+            if (cur instanceof XmlReadException)             return "XML is malformed" + opt(cur.getMessage());
+            if (cur instanceof XmlInvalidContentException)   return "invalid XML content" + opt(cur.getMessage());
+
+            // Program/domain issues
+            if (cur instanceof ProgramNotLoadedException)    return "no program loaded.";
+            if (cur instanceof MissingLabelException)        return "missing label" + opt(cur.getMessage());
+            if (cur instanceof InvalidInstructionException)  return "invalid instruction" + opt(cur.getMessage());
+            if (cur instanceof ProgramException)             return "program error" + opt(cur.getMessage());
+            if (cur instanceof NumberFormatException)        return "invalid number format.";
+        }
+        String msg = t.getMessage();
+        return (msg == null || msg.isBlank()) ? "unexpected error." : msg;
+    }
+
+    private static String opt(String msg) {
+        return (msg != null && !msg.isBlank()) ? " – " + msg : "";
     }
 }
