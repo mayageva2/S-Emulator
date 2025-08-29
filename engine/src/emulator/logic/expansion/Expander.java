@@ -13,6 +13,7 @@ import java.util.Objects;
 
 public final class Expander {
 
+    //This func expands one layer of expandable instructions
     public List<Instruction> expandOnce(List<Instruction> input) {
         Objects.requireNonNull(input, "input");
 
@@ -26,7 +27,7 @@ public final class Expander {
                 if (produced == null || produced.isEmpty()) {
                     out.add(ins);
                 } else {
-                    for (Instruction child : produced) {
+                    for (Instruction child : produced) {   // Add each produced child
                         if (child == null) continue;
                         if (child instanceof AbstractInstruction ai) {
                             ai.setCreatedFrom(ins);
@@ -34,13 +35,14 @@ public final class Expander {
                         out.add(child);
                     }
                 }
-            } else {
+            } else {   // Non-expandable instruction, keep as is
                 out.add(ins);
             }
         }
         return Collections.unmodifiableList(out);
     }
 
+    //This func builds an ExpansionHelper
     private ExpansionHelper buildHelper(List<Instruction> input) {
         return ExpansionHelper.fromInstructions(
                 input,
@@ -54,6 +56,7 @@ public final class Expander {
         );
     }
 
+    //This func maps a variable’s string representation
     private static VariableType mapVarType(String rep) {
         if (rep == null || rep.isEmpty()) return VariableType.WORK;
         char c = Character.toLowerCase(rep.charAt(0));
@@ -63,6 +66,7 @@ public final class Expander {
         return VariableType.WORK;
     }
 
+    //This func extracts and returns the first integer value
     private static int extractInt(String s) {
         if (s == null) return 0;
         int n = 0, len = s.length();
@@ -86,6 +90,7 @@ public final class Expander {
         return n;
     }
 
+    //This func expands program to the desired degree
     public List<Instruction> expandToDegree(List<Instruction> original, int degree) {
         Objects.requireNonNull(original, "original");
         if (degree <= 0) return Collections.unmodifiableList(new ArrayList<>(original));
@@ -98,6 +103,7 @@ public final class Expander {
         return Collections.unmodifiableList(curr);
     }
 
+    //This func returns the max degree the program can reach
     public int calculateMaxDegree(List<Instruction> original) {
         Objects.requireNonNull(original, "original");
         int degree = 0;
@@ -109,6 +115,7 @@ public final class Expander {
         return degree;
     }
 
+    //This func checks if the instruction is basic
     public boolean isFullyBasic(List<Instruction> list) {
         Objects.requireNonNull(list, "list");
         for (Instruction ins : list) {
@@ -117,34 +124,4 @@ public final class Expander {
         return true;
     }
 
-    public static List<Instruction> expandInstructions(List<Instruction> src, ExpansionHelper helper) {
-        List<Instruction> out = new ArrayList<>();
-        if (src == null) return out;
-
-        for (Instruction ins : src) {
-            if (ins == null) continue;
-
-            if (ins instanceof Expandable ex) {
-                List<Instruction> expanded = ex.expand(helper);
-                if (expanded == null || expanded.isEmpty()) {
-                    out.add(ins);
-                } else {
-                    for (Instruction child : expanded) {
-                        if (child == null) continue;
-                        if (child instanceof AbstractInstruction ai && ai.getCreatedFrom() == null) {
-                            ai.setCreatedFrom(ins);
-                        }
-                        out.add(child);
-                    }
-                }
-            } else {
-                out.add(ins);
-            }
-        }
-        return out;
-    }
-
-    public static List<Instruction> expandProgramOnce(List<Instruction> src, ExpansionHelper helper) {
-        return expandInstructions(src, helper);
-    }
 }
