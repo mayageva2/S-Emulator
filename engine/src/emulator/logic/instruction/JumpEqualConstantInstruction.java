@@ -55,7 +55,13 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
         Variable z1 = helper.freshVar();
         List<Instruction> out = new ArrayList<>();
         Label L1 = helper.freshLabel();
-        out.add(new AssignmentInstruction(z1, var));
+
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            out.add(new AssignmentInstruction(z1, var));
+        } else {
+            out.add(new AssignmentInstruction(z1, var, firstLabel));
+        }
 
         for(long i = 0; i < constantValue; i++) {
             out.add(new JumpZeroInstruction(z1, L1));

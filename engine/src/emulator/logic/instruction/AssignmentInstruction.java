@@ -61,7 +61,13 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
         Label L2 = helper.freshLabel();
         Label L3 = helper.freshLabel();
 
-        out.add(new ZeroVariableInstruction(dst));
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            out.add(new ZeroVariableInstruction(dst));
+        } else {
+            out.add(new ZeroVariableInstruction(dst, firstLabel));
+        }
+
         out.add(new JumpNotZeroInstruction(src, L1));
         out.add(new GoToLabelInstruction(L3));
         out.add(new DecreaseInstruction(src, L1));

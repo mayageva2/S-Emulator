@@ -48,8 +48,13 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
 
         Label L1 = helper.freshLabel();
         Label L = getJzLabel();
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            out.add(new JumpNotZeroInstruction(var, L1));
+        } else {
+            out.add(new JumpNotZeroInstruction(var, L1, firstLabel));
+        }
 
-        out.add(new JumpNotZeroInstruction(var, L1));
         out.add(new GoToLabelInstruction(L));
         out.add(new NeutralInstruction(var, L1));
         return out;

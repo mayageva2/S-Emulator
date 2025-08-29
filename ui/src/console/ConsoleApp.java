@@ -279,7 +279,7 @@ public class ConsoleApp {
                 chain = formatProvenanceChain(iv, originalByIndex);
             }
 
-            io.println(chain == null || chain.isEmpty() ? base : (base + "  <<<   " + chain));
+            io.println(chain == null || chain.isEmpty() ? base : (base + "  >>>   " + chain));
         }
     }
 
@@ -288,7 +288,7 @@ public class ConsoleApp {
         for (InstructionView v : chainViews) {
             parts.add(formatInstruction(v));
         }
-        return String.join("  <<<   ", parts);
+        return String.join("  >>>   ", parts);
     }
 
     private String formatProvenanceChain(InstructionView iv, Map<Integer, InstructionView> originalByIndex) {
@@ -300,14 +300,14 @@ public class ConsoleApp {
             InstructionView origin = originalByIndex.get(idx);
             if (origin != null) parts.add(formatInstruction(origin));
         }
-        return String.join("  <<<   ", parts);
+        return String.join("  >>>   ", parts);
     }
 
     private String formatInstruction(InstructionView iv) {
         String index = "#" + iv.index();
         String type = iv.basic() ? "(B)" : "(S)";
         String label = iv.label() == null ? "" : iv.label();
-        String labelField = String.format("[ %-3s ]", label); // 5-wide label, as spec
+        String labelField = String.format("[ %-3s ]", label); // 5-wide label
         String command = prettyCommand(iv);
         String cycles = "(" + iv.cycles() + ")";
         return String.format("%-4s %-4s %-8s %-20s %s", index, type, labelField, command, cycles);

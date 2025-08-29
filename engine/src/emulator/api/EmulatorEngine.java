@@ -15,9 +15,7 @@ public interface EmulatorEngine {
     LoadResult loadProgram(Path xmlPath);
     RunResult run(Long... input);
     RunResult run(int degree, Long... input);
-    int lastCycles();
     List<RunRecord> history();
-    void clearHistory();
     boolean hasProgramLoaded();
     List<String> extractInputVars(ProgramView pv);
     Path saveOrReplaceVersion(Path original, int version) throws IOException;
