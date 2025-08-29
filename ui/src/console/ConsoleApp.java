@@ -33,15 +33,14 @@ public class ConsoleApp {
         io.println("S-Emulator (Console)");
         while (true) {
             showMenu(io);
-            String choice = io.ask("Choose action [1-7]: ").trim();
+            String choice = io.ask("Choose action [1-6]: ").trim();
             switch (choice) {
                 case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
                 case "3" -> doExpand(io);
                 case "4" -> doRun(io);
                 case "5" -> doHistory(io);
-                case "6" -> doSaveVersion(io);
-                case "7" -> { io.println("Bye!"); return; }
+                case "6" -> { io.println("Bye!"); return; }
                 default -> io.println("Invalid choice. Try again.");
             }
             io.println("");
@@ -56,8 +55,7 @@ public class ConsoleApp {
       3) Show Expanded program
       4) Run
       5) History
-      6) Save version
-      7) Exit
+      6) Exit
       """);
     }
 
@@ -113,16 +111,7 @@ public class ConsoleApp {
             ProgramView pv = engine.programView(0);
             printInstructions(io, pv);
         } else {
-            String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
-            int degree;
-            try {
-                degree = Integer.parseInt(dg);
-            } catch (NumberFormatException e) {
-                degree = 0;
-            }
-            if (degree < 0) degree = 0;
-            if (degree > lastMaxDegree) degree = lastMaxDegree;
-
+            int degree = promptExpansionDegree(io, lastMaxDegree);
             ProgramView pv = engine.programView(degree);
             printInstructionsWithProvenance(io, pv);
         }
@@ -372,52 +361,6 @@ public class ConsoleApp {
             }
         }
         return "";
-    }
-
-    //This func saves version to XML file
-    private void doSaveVersion(ConsoleIO io) {
-        if (!engine.hasProgramLoaded()) {
-            io.println("No program loaded. Load a program first.");
-            return;
-        }
-
-        Path xmlPath = resolveXmlPath(io, this.lastXmlPath);
-        if (xmlPath == null) return; // message already printed in helper
-
-        Integer version = readNonNegativeVersion(io);
-        if (version == null) return; // message already printed in helper
-
-        try {
-            Path saved = engine.saveOrReplaceVersion(xmlPath, version);
-            io.println("[INFO] Saved version " + version + " to " + saved);
-        } catch (Exception e) {
-            io.println("[WARN] Could not save version: " + e.getMessage());
-        }
-    }
-
-    //This func gets XML path
-    private Path resolveXmlPath(ConsoleIO io, Path fallback) {
-        if (fallback != null) return fallback;
-
-        String p = io.ask("Please Enter a path to XML to save as version: ").trim();
-        if (p.isEmpty()) {
-            io.println("No path provided.");
-            return null;
-        }
-        return Paths.get(p);
-    }
-
-    //This func prompts for a non-negative version number
-    private Integer readNonNegativeVersion(ConsoleIO io) {
-        String vStr = io.ask("Version number (e.g. 1): ").trim();
-        try {
-            int v = Integer.parseInt(vStr);
-            if (v < 0) throw new NumberFormatException();
-            return v;
-        } catch (NumberFormatException ex) {
-            io.println("Invalid version number: " + vStr);
-            return null;
-        }
     }
 
     //This func checks whether an instruction is virtual

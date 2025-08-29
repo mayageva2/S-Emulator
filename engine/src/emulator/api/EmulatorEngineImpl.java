@@ -28,7 +28,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
-    private final XmlVersionManager versionMgr = new XmlVersionManager(Paths.get("versions"));
     private final ProgramExpander programExpander = new ProgramExpander();
 
     //This func returns a ProgramView of the currently loaded program
@@ -246,14 +245,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
         return new RunResult(y, cycles, vars);
-    }
-
-    //This func saves or replaces a given file with the specified version number
-    @Override
-    public Path saveOrReplaceVersion(Path original, int version) throws IOException {
-        Objects.requireNonNull(original, "original must not be null");
-        if (version < 0) throw new IllegalArgumentException("version must be non-negative");
-        return versionMgr.saveOrReplaceVersion(original, version);
     }
 
     //This func checks whether a program is currently loaded

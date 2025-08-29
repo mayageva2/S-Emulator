@@ -18,5 +18,4 @@ public interface EmulatorEngine {
     List<RunRecord> history();
     boolean hasProgramLoaded();
     List<String> extractInputVars(ProgramView pv);
-    Path saveOrReplaceVersion(Path original, int version) throws IOException;
 }
