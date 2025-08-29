@@ -38,18 +38,20 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
         setArgument("constantValue", String.valueOf(constantValue));
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         long v = context.getVariableValue(getVariable());
         return (v == constantValue) ? jeConstantLabel : FixedLabel.EMPTY;
     }
 
+    //This func expands an JUMP_EQUAL_CONSTANT instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
 
         Variable var = getVariable();
         if (var == null) {
-            throw new IllegalStateException("JUMP_EQUAL_VARIABLE missing variable");
+            throw new IllegalStateException("JUMP_EQUAL_CONSTANT missing variable");
         }
 
         Variable z1 = helper.freshVar();
@@ -74,6 +76,7 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
         return out;
     }
 
+    //These funcs return label and const value
     public Label getJeConstantLabel() { return jeConstantLabel; }
     public long getConstantValue() { return constantValue; }
 }

@@ -16,6 +16,7 @@ public class ConsoleApp {
     private Path lastXmlPath;
     private int lastMaxDegree = 0;
     private String lastProgramName;
+    private static record InputsCol(List<String> pretty, int width) {}
 
     public ConsoleApp(EmulatorEngine engine) {
         this.engine = engine;
@@ -27,6 +28,7 @@ public class ConsoleApp {
         new ConsoleApp(engine).loop(io);
     }
 
+    //This func runs the main console loop of the emulator
     public void loop(ConsoleIO io) {
         io.println("S-Emulator (Console)");
         while (true) {
@@ -46,6 +48,7 @@ public class ConsoleApp {
         }
     }
 
+    //This func print main menu
     private void showMenu(ConsoleIO io) {
         io.println("""
       1) Load program XML
@@ -58,13 +61,15 @@ public class ConsoleApp {
       """);
     }
 
+    //This func loads an XML file
     private void doLoad(ConsoleIO io) {
-        String raw = io.ask("Enter full XML path: ").trim();
+        String raw = io.ask("Enter full XML path: ").trim();     //Ask user for the XML file path
         if (raw.isEmpty()) {
             io.println("Path cannot be empty.");
             return;
         }
 
+        // Validate file
         Path path = Paths.get(raw);
         if (!Files.exists(path)) {
             io.println("File not found: " + path.toAbsolutePath());
@@ -86,6 +91,7 @@ public class ConsoleApp {
         }
     }
 
+    //This func displays the currently loaded program details
     private void doShowProgram(ConsoleIO io) {
         if (!requireLoaded(io)) return;
         ProgramView pv = engine.programView();
@@ -99,9 +105,9 @@ public class ConsoleApp {
         printInstructions(io, pv);
     }
 
+    //This func displays the currently loaded program expended instructions details
     private void doExpand(ConsoleIO io) {
         if (!requireLoaded(io)) return;
-
 
         if (lastMaxDegree == 0) {
             ProgramView pv = engine.programView(0);
@@ -122,45 +128,17 @@ public class ConsoleApp {
         }
     }
 
+    //This func runs the program
     private void doRun(ConsoleIO io) {
         if (!engine.hasProgramLoaded()) {
             io.println("No program loaded. Use 'Load program XML' first.");
             return;
         }
 
-        int degree;
-        while (true) {
-            String dg = io.ask("Choose expansion degree (0-" + lastMaxDegree + "): ").trim();
-            if (dg.isEmpty()) {
-                degree = 0;
-                break;
-            }
-            try {
-                degree = Integer.parseInt(dg);
-            } catch (NumberFormatException e) {
-                io.println("Invalid number. Please enter an integer between 0 and " + lastMaxDegree + ".");
-                continue;
-            }
-            if (degree < 0) {
-                io.println("Degree cannot be negative. Try again.");
-                continue;
-            }
-            if (degree > lastMaxDegree) {
-                io.println("Degree " + degree + " exceeds max (" + lastMaxDegree + "). Try again.");
-                continue;
-            }
-            break;
-        }
-
+        int degree = promptExpansionDegree(io, lastMaxDegree);
         var pv0 = engine.programView();
         List<String> usedInputIdx = engine.extractInputVars(pv0);
-        io.println("The inputs of this program are:");
-        io.println(String.join(", ", usedInputIdx));
-
-        String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
-        Long[] inputs = csv.isEmpty() ? new Long[0]
-                : Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty())
-                .map(Long::parseLong).toArray(Long[]::new);
+        Long[] inputs = readInputs(io, usedInputIdx);
 
         try {
             var result = engine.run(degree, inputs);
@@ -180,6 +158,42 @@ public class ConsoleApp {
         }
     }
 
+    //This func asks the user for expansion degree
+    private int promptExpansionDegree(ConsoleIO io, int max) {
+        while (true) {
+            String dg = io.ask("Choose expansion degree (0-" + max + "): ").trim();
+            if (dg.isEmpty()) return 0;
+            try {
+                int degree = Integer.parseInt(dg);
+                if (degree < 0) {
+                    io.println("Degree cannot be negative. Try again.");
+                } else if (degree > max) {
+                    io.println("Degree " + degree + " exceeds max (" + max + "). Try again.");
+                } else {
+                    return degree;
+                }
+            } catch (NumberFormatException e) {
+                io.println("Invalid number. Please enter an integer between 0 and " + max + ".");
+            }
+        }
+    }
+
+    //This func print required inputs
+    private Long[] readInputs(ConsoleIO io, List<String> usedInputIdx) {
+        io.println("The inputs of this program are:");
+        io.println(usedInputIdx.isEmpty() ? "(none)" : String.join(", ", usedInputIdx));
+
+        String csv = io.ask("Enter inputs (comma-separated, e.g. 3,6,2): ").trim();
+        return csv.isEmpty()
+                ? new Long[0]
+                : Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toArray(Long[]::new);
+    }
+
+    //This func prints previous runs
     private void doHistory(ConsoleIO io) {
         var history = engine.history();
         if (history.isEmpty()) {
@@ -187,38 +201,41 @@ public class ConsoleApp {
             return;
         }
 
-        List<String> inputsPretty = new ArrayList<>(history.size());
-        int inputsColWidth = "Inputs".length();
-
-        for (var r : history) {
-            String s = formatInputsByPosition(r.inputsCsv());
-            inputsPretty.add(s);
-            if (s.length() > inputsColWidth) inputsColWidth = s.length();
-        }
-
-        io.println(String.format("Run# | Degree | %-" + inputsColWidth + "s | y   | Cycles", "Inputs"));
+        InputsCol col = prepareInputsColumn(history); // widths + prettified inputs
+        io.println(String.format("Run# | Degree | %-" + col.width + "s | y   | Cycles", "Inputs"));
         io.println(
                 repeat('-', 5) + "+" +
-                repeat('-', 8) + "+" +
-                repeat('-', inputsColWidth + 2) + "+" +
-                repeat('-', 5) + "+" +
-                repeat('-', 7)
+                        repeat('-', 8) + "+" +
+                        repeat('-', col.width + 2) + "+" +
+                        repeat('-', 5) + "+" +
+                        repeat('-', 7)
         );
 
+        printHistoryRows(io, history, col.pretty, col.width);
+    }
+
+    //This func creates inputs well spaced print
+    private InputsCol prepareInputsColumn(List<RunRecord> history) {
+        List<String> pretty = new ArrayList<>(history.size());
+        int width = "Inputs".length();
+        for (var r : history) {
+            String s = formatInputsByPosition(r.inputsCsv());
+            pretty.add(s);
+            if (s.length() > width) width = s.length();
+        }
+        return new InputsCol(pretty, width);
+    }
+
+    //This func print all history rows
+    private void printHistoryRows(ConsoleIO io, List<RunRecord> history, List<String> prettyInputs, int inputsColWidth) {
         String rowFmt = "%4d | %6d | %-" + inputsColWidth + "s | %3d | %5d";
         for (int i = 0; i < history.size(); i++) {
             var r = history.get(i);
-            io.println(String.format(
-                    rowFmt,
-                    r.runNumber(),
-                    r.degree(),
-                    inputsPretty.get(i),
-                    r.y(),
-                    r.cycles()
-            ));
+            io.println(String.format(rowFmt, r.runNumber(), r.degree(), prettyInputs.get(i), r.y(), r.cycles()));
         }
     }
 
+    //This func formats a comma-separated input string
     private String formatInputsByPosition(String csv) {
         if (csv == null || csv.isBlank()) return "";
         String[] parts = csv.split(",");
@@ -232,12 +249,14 @@ public class ConsoleApp {
         return sb.toString();
     }
 
+    //This func creates and returns a string n times char string
     private static String repeat(char c, int n) {
         StringBuilder sb = new StringBuilder(Math.max(0, n));
         for (int i = 0; i < n; i++) sb.append(c);
         return sb.toString();
     }
 
+    //This func checks whether a program is loaded
     private boolean requireLoaded(ConsoleIO io) {
         if (!engine.hasProgramLoaded()) {
             io.println("No program loaded. Use 'Load program XML' first.");
@@ -246,14 +265,7 @@ public class ConsoleApp {
         return true;
     }
 
-    private int countRealRows(ProgramView pv) {
-        int expect = 1, count = 0;
-        for (InstructionView iv : pv.instructions()) {
-            if (iv.index() == expect) { count++; expect++; } else break;
-        }
-        return count;
-    }
-
+    //This func prints all non-virtual instructions
     private void printInstructions(ConsoleIO io, ProgramView pv) {
         for (InstructionView iv : pv.instructions()) {
             if (isVirtual(iv)) continue;
@@ -261,6 +273,7 @@ public class ConsoleApp {
         }
     }
 
+    //This func prints each expanded instruction along with its provenance chain
     private void printInstructionsWithProvenance(ConsoleIO io, ProgramView pvExpanded) {
         ProgramView pvOriginal = engine.programView(0);
         Map<Integer, InstructionView> originalByIndex = new HashMap<>();
@@ -283,6 +296,7 @@ public class ConsoleApp {
         }
     }
 
+    //This func formats a provenance chain
     private String formatProvenanceChainFromViews(List<InstructionView> chainViews) {
         List<String> parts = new ArrayList<>();
         for (InstructionView v : chainViews) {
@@ -291,6 +305,7 @@ public class ConsoleApp {
         return String.join("  >>>   ", parts);
     }
 
+    //This func formats an instruction’s provenance chain
     private String formatProvenanceChain(InstructionView iv, Map<Integer, InstructionView> originalByIndex) {
         List<Integer> chain = iv.createdFromChain();
         if (chain == null || chain.isEmpty()) return "";
@@ -303,6 +318,7 @@ public class ConsoleApp {
         return String.join("  >>>   ", parts);
     }
 
+    //This func formats an instruction
     private String formatInstruction(InstructionView iv) {
         String index = "#" + iv.index();
         String type = iv.basic() ? "(B)" : "(S)";
@@ -313,6 +329,7 @@ public class ConsoleApp {
         return String.format("%-4s %-4s %-8s %-20s %s", index, type, labelField, command, cycles);
     }
 
+    //This func generates a readable string representation of an instruction
     private String prettyCommand(InstructionView iv) {
         var args = iv.args();
         switch (iv.opcode()) {
@@ -320,7 +337,6 @@ public class ConsoleApp {
             case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
             case "NEUTRAL":  return args.get(0) + "<-" + args.get(0);
             case "ZERO_VARIABLE": return args.get(0) + "<-0";
-
             case "JUMP_NOT_ZERO": {
                 String tgt = findLabel(args);
                 return "IF " + args.get(0) + " != 0 GOTO " + tgt;
@@ -341,13 +357,13 @@ public class ConsoleApp {
                 String tgt = findLabel(args);
                 return "IF " + args.get(0) + " = " + getArg(args, "variableName") + " GOTO " + tgt;
             }
-
             case "ASSIGNMENT":           return args.get(0) + "<-" + getArg(args,"assignedVariable");
             case "CONSTANT_ASSIGNMENT":  return args.get(0) + "<-" + getArg(args,"constantValue");
             default: return iv.opcode() + " " + String.join(", ", args);
         }
     }
 
+    //This func returns the value for the given key
     private String getArg(List<String> args, String key) {
         for (String a : args) {
             int eq = a.indexOf('=');
@@ -358,31 +374,18 @@ public class ConsoleApp {
         return "";
     }
 
+    //This func saves version to XML file
     private void doSaveVersion(ConsoleIO io) {
         if (!engine.hasProgramLoaded()) {
             io.println("No program loaded. Load a program first.");
             return;
         }
 
-        Path xmlPath = this.lastXmlPath;
-        if (xmlPath == null) {
-            String p = io.ask("Path to XML to save as version: ").trim();
-            if (p.isEmpty()) {
-                io.println("No path provided.");
-                return;
-            }
-            xmlPath = Paths.get(p);
-        }
+        Path xmlPath = resolveXmlPath(io, this.lastXmlPath);
+        if (xmlPath == null) return; // message already printed in helper
 
-        String vStr = io.ask("Version number (e.g. 1): ").trim();
-        int version;
-        try {
-            version = Integer.parseInt(vStr);
-            if (version < 0) throw new NumberFormatException();
-        } catch (NumberFormatException ex) {
-            io.println("Invalid version number: " + vStr);
-            return;
-        }
+        Integer version = readNonNegativeVersion(io);
+        if (version == null) return; // message already printed in helper
 
         try {
             Path saved = engine.saveOrReplaceVersion(xmlPath, version);
@@ -392,6 +395,32 @@ public class ConsoleApp {
         }
     }
 
+    //This func gets XML path
+    private Path resolveXmlPath(ConsoleIO io, Path fallback) {
+        if (fallback != null) return fallback;
+
+        String p = io.ask("Please Enter a path to XML to save as version: ").trim();
+        if (p.isEmpty()) {
+            io.println("No path provided.");
+            return null;
+        }
+        return Paths.get(p);
+    }
+
+    //This func prompts for a non-negative version number
+    private Integer readNonNegativeVersion(ConsoleIO io) {
+        String vStr = io.ask("Version number (e.g. 1): ").trim();
+        try {
+            int v = Integer.parseInt(vStr);
+            if (v < 0) throw new NumberFormatException();
+            return v;
+        } catch (NumberFormatException ex) {
+            io.println("Invalid version number: " + vStr);
+            return null;
+        }
+    }
+
+    //This func checks whether an instruction is virtual
     private boolean isVirtual(InstructionView iv) {
         for (String a : iv.args()) {
             int eq = a.indexOf('=');
@@ -404,8 +433,8 @@ public class ConsoleApp {
         return false;
     }
 
+    //This func extracts and returns the label value
     private String findLabel(List<String> args) {
-
         String v;
         if (!(v = getArg(args, "JNZLabel")).isEmpty()) return v;
         if (!(v = getArg(args, "gotoLabel")).isEmpty()) return v;
@@ -433,31 +462,14 @@ public class ConsoleApp {
         return "";
     }
 
+    //This func prints all variables
     private void printAllVariables(ConsoleIO io, RunResult result, Long[] inputs) {
-        List<VariableView> vars = (result == null || result.vars() == null) ? List.of() : result.vars();
-
-        VariableView yVar = null;
+        VariableView yVar;
         Map<Integer, Long> xValues = new TreeMap<>();
         Map<Integer, Long> zValues = new TreeMap<>();
 
-        for (VariableView v : vars) {
-            if (v == null) continue;
-            String name = v.name() == null ? "" : v.name().toLowerCase(Locale.ROOT);
-            if (v.type() == VarType.RESULT || "y".equals(name)) {
-                yVar = v;
-            } else if (v.type() == VarType.INPUT || name.startsWith("x")) {
-                xValues.put(v.number(), v.value());
-            } else if (v.type() == VarType.WORK || name.startsWith("z")) {
-                zValues.put(v.number(), v.value());
-            }
-        }
-
-        if (inputs != null) {
-            for (int i = 0; i < inputs.length; i++) {
-                int idx = i + 1;
-                xValues.putIfAbsent(idx, inputs[i]);
-            }
-        }
+        yVar = classifyVariables(result, xValues, zValues);
+        fillMissingXFromInputs(xValues, inputs);
 
         io.println("Variables:");
         if (yVar != null) {
@@ -465,16 +477,46 @@ public class ConsoleApp {
         } else {
             io.println("y = " + (result == null ? 0 : result.y()));
         }
-
-        for (Map.Entry<Integer, Long> e : xValues.entrySet()) {
+        for (var e : xValues.entrySet()) {
             io.println("x" + e.getKey() + " = " + e.getValue());
         }
-
-        for (Map.Entry<Integer, Long> e : zValues.entrySet()) {
+        for (var e : zValues.entrySet()) {
             io.println("z" + e.getKey() + " = " + e.getValue());
         }
     }
 
+    //This func classifies RESULT variables
+    private VariableView classifyVariables(RunResult result,
+                                           Map<Integer, Long> xOut,
+                                           Map<Integer, Long> zOut) {
+        List<VariableView> vars = (result == null || result.vars() == null) ? List.of() : result.vars();
+        VariableView yVar = null;
+
+        for (VariableView v : vars) {
+            if (v == null) continue;
+            String name = v.name() == null ? "" : v.name().toLowerCase(Locale.ROOT);
+
+            if (v.type() == VarType.RESULT || "y".equals(name)) {
+                yVar = v;
+            } else if (v.type() == VarType.INPUT || name.startsWith("x")) {
+                xOut.put(v.number(), v.value());
+            } else if (v.type() == VarType.WORK || name.startsWith("z")) {
+                zOut.put(v.number(), v.value());
+            }
+        }
+        return yVar;
+    }
+
+    //This func fills inputs
+    private void fillMissingXFromInputs(Map<Integer, Long> xValues, Long[] inputs) {
+        if (inputs == null) return;
+        for (int i = 0; i < inputs.length; i++) {
+            int idx = i + 1;
+            xValues.putIfAbsent(idx, inputs[i]);
+        }
+    }
+
+    //This func extracts and returns a unique, ordered list of input variable names
     private List<String> extractInputsInUseOrder(ProgramView pv) {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         Pattern PX = Pattern.compile("\\bx(\\d+)\\b");
@@ -489,12 +531,14 @@ public class ConsoleApp {
         return new ArrayList<>(seen);
     }
 
+    //This func scans a text for patterns and adds input variable
     private static void scanForInputs(Pattern PX, String text, LinkedHashSet<String> out) {
         if (text == null || text.isBlank()) return;
         Matcher m = PX.matcher(text);
         while (m.find()) out.add("x" + m.group(1));
     }
 
+    //This func extracts all label names
     private List<String> extractLabelsInUseOrder(ProgramView pv) {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
 
@@ -520,12 +564,14 @@ public class ConsoleApp {
         return ordered;
     }
 
+    //This func checks whether a given string is a valid label
     private static boolean isLabelToken(String s) {
         if (s == null || s.isBlank()) return false;
         if (s.equalsIgnoreCase("EXIT")) return true;
         return s.matches("[Ll]\\d+");
     }
 
+    //This func returns the index of the first element
     private static int indexOfIgnoreCase(List<String> list, String target) {
         for (int i = 0; i < list.size(); i++) {
             if (list.get(i).equalsIgnoreCase(target)) return i;
@@ -533,10 +579,10 @@ public class ConsoleApp {
         return -1;
     }
 
+    //This func extracts the raw token from an argument string
     private static String tokenRaw(String arg) {
         if (arg == null) return "";
         int eq = arg.indexOf('=');
         return (eq > 0) ? arg.substring(0, eq).trim() : arg.trim();
     }
-
 }

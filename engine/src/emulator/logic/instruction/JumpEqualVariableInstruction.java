@@ -40,6 +40,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         setArgument("gotoLabel", jeVariableLabel.getLabelRepresentation());
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         long v  = context.getVariableValue(getVariable());
@@ -52,6 +53,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         return List.of(getVariable(), compareVariable);
     }
 
+    //This func expands an JUMP_EQUAL_VARIABLE instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
 
@@ -93,6 +95,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         return out;
     }
 
+    //These funcs return variable and label
     public Variable getCompareVariable() { return compareVariable; }
     public Label getJeVariableLabel() { return jeVariableLabel; }
 }

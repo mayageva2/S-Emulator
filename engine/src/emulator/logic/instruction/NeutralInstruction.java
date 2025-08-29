@@ -13,6 +13,7 @@ public class NeutralInstruction extends AbstractInstruction {
 
     public NeutralInstruction(Variable variable, Label label) { super(InstructionData.NEUTRAL, variable, label); }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         return FixedLabel.EMPTY;

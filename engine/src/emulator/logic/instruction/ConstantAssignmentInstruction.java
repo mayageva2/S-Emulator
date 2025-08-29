@@ -32,12 +32,14 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
         this.constantValue = constantValue;
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         context.updateVariable(getVariable(), constantValue);
         return FixedLabel.EMPTY;
     }
 
+    //This func expands an CONSTANT_ASSIGNMENT instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
         List<Instruction> out = new ArrayList<>();
@@ -60,6 +62,7 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
         return out;
     }
 
+    //This func returns the constant value
     public long getConstantValue() { return constantValue; }
 }
 

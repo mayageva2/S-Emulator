@@ -18,12 +18,14 @@ public class ZeroVariableInstruction extends AbstractInstruction implements Expa
         super(InstructionData.ZERO_VARIABLE, variable, label);
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         context.updateVariable(getVariable(), 0L);
         return FixedLabel.EMPTY;
     }
 
+    //This func expands an ZERO_VARIABLE instruction
    @Override
    public List<Instruction> expand(ExpansionHelper helper) {
        List<Instruction> out = new ArrayList<>();

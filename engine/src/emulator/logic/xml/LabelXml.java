@@ -10,10 +10,10 @@ public class LabelXml {
     @XmlValue
     private String value;
 
+    // --- getters/setters --- //
     public String getValue() {
         return value;
     }
-
     public void setValue(String value) {
         this.value = value;
     }

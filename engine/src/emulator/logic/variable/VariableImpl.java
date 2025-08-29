@@ -31,11 +31,15 @@ public class VariableImpl implements Variable {
         this.representation = name;
     }
 
+    // ---- getters funcs ---- //
     @Override public VariableType getType() { return type; }
     @Override public int getNumber() { return number; }
     @Override public String getRepresentation() { return representation; }
+
+    //This func checks if variable is empty
     @Override public boolean isEmpty() { return false; }
 
+    //This func checks if variables are equals
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -43,11 +47,13 @@ public class VariableImpl implements Variable {
         return number == that.number && type == that.type;
     }
 
+    //This func returns hash code
     @Override
     public int hashCode() {
         return Objects.hash(type, number);
     }
 
+    //This func returns variable representation
     @Override
     public String toString() {
         return representation;

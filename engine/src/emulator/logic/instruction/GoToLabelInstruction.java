@@ -25,11 +25,13 @@ public class GoToLabelInstruction extends AbstractInstruction implements Expanda
         setArgument("gotoLabel", gtlLabel.getLabelRepresentation());
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         return gtlLabel;
     }
 
+    //This func expands an GOTO_LABEL instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
         List<Instruction> out = new ArrayList<>();
@@ -49,6 +51,7 @@ public class GoToLabelInstruction extends AbstractInstruction implements Expanda
         return out;
     }
 
+    //This func returns target label
     public Label getgtlLabel() { return gtlLabel; }
 
 

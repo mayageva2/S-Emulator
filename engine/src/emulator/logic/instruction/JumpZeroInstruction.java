@@ -31,12 +31,14 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         setArgument("gotoLabel", jzLabel.getLabelRepresentation());
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         long v = context.getVariableValue(getVariable());
         return (v == 0L) ? jzLabel : FixedLabel.EMPTY;
     }
 
+    //This func expands an JUMP_ZERO instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
 
@@ -60,6 +62,7 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         return out;
     }
 
+    //This func returns target label
     public Label getJzLabel() { return jzLabel; }
 
 }

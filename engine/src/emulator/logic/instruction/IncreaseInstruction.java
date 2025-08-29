@@ -15,6 +15,7 @@ public class IncreaseInstruction extends AbstractInstruction {
         super(InstructionData.INCREASE, variable, label);
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
 
