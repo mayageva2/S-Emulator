@@ -3,6 +3,7 @@ package console;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.*;
+import emulator.exception.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -61,33 +62,44 @@ public class ConsoleApp {
 
     //This func loads an XML file
     private void doLoad(ConsoleIO io) {
-        String raw = io.ask("Enter full XML path: ").trim();     //Ask user for the XML file path
-        if (raw.isEmpty()) {
-            io.println("Path cannot be empty.");
-            return;
-        }
+        final String raw = io.ask("Enter full XML path: ").trim();   //Ask user for the XML file path
+        if (raw.isEmpty()) { io.println("Load cancelled: empty path."); return; }
 
-        // Validate file
-        Path path = Paths.get(raw);
-        if (!Files.exists(path)) {
-            io.println("File not found: " + path.toAbsolutePath());
-            return;
-        }
+        final Path path;
+        try { path = Paths.get(raw); }
+        catch (RuntimeException e) { io.println("Load failed: invalid path syntax."); return; }
+
+        if (!Files.exists(path)) { io.println("Load failed: file not found."); return; }
         if (!raw.toLowerCase(Locale.ROOT).endsWith(".xml")) {
-            io.println("Please select a .xml file.");
-            return;
+            io.println("Load failed: file must have .xml extension."); return;
         }
 
         try {
             var res = engine.loadProgram(path);
             lastProgramName = res.programName();
-            lastMaxDegree = res.maxDegree();
-            lastXmlPath = path;
-            io.println("Loaded '" + res.programName() + "' with " + res.instructionCount() + " instructions. Max degree: " + lastMaxDegree);
-        } catch (Exception ex) {
-            io.println("Load failed: " + (ex.getMessage() == null ? "Unknown error" : ex.getMessage()));
+            lastMaxDegree   = res.maxDegree();
+            lastXmlPath     = path;
+            io.println("XML loaded: '" + res.programName() + "' (" +
+                    res.instructionCount() + " instructions). Max degree: " + lastMaxDegree);
+        } catch (XmlWrongExtensionException e) {
+            io.println("Load failed: file must have .xml extension.");
+        } catch (XmlNotFoundException e) {
+            io.println("Load failed: file not found.");
+        } catch (XmlReadException e) {
+            io.println("Load failed: XML is malformed – " + e.getMessage());
+        } catch (XmlInvalidContentException e) {
+            io.println("Load failed: invalid XML content – " + e.getMessage());
+        } catch (InvalidInstructionException e) {
+            io.println("Load failed: invalid instruction – " + e.getMessage());
+        } catch (MissingLabelException e) {
+            io.println("Load failed: missing label – " + e.getMessage());
+        } catch (ProgramException e) {
+            io.println("Load failed: program error – " + e.getMessage());
+        } catch (Exception e) {
+            io.println("Load failed: unexpected error – " + e.getMessage());
         }
     }
+
 
     //This func displays the currently loaded program details
     private void doShowProgram(ConsoleIO io) {

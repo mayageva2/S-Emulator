@@ -1,9 +1,7 @@
 package emulator.api;
 
 import emulator.api.dto.*;
-import emulator.exception.ProgramNotLoadedException;
-import emulator.exception.XmlInvalidContentException;
-import emulator.exception.XmlReadException;
+import emulator.exception.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.ProgramExpander;
@@ -13,6 +11,7 @@ import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.xml.*;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Function;
@@ -180,32 +179,38 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     //This function loads a program from an XML file and validates it
     @Override
-    public LoadResult loadProgram(Path xmlPath) {
-        try {
-            var reader = new XmlProgramReader();
-            var pxml = reader.read(xmlPath);
-
-            var validator = new XmlProgramValidator();
-            validator.validate(pxml);
-
-            this.current = XmlToObjects.toProgram(pxml);
-            this.executor = new ProgramExecutorImpl(this.current);
-
-            this.lastViewProgram = null;
-            history.clear();
-            runCounter = 0;
-
-            return new LoadResult(
-                    current.getName(),
-                    current.getInstructions().size(),
-                    current.calculateMaxDegree()
-            );
-        } catch (XmlReadException e) {
-            throw new XmlInvalidContentException(
-                    e.getMessage(),
-                    Map.of("path", String.valueOf(xmlPath), "cause", e.getClass().getSimpleName())
-            );
+    public LoadResult loadProgram(Path xmlPath)
+            throws XmlWrongExtensionException,
+            XmlNotFoundException,
+            XmlReadException,
+            XmlInvalidContentException,
+            InvalidInstructionException,
+            MissingLabelException,
+            ProgramException,
+            IOException {
+        final String p = String.valueOf(xmlPath);
+        if (!p.toLowerCase(java.util.Locale.ROOT).endsWith(".xml")) {
+            throw new XmlWrongExtensionException("Expected .xml file: " + p);
         }
+        if (!java.nio.file.Files.exists(xmlPath)) {
+            throw new XmlNotFoundException("File not found: " + p);
+        }
+
+        XmlProgramReader reader = new XmlProgramReader();
+        ProgramXml pxml = reader.read(xmlPath);
+        XmlProgramValidator validator = new XmlProgramValidator();
+        validator.validate(pxml);
+        this.current = XmlToObjects.toProgram(pxml);
+        this.executor = new ProgramExecutorImpl(this.current);
+        this.lastViewProgram = null;
+        this.history.clear();
+        this.runCounter = 0;
+
+        return new LoadResult(
+                current.getName(),
+                current.getInstructions().size(),
+                current.calculateMaxDegree()
+        );
     }
 
     //This func runs the currently loaded program at expansion degree 0
