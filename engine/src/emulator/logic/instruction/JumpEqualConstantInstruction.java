@@ -20,24 +20,22 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
 
     public JumpEqualConstantInstruction(Variable variable, long constantValue, Label jeConstantLabel) {
         super(InstructionData.JUMP_EQUAL_CONSTANT, Objects.requireNonNull(variable, "variable"));
-        this.jeConstantLabel = Objects.requireNonNull(jeConstantLabel, "jeConstantLabel");
-        if (constantValue < 0) {
-            throw new IllegalArgumentException("constantValue (K) must be non-negative");
-        }
+        if (constantValue < 0) throw new IllegalArgumentException("constantValue (K) must be non-negative");
         this.constantValue = constantValue;
+        this.jeConstantLabel = Objects.requireNonNull(jeConstantLabel, "jeConstantLabel");
         setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
+        setArgument("constantValue", String.valueOf(constantValue));
     }
 
     public JumpEqualConstantInstruction(Variable variable, long constantValue, Label jeConstantLabel, Label myLabel) {
         super(InstructionData.JUMP_EQUAL_CONSTANT,
                 Objects.requireNonNull(variable, "variable"),
                 Objects.requireNonNull(myLabel, "label"));
-        this.jeConstantLabel = Objects.requireNonNull(jeConstantLabel, "jeConstantLabel");
-        if (constantValue < 0) {
-            throw new IllegalArgumentException("constantValue (K) must be non-negative");
-        }
+        if (constantValue < 0) throw new IllegalArgumentException("constantValue (K) must be non-negative");
         this.constantValue = constantValue;
+        this.jeConstantLabel = Objects.requireNonNull(jeConstantLabel, "jeConstantLabel");
         setArgument("gotoLabel", jeConstantLabel.getLabelRepresentation());
+        setArgument("constantValue", String.valueOf(constantValue));
     }
 
     @Override
@@ -56,23 +54,16 @@ public class JumpEqualConstantInstruction extends AbstractInstruction implements
 
         Variable z1 = helper.freshVar();
         List<Instruction> out = new ArrayList<>();
-
         Label L1 = helper.freshLabel();
-        Label L = jeConstantLabel;
-        /*Label firstLabel = getLabel();
-        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
-        }*/
-
         out.add(new AssignmentInstruction(z1, var));
 
         for(long i = 0; i < constantValue; i++) {
-            out.add(new JumpNotZeroInstruction(z1, L1));
+            out.add(new JumpZeroInstruction(z1, L1));
             out.add(new DecreaseInstruction(z1));
         }
 
         out.add(new JumpNotZeroInstruction(z1, L1));
-        out.add(new GoToLabelInstruction(L));
+        out.add(new GoToLabelInstruction(jeConstantLabel));
         out.add(new NeutralInstruction(var, L1));
         return out;
     }

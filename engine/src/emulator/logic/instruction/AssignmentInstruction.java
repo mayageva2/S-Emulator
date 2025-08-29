@@ -19,12 +19,14 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
     public AssignmentInstruction(Variable target, Variable assignedVariable) {
         super(InstructionData.ASSIGNMENT, Objects.requireNonNull(target, "target"));
         this.assignedVariable = Objects.requireNonNull(assignedVariable, "assignedVariable");
+        setArgument("assignedVariable", assignedVariable.getRepresentation());
     }
 
     public AssignmentInstruction(Variable target, Variable assignedVariable, Label label) {
         super(InstructionData.ASSIGNMENT, Objects.requireNonNull(target, "target"),
                 Objects.requireNonNull(label, "label"));
         this.assignedVariable = Objects.requireNonNull(assignedVariable, "assignedVariable");
+        setArgument("assignedVariable", assignedVariable.getRepresentation());
     }
 
     @Override
@@ -53,11 +55,6 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
         }
 
         List<Instruction> out = new ArrayList<>();
-
-       /* Label firstLabel = getLabel();
-        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
-        }*/
 
         Variable tmp = helper.freshVar();
         Label L1 = helper.freshLabel();
