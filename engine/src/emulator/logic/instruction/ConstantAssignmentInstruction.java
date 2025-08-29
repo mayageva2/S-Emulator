@@ -46,13 +46,15 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
             throw new IllegalStateException("CONSTANT_ASSIGNMENT missing variable");
         }
 
-        Label firstLabel = getLabel();
+       /* Label firstLabel = getLabel();
         if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
             firstLabel = helper.freshLabel();
-        }
+        }*/
 
-        out.add(new ZeroVariableInstruction(var, firstLabel));
-        out.add(new IncreaseInstruction(var));
+        out.add(new ZeroVariableInstruction(var));
+        for(int i = 0; i < constantValue; i++) {
+            out.add(new IncreaseInstruction(var));
+        }
 
         return out;
     }

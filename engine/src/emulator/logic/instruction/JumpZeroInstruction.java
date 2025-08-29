@@ -45,19 +45,13 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         if (var == null) {
             throw new IllegalStateException("JUMP_ZERO missing variable");
         }
-        Variable y = new VariableImpl(VariableType.RESULT, 0);
-
-        Label firstLabel = getLabel();
-        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
-        }
 
         Label L1 = helper.freshLabel();
-        Label L = jzLabel;
+        Label L = getJzLabel();
 
-        out.add(new JumpNotZeroInstruction(var, L1, firstLabel));
+        out.add(new JumpNotZeroInstruction(var, L1));
         out.add(new GoToLabelInstruction(L));
-        out.add(new NeutralInstruction(y, L1));
+        out.add(new NeutralInstruction(var, L1));
         return out;
     }
 

@@ -66,7 +66,6 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
 
         Variable z1 = helper.freshVar();
         Variable z2 = helper.freshVar();
-        Variable y = new VariableImpl(VariableType.RESULT, 0);
 
         List<Instruction> out = new ArrayList<>();
 
@@ -74,12 +73,12 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         Label L2 = helper.freshLabel();
         Label L3 = helper.freshLabel();
         Label L = jeVariableLabel;
-        Label firstLabel = getLabel();
-        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
-        }
+//        Label firstLabel = getLabel();
+//        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+//            firstLabel = helper.freshLabel();
+//        }
 
-        out.add(new AssignmentInstruction(z1, var, firstLabel));
+        out.add(new AssignmentInstruction(z1, var));
         out.add(new AssignmentInstruction(z2, compareVar));
         out.add(new JumpZeroInstruction(z1, L3, L2));
         out.add(new JumpZeroInstruction(z2, L1));
@@ -87,7 +86,7 @@ public class JumpEqualVariableInstruction extends AbstractInstruction implements
         out.add(new DecreaseInstruction(z2));
         out.add(new GoToLabelInstruction(L2));
         out.add(new JumpZeroInstruction(z2, L, L3));
-        out.add(new NeutralInstruction(y, L1));
+        out.add(new NeutralInstruction(var, L1));
 
         return out;
     }

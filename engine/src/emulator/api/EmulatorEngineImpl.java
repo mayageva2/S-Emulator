@@ -97,22 +97,32 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             List<InstructionView> provenance = new ArrayList<>();
             IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
             Instruction cur = ins.getCreatedFrom();
-            int curDeg = degree - 1;
+            int guessDeg = degree - 1;
 
-            while (cur != null && curDeg >= 0 && !seen.containsKey(cur)) {
+            while (cur != null && !seen.containsKey(cur)) {
                 seen.put(cur, Boolean.TRUE);
 
-                Integer idxAtDeg = indexMaps.get(curDeg).get(cur);
+                int foundDeg = -1;
+                for (int d = Math.min(guessDeg, degree - 1); d >= 0; d--) {
+                    if (indexMaps.get(d).containsKey(cur)) { foundDeg = d; break; }
+                }
+                if (foundDeg < 0) {
+                    for (int d = degree - 1; d >= 0; d--) {
+                        if (indexMaps.get(d).containsKey(cur)) { foundDeg = d; break; }
+                    }
+                }
+
                 InstructionView v = mkViewNoIndex.apply(cur);
+                int idx = (foundDeg >= 0) ? indexMaps.get(foundDeg).get(cur) : -1;
                 provenance.add(new InstructionView(
-                        (idxAtDeg == null ? -1 : idxAtDeg),
+                        idx,
                         v.opcode(), v.label(),
                         v.basic(), v.cycles(), v.args(),
                         List.of(), List.of()
                 ));
 
                 cur = cur.getCreatedFrom();
-                curDeg--;
+                guessDeg = (foundDeg >= 0) ? (foundDeg - 1) : (guessDeg - 1);
             }
 
             InstructionView self = mkViewNoIndex.apply(ins);

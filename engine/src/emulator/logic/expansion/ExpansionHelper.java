@@ -50,27 +50,59 @@ public final class ExpansionHelper {
     public static Set<String> collectUsedVariableNames(List<Instruction> list) {
         Set<String> s = new HashSet<>();
         if (list == null) return s;
+
         for (Instruction i : list) {
             if (i == null) continue;
+
+            // main var
             Variable v = i.getVariable();
             if (v != null) {
                 String name = v.getRepresentation();
                 if (name != null && !name.isEmpty()) s.add(name);
+            }
+
+            // vars inside args
+            Map<String,String> args = i.getArguments();
+            if (args != null) {
+                for (String val : args.values()) {
+                    if (val == null) continue;
+                    String rep = val.trim();
+                    if (rep.isEmpty()) continue;
+
+                    char c0 = Character.toLowerCase(rep.charAt(0));
+                    if ((c0 == 'x' || c0 == 'z') && rep.length() > 1 && rep.substring(1).chars().allMatch(Character::isDigit)) {
+                        s.add(Character.toLowerCase(c0) == 'x' ? "x" + rep.substring(1) : "z" + rep.substring(1));
+                    } else if (rep.equalsIgnoreCase("y")) {
+                        s.add("y");
+                    }
+                }
             }
         }
         return s;
     }
 
     public static Set<String> collectUsedLabelNames(List<Instruction> list) {
-        Set<String> s = new java.util.LinkedHashSet<>();
+        Set<String> s = new LinkedHashSet<>();
         if (list == null) return s;
+
         for (Instruction i : list) {
             if (i == null) continue;
+
             Label lab = i.getLabel();
-            if (lab == null) continue;
-            String name = lab.getLabelRepresentation();
-            if (name != null && !name.isEmpty()) {
-                s.add(name);
+            if (lab != null) {
+                String name = lab.getLabelRepresentation();
+                if (name != null && !name.isEmpty()) s.add(name.startsWith("l") ? "L" + name.substring(1) : name);
+            }
+
+            Map<String,String> args = i.getArguments();
+            if (args != null) {
+                for (String val : args.values()) {
+                    if (val == null) continue;
+                    String rep = val.trim();
+                    if (rep.matches("(?i)^L\\d+$")) {
+                        s.add("L" + rep.substring(1));
+                    }
+                }
             }
         }
         return s;

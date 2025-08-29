@@ -38,7 +38,7 @@ public class GoToLabelInstruction extends AbstractInstruction implements Expanda
 
         Variable var = helper.freshVar();
         out.add(new IncreaseInstruction(var));
-        out.add(new JumpNotZeroInstruction(var, gtlLabel));
+        out.add(new JumpNotZeroInstruction(var, getgtlLabel()));
 
         return out;
     }
