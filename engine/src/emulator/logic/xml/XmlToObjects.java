@@ -1,8 +1,6 @@
 package emulator.logic.xml;
 
 import emulator.exception.InvalidInstructionException;
-import emulator.exception.XmlInvalidContentException;
-import emulator.exception.XmlReadException;
 import emulator.logic.instruction.*;
 import emulator.logic.label.*;
 import emulator.logic.program.*;

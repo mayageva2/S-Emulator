@@ -7,8 +7,6 @@ import emulator.logic.variable.Variable;
 
 import java.util.*;
 
-import static emulator.logic.label.FixedLabel.EMPTY;
-
 public class ProgramImpl implements Program {
 
     private final String name;
