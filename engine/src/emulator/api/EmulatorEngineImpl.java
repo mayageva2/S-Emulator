@@ -13,9 +13,7 @@ import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.xml.*;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -28,7 +26,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
-    private final ProgramExpander programExpander = new ProgramExpander();
+    private ProgramExpander programExpander = new ProgramExpander();
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -249,7 +247,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     //This func checks whether a program is currently loaded
     @Override
-    public boolean hasProgramLoaded() { return current != null; }
+    public boolean hasProgramLoaded() {
+        return current != null;
+    }
 
     //This func ensures a program is loaded
     private void requireLoaded() {
@@ -281,5 +281,4 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public List<RunRecord> history() {
         return Collections.unmodifiableList(history);
     }
-
 }

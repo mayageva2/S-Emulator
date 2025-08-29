@@ -5,7 +5,6 @@ import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunRecord;
 import emulator.api.dto.RunResult;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
