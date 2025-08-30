@@ -31,7 +31,7 @@ public class ConsoleApp {
 
     //This func runs the main console loop of the emulator
     public void loop(ConsoleIO io) {
-        io.println("S-Emulator (Console)");
+        io.println("S-Emulator");
         while (true) {
             showMenu(io);
             String choice = io.ask("Choose action [1-8]: ").trim();
