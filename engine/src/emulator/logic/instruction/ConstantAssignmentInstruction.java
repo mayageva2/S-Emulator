@@ -64,6 +64,18 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
 
     //This func returns the constant value
     public long getConstantValue() { return constantValue; }
+
+    //This func return args
+    @Override
+    public java.util.Map<String, String> getArguments() {
+        java.util.Map<String, String> m = new java.util.LinkedHashMap<>();
+        // if AbstractInstruction already has arguments, merge them:
+        java.util.Map<String, String> base = super.getArguments();
+        if (base != null) m.putAll(base);
+
+        m.put("constantValue", Long.toString(constantValue));
+        return m;
+    }
 }
 
 
