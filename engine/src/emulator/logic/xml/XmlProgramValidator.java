@@ -97,6 +97,13 @@ public class XmlProgramValidator {
     private void checkLabelFormats(List<String> labels) {
         List<String> badFormat = new ArrayList<>();
         for (String label : labels) {
+            if (isExitLabel(label)) {
+                throw new InvalidInstructionException(
+                        "LABEL",
+                        "Reserved label name cannot be used as an instruction label: 'EXIT'",
+                        -1
+                );
+            }
             if (!LABEL_FMT.matcher(label).matches()) {
                 badFormat.add(label);
             }
@@ -118,7 +125,7 @@ public class XmlProgramValidator {
         List<String> missing = new ArrayList<>();
         for (String ref : refs) {
             if (isBlank(ref)) continue;
-            if ("EXIT".equals(ref)) continue;
+            if (isExitLabel(ref)) continue;
             if (!defined.contains(ref)) {
                 missing.add(ref);
             }
@@ -194,6 +201,17 @@ public class XmlProgramValidator {
                     idx
             );
         }
+
+        String valTrim = valRaw.trim();
+        if (!isExitLabel(valTrim) && !LABEL_FMT.matcher(valTrim).matches()) {
+            String opcode = (ins.getName() == null ? "<unknown>" : ins.getName());
+            throw new InvalidInstructionException(
+                    norm(opcode),
+                    "Invalid label format for argument '" + nameRaw + "' at instruction #" + idx +
+                            ": '" + valRaw + "' (expected L<number> or EXIT)",
+                    idx
+            );
+        }
         out.add(norm(valRaw));
     }
 
@@ -203,5 +221,10 @@ public class XmlProgramValidator {
             case "GOTOLABEL", "JNZLABEL", "JZLABEL", "JECONSTANTLABEL", "JEVARIABLELABEL" -> true;
             default -> false;
         };
+    }
+
+    //This func checks if label is EXIT
+    private static boolean isExitLabel(String s) {
+        return s != null && s.trim().equalsIgnoreCase("EXIT");
     }
 }
