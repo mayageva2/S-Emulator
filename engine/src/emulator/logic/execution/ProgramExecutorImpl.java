@@ -87,10 +87,10 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
 
-        if (next == FixedLabel.EXIT) {
+        if (isExit(next)) {
             return instructions.size(); // exit loop
         }
-        if (next == FixedLabel.EMPTY) {
+        if (isEmpty(next))  {
             return currentIndex + 1;
         }
 
@@ -119,5 +119,21 @@ public class ProgramExecutorImpl implements ProgramExecutor{
             }
         }
         return maxIdx;
+    }
+
+    //This func checks if label is EXIT
+    private static boolean isExit(Label l) {
+        if (l == null) return false;
+        if (l == FixedLabel.EXIT) return true; // fast-path for your singleton
+        String s = l.getLabelRepresentation();
+        return s != null && s.trim().equalsIgnoreCase("EXIT");
+    }
+
+    //This func checks if label is EMPTY
+    private static boolean isEmpty(Label l) {
+        if (l == null) return true;
+        if (l == FixedLabel.EMPTY) return true;
+        String s = l.getLabelRepresentation();
+        return s == null || s.trim().isEmpty();
     }
 }
