@@ -242,39 +242,74 @@ public class ConsoleApp {
             return;
         }
 
-        InputsCol col = prepareInputsColumn(history); // widths + prettified inputs
-        io.println(String.format("Run# | Degree | %-" + col.width + "s | y   | Cycles", "Inputs"));
-        io.println(
-                repeat('-', 5) + "+" +
-                        repeat('-', 8) + "+" +
-                        repeat('-', col.width + 2) + "+" +
-                        repeat('-', 5) + "+" +
-                        repeat('-', 7)
-        );
-
-        printHistoryRows(io, history, col.pretty, col.width);
+        List<String> prettyInputs = prettifyInputs(history);
+        ColWidths w = computeWidths(history, prettyInputs);
+        printHistoryTable(io, history, prettyInputs, w);
     }
 
-    //This func creates inputs well spaced print
-    private InputsCol prepareInputsColumn(List<RunRecord> history) {
+    private static record ColWidths(int run, int degree, int inputs, int y, int cycles) {}
+
+    //This func formats input
+    private List<String> prettifyInputs(List<RunRecord> history) {
         List<String> pretty = new ArrayList<>(history.size());
-        int width = "Inputs".length();
         for (var r : history) {
-            String s = formatInputsByPosition(r.inputsCsv());
-            pretty.add(s);
-            if (s.length() > width) width = s.length();
+            pretty.add(formatInputsByPosition(r.inputsCsv()));
         }
-        return new InputsCol(pretty, width);
+        return pretty;
     }
 
-    //This func print all history rows
-    private void printHistoryRows(ConsoleIO io, List<RunRecord> history, List<String> prettyInputs, int inputsColWidth) {
-        String rowFmt = "%4d | %6d | %-" + inputsColWidth + "s | %3d | %5d";
+    //This func checks max width for each column
+    private ColWidths computeWidths(List<RunRecord> history, List<String> prettyInputs) {
+        String hRun = "Run#", hDegree = "Degree", hInputs = "Inputs", hY = "y", hCycles = "Cycles";
+
+        int runW    = hRun.length();
+        int degreeW = hDegree.length();
+        int inputsW = hInputs.length();
+        int yW      = hY.length();
+        int cyclesW = hCycles.length();
+
         for (int i = 0; i < history.size(); i++) {
             var r = history.get(i);
-            io.println(String.format(rowFmt, r.runNumber(), r.degree(), prettyInputs.get(i), r.y(), r.cycles()));
+            runW    = Math.max(runW,    String.valueOf(r.runNumber()).length());
+            degreeW = Math.max(degreeW, String.valueOf(r.degree()).length());
+            inputsW = Math.max(inputsW, prettyInputs.get(i).length());
+            yW      = Math.max(yW,      String.valueOf(r.y()).length());
+            cyclesW = Math.max(cyclesW, String.valueOf(r.cycles()).length());
+        }
+
+        return new ColWidths(runW, degreeW, inputsW, yW, cyclesW);
+    }
+
+    //This func prints history
+    private void printHistoryTable(ConsoleIO io, List<RunRecord> history, List<String> prettyInputs, ColWidths w) {
+
+        String hRun = "Run#", hDegree = "Degree", hInputs = "Inputs", hY = "y", hCycles = "Cycles";     // headers
+        String headerFmt = "%-" + w.run() + "s | %-" + w.degree() + "s | %-" + w.inputs() + "s | %-" + w.y() + "s | %-" + w.cycles() + "s";
+        io.println(String.format(headerFmt, hRun, hDegree, hInputs, hY, hCycles));
+
+        io.println(
+                repeat('-', w.run())   + "-+-" +
+                        repeat('-', w.degree())+ "-+-" +
+                        repeat('-', w.inputs())+ "-+-" +
+                        repeat('-', w.y())     + "-+-" +
+                        repeat('-', w.cycles())
+        );
+
+        String rowFmt = "%"+w.run()+"d | %"+w.degree()+"d | %-" + w.inputs() + "s | %"+w.y()+"d | %"+w.cycles()+"d";
+        for (int i = 0; i < history.size(); i++) {
+            var r = history.get(i);
+            io.println(String.format(
+                    rowFmt,
+                    r.runNumber(),
+                    r.degree(),
+                    prettyInputs.get(i),
+                    r.y(),
+                    r.cycles()
+            ));
         }
     }
+
+
 
     //This func formats a comma-separated input string
     private String formatInputsByPosition(String csv) {
