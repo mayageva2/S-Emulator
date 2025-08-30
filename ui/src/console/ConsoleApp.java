@@ -41,20 +41,8 @@ public class ConsoleApp {
                 case "3" -> doExpand(io);
                 case "4" -> doRun(io);
                 case "5" -> doHistory(io);
-                case "6" -> {
-                    String path = io.ask("Enter full path (without extension) to save state: ");
-                    try { engine.saveState(Paths.get(path)); io.println("Saved!"); }
-                    catch (Exception e) { io.println("Save failed: " + e.getMessage()); }
-                }
-                case "7" -> {
-                    String path = io.ask("Enter full path (without extension) to load state: ");
-                    try {
-                        engine.loadState(Paths.get(path));
-                        io.println("Loaded!");
-                    } catch (Exception e) {
-                        io.println("Load failed: " + e.getMessage());
-                    }
-                }
+                case "6" -> doSaveState(io);
+                case "7" -> doLoadState(io);
                 case "8" -> { io.println("Bye!"); return; }
                 default -> io.println("Invalid choice. Try again.");
             }
@@ -161,22 +149,17 @@ public class ConsoleApp {
             return;
         }
 
-        int degree = promptExpansionDegree(io, lastMaxDegree);
-        var pv0 = engine.programView();
-        List<String> usedInputIdx = engine.extractInputVars(pv0);
+        int degree = 0;
+        if (lastMaxDegree != 0) {
+            degree = promptExpansionDegree(io, lastMaxDegree);
 
-        Long[] inputs;
-        try {
-            inputs = readInputs(io, usedInputIdx);
-        } catch (Exception e) {
-            io.println("Run cancelled: " + friendlyMsg(e));
-            return;
         }
 
+        var pv = engine.programView(degree);
+        Long[] inputs = getInputs(io, pv);
         try {
             var result = engine.run(degree, inputs);
 
-            ProgramView pv = engine.programView();
             if (degree == 0) {
                 printInstructions(io, pv);
             } else {
@@ -189,6 +172,23 @@ public class ConsoleApp {
         } catch (Exception e) {
             io.println("Run failed: " + friendlyMsg(e));
         }
+    }
+
+    //This func returns all inputs
+    private Long[] getInputs(ConsoleIO io, ProgramView pv){
+        List<String> usedInputIdx = engine.extractInputVars(pv);
+        Long[] inputs = null;
+        boolean validInputs = false;
+        while (!validInputs) {
+            try {
+                inputs = readInputs(io, usedInputIdx);
+                validInputs = true;
+            } catch (Exception e) {
+                io.println("Invalid input: " + friendlyMsg(e));
+                io.println("Please try again");
+            }
+        }
+        return inputs;
     }
 
     //This func asks the user for expansion degree
@@ -223,6 +223,11 @@ public class ConsoleApp {
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
                     .map(Long::parseLong)
+                    .peek(n -> {
+                        if (n < 0) {
+                            throw new IllegalArgumentException("Negative numbers are not allowed: " + n);
+                        }
+                    })
                     .toArray(Long[]::new);
         } catch (NumberFormatException nfe) {
             throw nfe;
@@ -290,6 +295,28 @@ public class ConsoleApp {
         StringBuilder sb = new StringBuilder(Math.max(0, n));
         for (int i = 0; i < n; i++) sb.append(c);
         return sb.toString();
+    }
+
+    //This func saves current state
+    private void doSaveState(ConsoleIO io){
+        if (!engine.hasProgramLoaded()) {
+            io.println("No program loaded. Use 'Load program XML' first.");
+            return;
+        }
+        String path = io.ask("Enter full path (without extension) to save state: ");
+        try { engine.saveState(Paths.get(path)); io.println("Saved!"); }
+        catch (Exception e) { io.println("Save failed: " + e.getMessage()); }
+    }
+
+    //This func loads saved state from file
+    private void doLoadState(ConsoleIO io){
+        String path = io.ask("Enter full path (without extension) to load state: ");
+        try {
+            engine.loadState(Paths.get(path));
+            io.println("Loaded!");
+        } catch (Exception e) {
+            io.println("Load failed: " + e.getMessage());
+        }
     }
 
     //This func checks whether a program is loaded
@@ -590,7 +617,7 @@ public class ConsoleApp {
             if (cur instanceof MissingLabelException)        return "missing label" + opt(cur.getMessage());
             if (cur instanceof InvalidInstructionException)  return "invalid instruction" + opt(cur.getMessage());
             if (cur instanceof ProgramException)             return "program error" + opt(cur.getMessage());
-            if (cur instanceof NumberFormatException)        return "invalid number format.";
+            if (cur instanceof NumberFormatException)        return "should be Integer.";
         }
         String msg = t.getMessage();
         return (msg == null || msg.isBlank()) ? "unexpected error." : msg;
@@ -599,4 +626,5 @@ public class ConsoleApp {
     private static String opt(String msg) {
         return (msg != null && !msg.isBlank()) ? " – " + msg : "";
     }
+
 }
