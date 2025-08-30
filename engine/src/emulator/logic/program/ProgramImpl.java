@@ -5,14 +5,16 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class ProgramImpl implements Program {
+public class ProgramImpl implements Program, Serializable {
 
     private final String name;
     private final List<Instruction> instructions;
     private final Set<Variable> variables;
     private final Map<String, Integer> labelToIndex;
+    private static final long serialVersionUID = 1L;
 
     public ProgramImpl(String name) {
         this.name = name;

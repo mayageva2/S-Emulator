@@ -12,20 +12,25 @@ import emulator.logic.program.Program;
 import emulator.logic.xml.*;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
-public class EmulatorEngineImpl implements EmulatorEngine {
+public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
 
     private Program current;
     private Program lastViewProgram;
-    private ProgramExecutor executor;
+    private transient ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
-    private ProgramExpander programExpander = new ProgramExpander();
+    private transient ProgramExpander programExpander = new ProgramExpander();
+    private static final long serialVersionUID = 1L;
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -285,5 +290,37 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public List<RunRecord> history() {
         return Collections.unmodifiableList(history);
+    }
+
+    //This func saves the program's state
+    @Override
+    public void saveState(Path fileWithoutExt) throws Exception {
+        try (var oos = new ObjectOutputStream(
+                Files.newOutputStream(fileWithoutExt.resolveSibling(fileWithoutExt.getFileName() + ".semu")))) {
+            oos.writeObject(this);
+        }
+    }
+
+    //This func loads the program's state
+    @Override
+    public void loadState(Path fileWithoutExt) throws Exception {
+        try (var ois = new ObjectInputStream(
+                Files.newInputStream(fileWithoutExt.resolveSibling(fileWithoutExt.getFileName() + ".semu")))) {
+            EmulatorEngineImpl loaded = (EmulatorEngineImpl) ois.readObject();
+
+            this.current = loaded.current;
+            this.lastViewProgram = loaded.lastViewProgram;
+            this.executor = loaded.executor;
+            this.history.clear();
+            this.history.addAll(loaded.history);
+            this.runCounter = loaded.runCounter;
+        }
+    }
+
+    //This func creates heavy objects
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        this.executor = new ProgramExecutorImpl(this.current);
+        this.programExpander = new ProgramExpander();
     }
 }

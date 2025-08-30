@@ -34,14 +34,28 @@ public class ConsoleApp {
         io.println("S-Emulator (Console)");
         while (true) {
             showMenu(io);
-            String choice = io.ask("Choose action [1-6]: ").trim();
+            String choice = io.ask("Choose action [1-8]: ").trim();
             switch (choice) {
                 case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
                 case "3" -> doExpand(io);
                 case "4" -> doRun(io);
                 case "5" -> doHistory(io);
-                case "6" -> { io.println("Bye!"); return; }
+                case "6" -> {
+                    String path = io.ask("Enter full path (without extension) to save state: ");
+                    try { engine.saveState(Paths.get(path)); io.println("Saved!"); }
+                    catch (Exception e) { io.println("Save failed: " + e.getMessage()); }
+                }
+                case "7" -> {
+                    String path = io.ask("Enter full path (without extension) to load state: ");
+                    try {
+                        engine.loadState(Paths.get(path));
+                        io.println("Loaded!");
+                    } catch (Exception e) {
+                        io.println("Load failed: " + e.getMessage());
+                    }
+                }
+                case "8" -> { io.println("Bye!"); return; }
                 default -> io.println("Invalid choice. Try again.");
             }
             io.println("");
@@ -56,7 +70,9 @@ public class ConsoleApp {
       3) Show Expanded program
       4) Run
       5) History
-      6) Exit
+      6) Save state
+      7) Load state
+      8) Exit
       """);
     }
 

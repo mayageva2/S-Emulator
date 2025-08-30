@@ -1,12 +1,14 @@
 package emulator.logic.variable;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class VariableImpl implements Variable {
+public class VariableImpl implements Variable, Serializable {
 
     private final VariableType type;
     private final int number;
     private final String representation;
+    private static final long serialVersionUID = 1L;
 
     public VariableImpl(VariableType type, int number) {
         this.type = type;

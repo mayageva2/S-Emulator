@@ -27,4 +27,6 @@ public interface EmulatorEngine {
             MissingLabelException,         // label refs without definition
             ProgramException,              // other domain errors
             IOException;                   // reader surfaces raw IO
+    void saveState(Path fileWithoutExt) throws Exception;
+    void loadState(Path fileWithoutExt) throws Exception;
 }

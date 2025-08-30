@@ -1,5 +1,6 @@
 package emulator.api.dto;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -10,7 +11,9 @@ public record RunRecord(
         List<Long> inputs,
         long y,
         int cycles
-){
+) implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     public static RunRecord of(int runNumber, int degree, long[] inputs, long y, int cycles) {
         List<Long> in = (inputs == null) ? List.of() : Arrays.stream(inputs).boxed().toList();
         return new RunRecord(runNumber, degree, in, y, cycles);

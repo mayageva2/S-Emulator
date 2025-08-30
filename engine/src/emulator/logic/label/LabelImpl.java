@@ -1,8 +1,11 @@
 package emulator.logic.label;
 
-public class LabelImpl implements Label{
+import java.io.Serializable;
+
+public class LabelImpl implements Label, Serializable {
 
     private final String label;
+    private static final long serialVersionUID = 1L;
 
     public LabelImpl(String name) {  //Constructor that receives a string
         if (!name.startsWith("L")) {

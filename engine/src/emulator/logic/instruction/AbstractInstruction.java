@@ -5,9 +5,10 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.io.Serializable;
 import java.util.*;
 
-public abstract class AbstractInstruction implements Instruction {
+public abstract class AbstractInstruction implements Instruction, Serializable {
 
     private final InstructionData instructionData;
     private final Label label;
@@ -15,6 +16,7 @@ public abstract class AbstractInstruction implements Instruction {
     private final Map<String, String> arguments = new HashMap<>();
     private int degree;
     private Instruction createdFrom;
+    private static final long serialVersionUID = 1L;
 
     public AbstractInstruction(InstructionData instructionData) {
         this(instructionData,null, FixedLabel.EMPTY);
