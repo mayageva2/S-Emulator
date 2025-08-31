@@ -1,12 +1,14 @@
 package emulator.logic.variable;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class VariableImpl implements Variable {
+public class VariableImpl implements Variable, Serializable {
 
     private final VariableType type;
     private final int number;
     private final String representation;
+    private static final long serialVersionUID = 1L;
 
     public VariableImpl(VariableType type, int number) {
         this.type = type;
@@ -31,11 +33,15 @@ public class VariableImpl implements Variable {
         this.representation = name;
     }
 
+    // ---- getters funcs ---- //
     @Override public VariableType getType() { return type; }
     @Override public int getNumber() { return number; }
     @Override public String getRepresentation() { return representation; }
+
+    //This func checks if variable is empty
     @Override public boolean isEmpty() { return false; }
 
+    //This func checks if variables are equals
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -43,11 +49,13 @@ public class VariableImpl implements Variable {
         return number == that.number && type == that.type;
     }
 
+    //This func returns hash code
     @Override
     public int hashCode() {
         return Objects.hash(type, number);
     }
 
+    //This func returns variable representation
     @Override
     public String toString() {
         return representation;

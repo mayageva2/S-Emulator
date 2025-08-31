@@ -5,16 +5,16 @@ import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
 
+import java.io.Serializable;
 import java.util.*;
 
-import static emulator.logic.label.FixedLabel.EMPTY;
-
-public class ProgramImpl implements Program {
+public class ProgramImpl implements Program, Serializable {
 
     private final String name;
     private final List<Instruction> instructions;
     private final Set<Variable> variables;
     private final Map<String, Integer> labelToIndex;
+    private static final long serialVersionUID = 1L;
 
     public ProgramImpl(String name) {
         this.name = name;
@@ -23,9 +23,11 @@ public class ProgramImpl implements Program {
         this. labelToIndex = new HashMap<>();
     }
 
+    //This func returns program name
     @Override
     public String getName() { return name; }
 
+    //This func adds an instruction to program
     @Override
     public void addInstruction(Instruction instruction) {
         Objects.requireNonNull(instruction, "instruction must not be null");
@@ -50,16 +52,17 @@ public class ProgramImpl implements Program {
         }
     }
 
+    //This func returns all instructions in program
     @Override
-    public List<Instruction> getInstructions() {
-        return Collections.unmodifiableList(instructions);
-    }
+    public List<Instruction> getInstructions() { return Collections.unmodifiableList(instructions); }
 
+    //This func returns all variables in program
     @Override
     public Set<Variable> getVariables() {
         return  Collections.unmodifiableSet(variables);
     }
 
+    //This func returns the instructions at specific label
     @Override
     public Instruction instructionAt(Label label) {
         String key = label.getLabelRepresentation();
@@ -70,6 +73,7 @@ public class ProgramImpl implements Program {
         return instructions.get(idx);
     }
 
+    //This func returns program's max degree
     @Override
     public int calculateMaxDegree() {
         int max = 0;

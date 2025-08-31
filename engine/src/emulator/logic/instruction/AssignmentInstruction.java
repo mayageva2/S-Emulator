@@ -19,14 +19,17 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
     public AssignmentInstruction(Variable target, Variable assignedVariable) {
         super(InstructionData.ASSIGNMENT, Objects.requireNonNull(target, "target"));
         this.assignedVariable = Objects.requireNonNull(assignedVariable, "assignedVariable");
+        setArgument("assignedVariable", assignedVariable.getRepresentation());
     }
 
     public AssignmentInstruction(Variable target, Variable assignedVariable, Label label) {
         super(InstructionData.ASSIGNMENT, Objects.requireNonNull(target, "target"),
                 Objects.requireNonNull(label, "label"));
         this.assignedVariable = Objects.requireNonNull(assignedVariable, "assignedVariable");
+        setArgument("assignedVariable", assignedVariable.getRepresentation());
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         long value = context.getVariableValue(getAssignedVariable());
@@ -34,37 +37,39 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
         return FixedLabel.EMPTY;
     }
 
+    //This func returns referenced variables
     @Override
     public Collection<Variable> referencedVariables() {
         return List.of(getVariable(), assignedVariable);
     }
 
+    //This func expands an ASSIGNMENT instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
         Variable dst = getVariable();
         Variable src = assignedVariable;
 
+        // Safety checks
         if (dst == null || src == null) {
             throw new IllegalStateException("ASSIGNMENT missing src/dst variable");
         }
-
         if (dst == src || dst.equals(src)) {
             return List.of();
         }
 
         List<Instruction> out = new ArrayList<>();
-
-        Label firstLabel = getLabel();
-        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
-        }
-
         Variable tmp = helper.freshVar();
         Label L1 = helper.freshLabel();
         Label L2 = helper.freshLabel();
         Label L3 = helper.freshLabel();
 
-        out.add(new ZeroVariableInstruction(dst, firstLabel));
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            out.add(new ZeroVariableInstruction(dst));
+        } else {
+            out.add(new ZeroVariableInstruction(dst, firstLabel));
+        }
+
         out.add(new JumpNotZeroInstruction(src, L1));
         out.add(new GoToLabelInstruction(L3));
         out.add(new DecreaseInstruction(src, L1));
@@ -79,5 +84,6 @@ public class AssignmentInstruction extends AbstractInstruction implements Expand
         return out;
     }
 
+    //This func returns the assigned variable
     public Variable getAssignedVariable() { return assignedVariable; }
 }

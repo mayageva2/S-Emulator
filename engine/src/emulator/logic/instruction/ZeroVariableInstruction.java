@@ -18,26 +18,34 @@ public class ZeroVariableInstruction extends AbstractInstruction implements Expa
         super(InstructionData.ZERO_VARIABLE, variable, label);
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         context.updateVariable(getVariable(), 0L);
         return FixedLabel.EMPTY;
     }
 
+    //This func expands an ZERO_VARIABLE instruction
    @Override
    public List<Instruction> expand(ExpansionHelper helper) {
        List<Instruction> out = new ArrayList<>();
-       if (getVariable() == null) {
+
+       Variable var =  getVariable();
+       if (var == null) {
            throw new IllegalStateException("ZERO_VARIABLE missing variable");
        }
 
-       Variable var =  getVariable();
+       Label carry = getLabel();
+       boolean hasCarry = (carry != null && !FixedLabel.EMPTY.equals(carry));
+       Label L1 = helper.freshLabel();
 
-       Label original  = getLabel();
-       Label loopLabel = (original == null || FixedLabel.EMPTY.equals(original)) ? helper.freshLabel() : original;
+       if (hasCarry) {
+           out.add(new NeutralInstruction(var, carry));
+       }
 
-       out.add(new DecreaseInstruction(var, loopLabel));
-       out.add(new JumpNotZeroInstruction(var, loopLabel));
+       out.add(new DecreaseInstruction(var, L1));
+       out.add(new JumpNotZeroInstruction(var, L1));
+
        return out;
    }
 

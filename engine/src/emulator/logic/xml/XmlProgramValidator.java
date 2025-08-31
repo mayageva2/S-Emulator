@@ -9,14 +9,26 @@ import java.util.regex.Pattern;
 
 public class XmlProgramValidator {
 
-    private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$");
+    private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$", Pattern.CASE_INSENSITIVE);
 
+    //This func normalizes a string
+    private static String norm(String s) {
+        return (s == null) ? "" : s.trim().toUpperCase(Locale.ROOT);
+    }
+
+    //This func checks if a string is null ot empty
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    //This func runs validation checks on a program
     public void validate(ProgramXml p) {
         validateBasic(p);
         validateLabelDuplicatesAndFormat(p);
         validateLabelsExist(p);
     }
 
+    //This func validates that a ProgramXml has a name and a non-empty instructions
     public void validateBasic(ProgramXml p) {
         if (p == null) {
             throw new XmlInvalidContentException(
@@ -40,32 +52,61 @@ public class XmlProgramValidator {
         }
     }
 
+    //This func validate that labels are unique
     private void validateLabelDuplicatesAndFormat(ProgramXml p) {
-        Set<String> seen = new HashSet<>();
+        List<String> labels = collectNonBlankTrimmedLabels(p);
+        checkDuplicateLabels(labels);   //Check duplicates
+        checkLabelFormats(labels);    //Check format issues
+    }
+
+    //This func collect all non-blank labels from instructions
+    private List<String> collectNonBlankTrimmedLabels(ProgramXml p) {
+        List<String> out = new ArrayList<>();
+        if (p.getInstructions() == null || p.getInstructions().getInstructions() == null) return out;
+
+        for (InstructionXml i : p.getInstructions().getInstructions()) {
+            String raw = i.getLabel();
+            if (isBlank(raw)) continue;
+            out.add(raw.trim());
+        }
+        return out;
+    }
+
+    //This func checks if there are case-insensitive duplicates
+    private void checkDuplicateLabels(List<String> labels) {
+        Set<String> seenKeys = new HashSet<>();
         Set<String> duplicates = new LinkedHashSet<>();
-        List<String> badFormat = new ArrayList<>();
 
-        if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
-            for (InstructionXml i : p.getInstructions().getInstructions()) {
-                String raw = i.getLabel();
-                if (raw == null || raw.isBlank()) continue;
-
-                String label = raw.trim();
-                if (!LABEL_FMT.matcher(label).matches()) {
-                    badFormat.add(label);
-                }
-                if (!seen.add(label)) {
-                    duplicates.add(label);
-                }
+        for (String label : labels) {
+            String key = norm(label);
+            if (!seenKeys.add(key)) {
+                duplicates.add(label);
             }
         }
 
         if (!duplicates.isEmpty()) {
             throw new InvalidInstructionException(
                     "LABEL",
-                    "Duplicate labels found: " + new ArrayList<>(duplicates),
+                    "Duplicate labels found (case-insensitive): " + new ArrayList<>(duplicates),
                     -1
             );
+        }
+    }
+
+    //This func checks if there are labels that doesn't match
+    private void checkLabelFormats(List<String> labels) {
+        List<String> badFormat = new ArrayList<>();
+        for (String label : labels) {
+            if (isExitLabel(label)) {
+                throw new InvalidInstructionException(
+                        "LABEL",
+                        "Reserved label name cannot be used as an instruction label: 'EXIT'",
+                        -1
+                );
+            }
+            if (!LABEL_FMT.matcher(label).matches()) {
+                badFormat.add(label);
+            }
         }
         if (!badFormat.isEmpty()) {
             throw new InvalidInstructionException(
@@ -76,15 +117,15 @@ public class XmlProgramValidator {
         }
     }
 
-
+    //This func validates that all labels referenced in a program are properly defined
     public void validateLabelsExist(ProgramXml p) {
         Set<String> defined = collectDefinedLabels(p);
         List<String> refs = collectReferencedLabels(p);
 
         List<String> missing = new ArrayList<>();
         for (String ref : refs) {
-            if (ref == null || ref.isBlank()) continue;
-            if ("EXIT".equals(ref)) continue;
+            if (isBlank(ref)) continue;
+            if (isExitLabel(ref)) continue;
             if (!defined.contains(ref)) {
                 missing.add(ref);
             }
@@ -102,57 +143,88 @@ public class XmlProgramValidator {
         }
     }
 
-    public XmlResult<Void> tryValidate(ProgramXml p) {
-        try {
-            validate(p);
-            return XmlResult.ok(null);
-        } catch (RuntimeException e) {
-            return XmlResult.error(e.getMessage());
-        }
-    }
-
+    //This func collects all non-blank labels
     private Set<String> collectDefinedLabels(ProgramXml p) {
         Set<String> out = new HashSet<>();
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             for (InstructionXml i : p.getInstructions().getInstructions()) {
-                if (i.getLabel() != null && !i.getLabel().isBlank()) {
-                    out.add(i.getLabel());
+                String lbl = i.getLabel();
+                if (!isBlank(lbl)) {
+                    out.add(norm(lbl));
                 }
             }
         }
         return out;
     }
 
+    //This func collects all referenced labels
     private List<String> collectReferencedLabels(ProgramXml p) {
         List<String> out = new ArrayList<>();
-        if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
-            int idx = 0;
-            for (InstructionXml i : p.getInstructions().getInstructions()) {
-                idx++;
-                if (i.getArguments() == null) continue;
+        List<InstructionXml> list = getInstructionList(p);
 
-                for (InstructionArgXml a : i.getArguments()) {
-                    String name = a.getName();
-                    if (name == null) continue;
-
-                    boolean isLabelArg =
-                            name.equals("gotoLabel")
-                                    || name.equals("JNZLabel")
-                                    || name.equals("JZLabel")
-                                    || name.equals("JEConstantLabel")
-                                    || name.equals("JEVariableLabel");
-
-                    if (!isLabelArg) continue;
-
-                    String val = a.getValue();
-                    if (val == null || val.isBlank()) {
-                        String opcode = (i.getName() == null ? "<unknown>" : i.getName());
-                        throw new InvalidInstructionException(opcode, "Missing required label value for argument '" + name + "' at instruction #" + idx, idx);
-                    }
-                    out.add(val.trim());
-                }
-            }
+        for (int idx = 1; idx <= list.size(); idx++) {
+            InstructionXml ins = list.get(idx - 1);
+            processInstructionLabelArgs(ins, idx, out);
         }
         return out;
+    }
+
+    //This func returns instruction list
+    private List<InstructionXml> getInstructionList(ProgramXml p) {
+        return (p.getInstructions() != null && p.getInstructions().getInstructions() != null)
+                ? p.getInstructions().getInstructions()
+                : Collections.emptyList();
+    }
+
+    //This func processes all arguments
+    private void processInstructionLabelArgs(InstructionXml ins, int idx, List<String> out) {
+        if (ins.getArguments() == null) return;
+        for (InstructionArgXml arg : ins.getArguments()) {
+            handlePotentialLabelArg(ins, idx, arg, out);
+        }
+    }
+
+    //This func validates args value
+    private void handlePotentialLabelArg(InstructionXml ins, int idx, InstructionArgXml arg, List<String> out) {
+        String nameRaw = arg.getName();
+        if (nameRaw == null) return;
+
+        String name = norm(nameRaw);
+        if (!isLabelArgName(name)) return;
+
+        String valRaw = arg.getValue();
+        if (isBlank(valRaw)) {
+            String opcode = (ins.getName() == null ? "<unknown>" : ins.getName());
+            throw new InvalidInstructionException(
+                    norm(opcode),
+                    "Missing required label value for argument '" + nameRaw + "' at instruction #" + idx,
+                    idx
+            );
+        }
+
+        String valTrim = valRaw.trim();
+        if (!isExitLabel(valTrim) && !LABEL_FMT.matcher(valTrim).matches()) {
+            String opcode = (ins.getName() == null ? "<unknown>" : ins.getName());
+            throw new InvalidInstructionException(
+                    norm(opcode),
+                    "Invalid label format for argument '" + nameRaw + "' at instruction #" + idx +
+                            ": '" + valRaw + "' (expected L<number> or EXIT)",
+                    idx
+            );
+        }
+        out.add(norm(valRaw));
+    }
+
+    //This func recognizes the label argument names
+    private boolean isLabelArgName(String name) {
+        return switch (name) {
+            case "GOTOLABEL", "JNZLABEL", "JZLABEL", "JECONSTANTLABEL", "JEVARIABLELABEL" -> true;
+            default -> false;
+        };
+    }
+
+    //This func checks if label is EXIT
+    private static boolean isExitLabel(String s) {
+        return s != null && s.trim().equalsIgnoreCase("EXIT");
     }
 }

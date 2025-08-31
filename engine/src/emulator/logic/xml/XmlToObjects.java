@@ -1,8 +1,6 @@
 package emulator.logic.xml;
 
 import emulator.exception.InvalidInstructionException;
-import emulator.exception.XmlInvalidContentException;
-import emulator.exception.XmlReadException;
 import emulator.logic.instruction.*;
 import emulator.logic.label.*;
 import emulator.logic.program.*;
@@ -11,8 +9,12 @@ import emulator.logic.variable.*;
 import java.util.*;
 
 public final class XmlToObjects {
-    private XmlToObjects(){}
 
+    private static record ParsedParts(String opcode, Variable v, Label lbl, Map<String,String> args) {}
+    private XmlToObjects(){}
+    private enum LabelPolicy { REQUIRED, OPTIONAL }
+
+    //This func converts a ProgramXml into a Program object
     public static Program toProgram(ProgramXml pxml) {
         ProgramImpl program = new ProgramImpl(pxml.getName());
 
@@ -24,109 +26,109 @@ public final class XmlToObjects {
         return program;
     }
 
+    //This func converts a InstructionXml into an Instruction object
     private static Instruction toInstruction(InstructionXml ix, int index) {
+        ParsedParts p = parseParts(ix, index);
+        return buildInstruction(p, index);
+    }
+
+    //This func parse opcode, main variable, label, and args once
+    private static ParsedParts parseParts(InstructionXml ix, int index) {
         String name = safe(ix.getName());
-        String opcode = name.isEmpty() ? "<unknown>" : name.toUpperCase(Locale.ROOT);
+        String opcode = name.isEmpty() ? "<unknown>" : name.trim().toUpperCase(Locale.ROOT);
 
         String varName = safe(ix.getVariable());
         Variable v = varName.isEmpty() ? null : parseVariable(varName, opcode, index);
-        Label lbl = toLabelObj(ix.getLabel(), opcode, index);
+        Label lbl = parseLabel(ix.getLabel(), opcode, index, LabelPolicy.OPTIONAL,  "instruction label");
 
-        Map<String,String> args = toArgMap(ix);
-
-        Instruction ins = switch (opcode) {
-            case "NEUTRAL" -> new NeutralInstruction(v, lbl);
-            case "INCREASE" -> new IncreaseInstruction(v, lbl);
-            case "DECREASE" -> new DecreaseInstruction(v, lbl);
-            case "ZERO_VARIABLE" -> new ZeroVariableInstruction(v, lbl);
-
-            case "JUMP_NOT_ZERO" -> {
-                Label target = parseJumpLabel(req(args, "JNZLabel", opcode, index), opcode, index);
-                yield new JumpNotZeroInstruction(v, target, lbl);
-            }
-
-            case "ASSIGNMENT" -> {
-                Variable src = parseVariable(req(args, "assignedVariable", opcode, index), opcode, index);
-                yield new AssignmentInstruction(v, src, lbl);
-            }
-
-            case "CONSTANT_ASSIGNMENT" -> {
-                long k = parseNonNegInt(req(args, "constantValue", opcode, index), opcode, index);
-                yield new ConstantAssignmentInstruction(v, k, lbl);
-            }
-
-            case "GOTO_LABEL" -> {
-                Label target = parseJumpLabel(req(args, "gotoLabel", opcode, index), opcode, index);
-                yield new GoToLabelInstruction(lbl, target);
-            }
-
-            case "JUMP_ZERO" -> {
-                Label target = parseJumpLabel(req(args, "JZLabel", opcode, index), opcode, index);
-                yield new JumpZeroInstruction(v, target, lbl);
-            }
-
-            case "JUMP_EQUAL_CONSTANT" -> {
-                Label target = parseJumpLabel(req(args, "JEConstantLabel", opcode, index), opcode, index);
-                long k = parseNonNegInt(req(args, "constantValue", opcode, index), opcode, index);
-                yield new JumpEqualConstantInstruction(v, k, target, lbl);
-            }
-
-            case "JUMP_EQUAL_VARIABLE" -> {
-                Label target = parseJumpLabel(req(args, "JEVariableLabel", opcode, index), opcode, index);
-                Variable other = parseVariable(req(args, "variableName", opcode, index), opcode, index);
-                yield new JumpEqualVariableInstruction(v, other, target, lbl);
-            }
-         /*   case "QUOTE" -> {
-                String fn = req(args, "functionName");
-                String fnArgs = req(args, "functionArguments");
-                yield new QuotationInstruction(v, fn, fnArgs, attached);
-            }
-            case "JUMP_EQUAL_FUNCTION" -> {
-                Label target = parseJumpLabel(req(args, "JEFunctionLabel"));
-                String fn = req(args, "functionName");
-                String fnArgs = req(args, "functionArguments");
-                yield new JumpEqualFunctionInstruction(v, fn, fnArgs, target);
-            }*/
-            default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);
-        };
-
-        if (ix.getArguments() != null && ins instanceof AbstractInstruction ai) {
-            for (InstructionArgXml arg : ix.getArguments()) {
-                ai.setArgument(arg.getName(), arg.getValue());
-            }
-        }
-
-        return ins;
+        Map<String, String> args = toArgMap(ix);
+        return new ParsedParts(opcode, v, lbl, args);
     }
 
+    //This func switches to instruction
+    private static Instruction buildInstruction(ParsedParts p, int index) {
+        String opcode = p.opcode();
+        Variable v = p.v();
+        Label lbl = p.lbl();
+        Map<String,String> args = p.args();
+
+        return switch (opcode) {
+            case "NEUTRAL"              -> new NeutralInstruction(v, lbl);
+            case "INCREASE"             -> new IncreaseInstruction(v, lbl);
+            case "DECREASE"             -> new DecreaseInstruction(v, lbl);
+            case "ZERO_VARIABLE"        -> new ZeroVariableInstruction(v, lbl);
+            case "JUMP_NOT_ZERO" -> {
+                Label target = parseLabel(req(args, "JNZLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JNZLABEL");
+                yield new JumpNotZeroInstruction(v, target, lbl);
+            }
+            case "ASSIGNMENT" -> {
+                Variable src = parseVariable(req(args, "ASSIGNEDVARIABLE", opcode, index), opcode, index);
+                yield new AssignmentInstruction(v, src, lbl);
+            }
+            case "CONSTANT_ASSIGNMENT" -> {
+                long k = parseNonNegInt(req(args, "CONSTANTVALUE", opcode, index), opcode, index);
+                yield new ConstantAssignmentInstruction(v, k, lbl);
+            }
+            case "GOTO_LABEL" -> {
+                Label target = parseLabel(req(args, "GOTOLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "GOTOLABEL");
+                yield new GoToLabelInstruction(lbl, target);
+            }
+            case "JUMP_ZERO" -> {
+                Label target = parseLabel(req(args, "JZLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JZLABEL");
+                yield new JumpZeroInstruction(v, target, lbl);
+            }
+            case "JUMP_EQUAL_CONSTANT" -> {
+                Label target = parseLabel(req(args, "JECONSTANTLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JECONSTANTLABEL");
+                long k = parseNonNegInt(req(args, "CONSTANTVALUE", opcode, index), opcode, index);
+                JumpEqualConstantInstruction.Builder b = new JumpEqualConstantInstruction.Builder().variable(v).constantValue(k).jeConstantLabel(target);
+                if (lbl != null) b.myLabel(lbl);
+                yield b.build();
+            }
+            case "JUMP_EQUAL_VARIABLE" -> {
+                Label target = parseLabel(req(args, "JEVARIABLELABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JEVARIABLELABEL");
+                Variable other = parseVariable(req(args, "VARIABLENAME", opcode, index), opcode, index);
+                JumpEqualVariableInstruction.Builder b = new JumpEqualVariableInstruction.Builder().variable(v).compareVariable(other).jeVariableLabel(target);
+                if (lbl != null) b.myLabel(lbl);
+                yield b.build();
+            }
+
+            default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);
+        };
+    }
+
+    //This func converts an instruction’s arguments into a map
     private static Map<String,String> toArgMap(InstructionXml ix) {
         Map<String,String> m = new LinkedHashMap<>();
         if (ix.getArguments() != null) {
             for (InstructionArgXml a : ix.getArguments()) {
                 if (a.getName() != null) {
-                    m.put(a.getName().trim(), safe(a.getValue()));
+                    String key = a.getName().trim().toUpperCase(Locale.ROOT);
+                    m.put(key, safe(a.getValue()));
                 }
             }
         }
         return m;
     }
 
-    private static String req(Map<String,String> m, String key, String opcode, int index) {
-        String v = m.get(key);
+    //This func retrieves a required argument
+    private static String req(Map<String,String> m, String keyUpper, String opcode, int index) {
+        String v = m.get(keyUpper);
         if (v == null || v.isBlank()) {
             throw new InvalidInstructionException(
                     opcode,
-                    "Missing required argument: '" + key + "'",
+                    "Missing required argument: '" + keyUpper + "'",
                     index
             );
         }
         return v.trim();
     }
 
+    //This func returns a trimmed string
     private static String safe(String s) {
         return (s == null) ? "" : s.trim();
     }
 
+    //This func checks whether a string is non-empty
     private static boolean isAllDigits(String s) {
         if (s == null || s.isEmpty()) return false;
         for (int i = 0; i < s.length(); i++) {
@@ -136,23 +138,25 @@ public final class XmlToObjects {
         return true;
     }
 
+    //This func parses a string into a Variable object
     private static Variable parseVariable(String s, String opcode, int index) {
         if (s == null || s.isBlank()) {
             throw new InvalidInstructionException(opcode, "Missing variable", index);
         }
         s = s.trim();
+        String su = s.toUpperCase(Locale.ROOT);
 
-        if (s.equals("y")) {
+        if (su.equals("Y")) {
             return Variable.RESULT;
         }
 
-        if (s.length() >= 2) {
-            char kind = s.charAt(0); // 'x' or 'z'
-            String numPart = s.substring(1);
-            if ((kind == 'x' || kind == 'z') && isAllDigits(numPart)) {
+        if (su.length() >= 2) {   // General case
+            char kind = su.charAt(0);
+            String numPart = su.substring(1);
+            if ((kind == 'X' || kind == 'Z') && isAllDigits(numPart)) {
                 int n = Integer.parseInt(numPart);
                 if (n >= 1) {
-                    VariableType t = (kind == 'x') ? VariableType.INPUT : VariableType.WORK;
+                    VariableType t = (kind == 'X') ? VariableType.INPUT : VariableType.WORK;
                     return new VariableImpl(t, n);
                 }
             }
@@ -160,6 +164,7 @@ public final class XmlToObjects {
         throw new InvalidInstructionException(opcode, "Illegal variable: " + s, index);
     }
 
+    //This func parses a string into an int
     private static long parseNonNegInt(String s, String opcode, int index) {
         if (s == null) {
             throw new InvalidInstructionException(opcode, "Missing integer value", index);
@@ -175,35 +180,21 @@ public final class XmlToObjects {
         }
     }
 
-    private static Label parseJumpLabel(String s, String opcode, int index) {
+    //This func parses a string into a valid Label object
+    private static Label parseLabel(String s, String opcode, int index, LabelPolicy policy, String errCtx) {
         if (s == null || s.isBlank()) {
-            throw new InvalidInstructionException(opcode, "Missing label", index);
+            if (policy == LabelPolicy.OPTIONAL) return FixedLabel.EMPTY;
+            throw new InvalidInstructionException(opcode, "Missing label" + (errCtx == null ? "" : " (" + errCtx + ")"), index);
         }
-        s = s.trim();
-        if (s.equals("EXIT")) return FixedLabel.EXIT;
-
-        if (s.length() >= 2 && s.charAt(0) == 'L') {
-            String numPart = s.substring(1);
-            if (isAllDigits(numPart)) {
-                int n = Integer.parseInt(numPart);
+        String su = s.trim().toUpperCase(Locale.ROOT);
+        if (su.equals("EXIT")) return FixedLabel.EXIT;
+        if (su.length() >= 2 && su.charAt(0) == 'L') {
+            String num = su.substring(1);
+            if (isAllDigits(num)) {
+                int n = Integer.parseInt(num);
                 if (n >= 1) return new LabelImpl(n);
             }
         }
-        throw new InvalidInstructionException(opcode, "Illegal label: " + s, index);
-    }
-
-    private static Label toLabelObj(String s, String opcode, int index) {
-        if (s == null || s.isBlank()) return FixedLabel.EMPTY;
-        s = s.trim();
-        if (s.equals("EXIT")) return FixedLabel.EXIT;
-
-        if (s.length() >= 2 && s.charAt(0) == 'L') {
-            String numPart = s.substring(1);
-            if (isAllDigits(numPart)) {
-                int n = Integer.parseInt(numPart);
-                if (n >= 1) return new LabelImpl(n);
-            }
-        }
-        throw new InvalidInstructionException(opcode, "Illegal label on instruction: " + s, index);
+        throw new InvalidInstructionException(opcode, "Illegal label: " + s + (errCtx == null ? "" : " (" + errCtx + ")"), index);
     }
 }

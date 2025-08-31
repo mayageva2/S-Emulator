@@ -20,6 +20,7 @@ public class JumpNotZeroInstruction extends AbstractInstruction{
         setArgument("gotoLabel", jnzLabel.getLabelRepresentation());
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         long variableValue = context.getVariableValue(getVariable());
@@ -30,5 +31,6 @@ public class JumpNotZeroInstruction extends AbstractInstruction{
         return FixedLabel.EMPTY;
     }
 
+    //This func returns target label
     public Label getJnzLabel() {return jnzLabel; }
 }

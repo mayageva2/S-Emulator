@@ -6,8 +6,6 @@ import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
-import emulator.logic.variable.VariableImpl;
-import emulator.logic.variable.VariableType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,33 +29,38 @@ public class JumpZeroInstruction extends AbstractInstruction implements Expandab
         setArgument("gotoLabel", jzLabel.getLabelRepresentation());
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         long v = context.getVariableValue(getVariable());
         return (v == 0L) ? jzLabel : FixedLabel.EMPTY;
     }
 
+    //This func expands an JUMP_ZERO instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
 
         List<Instruction> out = new ArrayList<>();
         Variable var =  getVariable();
-        Variable y = new VariableImpl(VariableType.RESULT, 0);
-
-        Label firstLabel = getLabel();
-        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
+        if (var == null) {
+            throw new IllegalStateException("JUMP_ZERO missing variable");
         }
 
         Label L1 = helper.freshLabel();
-        Label L = jzLabel;
+        Label L = getJzLabel();
+        Label firstLabel = getLabel();
+        if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
+            out.add(new JumpNotZeroInstruction(var, L1));
+        } else {
+            out.add(new JumpNotZeroInstruction(var, L1, firstLabel));
+        }
 
-        out.add(new JumpNotZeroInstruction(var, L1, firstLabel));
         out.add(new GoToLabelInstruction(L));
-        out.add(new NeutralInstruction(y, L1));
+        out.add(new NeutralInstruction(var, L1));
         return out;
     }
 
+    //This func returns target label
     public Label getJzLabel() { return jzLabel; }
 
 }

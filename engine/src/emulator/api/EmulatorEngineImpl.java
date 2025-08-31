@@ -1,9 +1,7 @@
 package emulator.api;
 
 import emulator.api.dto.*;
-import emulator.exception.ProgramNotLoadedException;
-import emulator.exception.XmlInvalidContentException;
-import emulator.exception.XmlReadException;
+import emulator.exception.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.ProgramExpander;
@@ -14,31 +12,35 @@ import emulator.logic.program.Program;
 import emulator.logic.xml.*;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import java.util.concurrent.atomic.AtomicInteger;
 
-public class EmulatorEngineImpl implements EmulatorEngine {
+public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
 
     private Program current;
     private Program lastViewProgram;
-    private ProgramExecutor executor;
+    private transient ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
-    private final XmlVersionManager versionMgr = new XmlVersionManager(Paths.get("versions"));
-    private final ProgramExpander programExpander = new ProgramExpander();
+    private transient ProgramExpander programExpander = new ProgramExpander();
+    private static final long serialVersionUID = 1L;
 
+    //This func returns a ProgramView of the currently loaded program
     @Override
     public ProgramView programView() {
         requireLoaded();
-        Program base = (lastViewProgram != null) ? lastViewProgram : current;
-        return buildProgramView(base);
+        List<Program> only0 = List.of(current);
+        return buildProgramView(current, 0, only0);
     }
 
+    //This func returns a ProgramView of the currently loaded program at a specified degree
     @Override
     public ProgramView programView(int degree) {
         requireLoaded();
@@ -46,156 +48,190 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (degree < 0 || degree > max) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
         }
-        Program base = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
-        return buildProgramView(base);
-    }
 
-    private ProgramView buildProgramView(Program base) {
-        List<Instruction> real = base.getInstructions();
-        int maxDegree = base.calculateMaxDegree();
+        List<Program> byDegree = new ArrayList<>(degree + 1);
+        byDegree.add(current);
 
-        IdentityHashMap<Instruction, Integer> indexOfReal = new IdentityHashMap<>();
-        for (int i = 0; i < real.size(); i++) indexOfReal.put(real.get(i), i);
-
-        IdentityHashMap<Instruction, Integer> firstChildIdx = new IdentityHashMap<>();
-        for (int i = 0; i < real.size(); i++) {
-            Instruction ins = real.get(i);
-            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
-            Instruction anc = ins.getCreatedFrom();
-            while (anc != null && !seen.containsKey(anc)) {
-                seen.put(anc, Boolean.TRUE);
-                Integer curMin = firstChildIdx.get(anc);
-                if (curMin == null || i < curMin) firstChildIdx.put(anc, i);
-                anc = anc.getCreatedFrom();
-            }
+        //Expand according to degree
+        for (int d = 1; d <= degree; d++) {
+            Program prev = byDegree.get(d - 1);
+            Program next = programExpander.expandOnce(prev);
+            byDegree.add(next);
         }
 
-        List<InstructionView> out = new ArrayList<>();
-        IdentityHashMap<Instruction, Integer> outIndex = new IdentityHashMap<>();
+        Program base = byDegree.get(degree);
+        return buildProgramView(base, degree, byDegree);
+    }
 
-        Function<Instruction, InstructionView> mkView = (Instruction ins) -> {
-            InstructionData data = ins.getInstructionData();
-            String opcode = data.getName();
-            int cycles = data.getCycles();
-            boolean basic = data.isBasic();
-            Label lbl = ins.getLabel();
-            String label = (lbl == null) ? null : lbl.getLabelRepresentation();
+    //------programView Helpers------//
 
-            List<String> args = new ArrayList<>();
-            if (ins.getVariable() != null) args.add(ins.getVariable().getRepresentation());
-            Map<String, String> extra = ins.getArguments();
-            if (extra != null && !extra.isEmpty()) {
-                var keys = new ArrayList<>(extra.keySet());
-                Collections.sort(keys);
-                for (String k : keys) {
-                    String v = extra.get(k);
-                    args.add(k + "=" + (v == null ? "" : v));
-                }
-            }
-            return new InstructionView(-1, opcode, label, basic, cycles, args, List.of());
-        };
+    //This func builds and returns a ProgramView by converting each instruction into an InstructionView
+    private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree) {
+        List<Instruction> real = base.getInstructions();
+        int maxDegree = byDegree.get(0).calculateMaxDegree();
 
+        List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
+        Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
+
+        //Build final views (with provenance)
+        List<InstructionView> out = new ArrayList<>(real.size());
         for (int i = 0; i < real.size(); i++) {
             Instruction ins = real.get(i);
-            List<Instruction> ancNearest = new ArrayList<>();
-            IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
-            Instruction cur = ins.getCreatedFrom();
-            while (cur != null && !seen.containsKey(cur)) {
-                seen.put(cur, Boolean.TRUE);
-                ancNearest.add(cur);
-                cur = cur.getCreatedFrom();
-            }
+            List<InstructionView> provenance = buildProvenanceForInstruction(ins, degree, indexMaps, mkViewNoIndex);
 
-            if (!ancNearest.isEmpty()) {
-                List<Instruction> farthestFirst = new ArrayList<>(ancNearest);
-                Collections.reverse(farthestFirst);
-                for (Instruction anc : farthestFirst) {
-                    if (outIndex.containsKey(anc)) continue;
-                    if (indexOfReal.containsKey(anc)) continue;
-                    Integer fci = firstChildIdx.get(anc);
-                    if (fci != null && fci == i) {
-                        List<Integer> vChain = new ArrayList<>();
-                        Instruction up = anc.getCreatedFrom();
-                        IdentityHashMap<Instruction, Boolean> seenUp = new IdentityHashMap<>();
-                        while (up != null && !seenUp.containsKey(up)) {
-                            seenUp.put(up, Boolean.TRUE);
-                            Integer idx = outIndex.get(up);
-                            if (idx != null) vChain.add(idx);
-                            up = up.getCreatedFrom();
-                        }
-                        InstructionView skel = mkView.apply(anc);
-                        List<String> vArgs = new ArrayList<>(skel.args());
-                        vArgs.add("__virtual__=1");
-                        int newIdx = out.size() + 1;
-                        out.add(new InstructionView(newIdx, skel.opcode(), skel.label(),
-                                skel.basic(), skel.cycles(), vArgs, vChain));
-                        outIndex.put(anc, newIdx);
-                    }
-                }
-            }
-
-            List<Integer> chain = new ArrayList<>();
-            for (Instruction anc : ancNearest) {
-                Integer idx = outIndex.get(anc);
-                if (idx != null && (chain.isEmpty() || !Objects.equals(chain.get(chain.size()-1), idx))) {
-                    chain.add(idx);
-                }
-            }
-
-            InstructionView rSkel = mkView.apply(ins);
-            int myIdx = out.size() + 1;
-            out.add(new InstructionView(myIdx, rSkel.opcode(), rSkel.label(),
-                    rSkel.basic(), rSkel.cycles(), rSkel.args(), chain));
-            outIndex.put(ins, myIdx);
+            InstructionView self = mkViewNoIndex.apply(ins);
+            out.add(new InstructionView(
+                    i + 1,
+                    self.opcode(), self.label(),
+                    self.basic(), self.cycles(), self.args(),
+                    List.of(),
+                    provenance
+            ));
         }
 
         return new ProgramView(out, maxDegree);
     }
 
-    @Override
-    public LoadResult loadProgram(Path xmlPath) {
-        try {
-            var reader = new XmlProgramReader();
-            var pxml = reader.read(xmlPath);
-
-            var validator = new XmlProgramValidator();
-            validator.validate(pxml);
-
-            this.current = XmlToObjects.toProgram(pxml);
-            this.executor = new ProgramExecutorImpl(this.current);
-
-            this.lastViewProgram = null;
-            history.clear();
-            runCounter = 0;
-
-            return new LoadResult(
-                    current.getName(),
-                    current.getInstructions().size(),
-                    current.calculateMaxDegree()
-            );
-        } catch (XmlReadException e) {
-            throw new XmlInvalidContentException(
-                    e.getMessage(),
-                    Map.of("path", String.valueOf(xmlPath), "cause", e.getClass().getSimpleName())
-            );
+    //This func builds maps per degree from Instruction identity
+    private List<IdentityHashMap<Instruction, Integer>> buildIndexMaps(List<Program> byDegree, int degree) {
+        List<IdentityHashMap<Instruction, Integer>> indexMaps = new ArrayList<>(degree + 1);
+        for (int d = 0; d <= degree; d++) {
+            IdentityHashMap<Instruction, Integer> m = new IdentityHashMap<>();
+            List<Instruction> list = byDegree.get(d).getInstructions();
+            for (int i = 0; i < list.size(); i++) {
+                m.put(list.get(i), i + 1);
+            }
+            indexMaps.add(m);
         }
+        return indexMaps;
     }
 
+    //This func creates an InstructionView without index
+    private InstructionView makeInstructionViewNoIndex(Instruction ins) {
+        InstructionData data = ins.getInstructionData();
+        String opcode = data.getName();
+        int cycles = data.getCycles();
+        boolean basic = data.isBasic();
+
+        Label lbl = ins.getLabel();
+        String label = (lbl == null) ? null : lbl.getLabelRepresentation();
+
+        List<String> args = collectArgs(ins);
+        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of());
+    }
+
+    // This func collects ordered arguments and sorts extra arguments
+    private List<String> collectArgs(Instruction ins) {
+        List<String> args = new ArrayList<>();
+        if (ins.getVariable() != null) {
+            args.add(ins.getVariable().getRepresentation());
+        }
+        Map<String, String> extra = ins.getArguments();
+        if (extra != null && !extra.isEmpty()) {
+            var keys = new ArrayList<>(extra.keySet());
+            Collections.sort(keys);
+            for (String k : keys) {
+                String v = extra.get(k);
+                args.add(k + "=" + (v == null ? "" : v));
+            }
+        }
+        return args;
+    }
+
+    // This func builds provenance chain
+    private List<InstructionView> buildProvenanceForInstruction(Instruction ins, int degree, List<IdentityHashMap<Instruction, Integer>> indexMaps, Function<Instruction, InstructionView> mkViewNoIndex) {
+        List<InstructionView> provenance = new ArrayList<>();
+        IdentityHashMap<Instruction, Boolean> seen = new IdentityHashMap<>();
+        Instruction cur = ins.getCreatedFrom();
+        int guessDeg = degree - 1;
+
+        while (cur != null && !seen.containsKey(cur)) {
+            seen.put(cur, Boolean.TRUE);
+
+            int foundDeg = findDegreeForInstruction(cur, indexMaps, Math.min(guessDeg, degree - 1), degree);
+            InstructionView v = mkViewNoIndex.apply(cur);
+            int idx = (foundDeg >= 0) ? indexMaps.get(foundDeg).get(cur) : -1;
+
+            provenance.add(new InstructionView(
+                    idx,
+                    v.opcode(), v.label(),
+                    v.basic(), v.cycles(), v.args(),
+                    List.of(), List.of()
+            ));
+
+            cur = cur.getCreatedFrom();
+            guessDeg = (foundDeg >= 0) ? (foundDeg - 1) : (guessDeg - 1);
+        }
+
+        return provenance;
+    }
+
+    //This func locate the degree layer
+    private int findDegreeForInstruction(
+            Instruction target,
+            List<IdentityHashMap<Instruction, Integer>> indexMaps,
+            int guessDeg,
+            int degree
+    ) {
+        for (int d = guessDeg; d >= 0; d--) {
+            if (indexMaps.get(d).containsKey(target)) return d;
+        }
+        for (int d = degree - 1; d >= 0; d--) {
+            if (indexMaps.get(d).containsKey(target)) return d;
+        }
+        return -1;
+    }
+
+    //This function loads a program from an XML file and validates it
+    @Override
+    public LoadResult loadProgram(Path xmlPath)
+            throws XmlWrongExtensionException,
+            XmlNotFoundException,
+            XmlReadException,
+            XmlInvalidContentException,
+            InvalidInstructionException,
+            MissingLabelException,
+            ProgramException,
+            IOException {
+        final String p = String.valueOf(xmlPath);
+        if (!p.toLowerCase(java.util.Locale.ROOT).endsWith(".xml")) {
+            throw new XmlWrongExtensionException("Expected .xml file: " + p);
+        }
+        if (!java.nio.file.Files.exists(xmlPath)) {
+            throw new XmlNotFoundException("File not found: " + p);
+        }
+
+        XmlProgramReader reader = new XmlProgramReader();
+        ProgramXml pxml = reader.read(xmlPath);
+        XmlProgramValidator validator = new XmlProgramValidator();
+        validator.validate(pxml);
+        this.current = XmlToObjects.toProgram(pxml);
+        this.executor = new ProgramExecutorImpl(this.current);
+        this.lastViewProgram = null;
+        this.history.clear();
+        this.runCounter = 0;
+
+        return new LoadResult(
+                current.getName(),
+                current.getInstructions().size(),
+                current.calculateMaxDegree()
+        );
+    }
+
+    //This func runs the currently loaded program at expansion degree 0
     @Override
     public RunResult run(Long... input) {
         return run(0, input);
     }
 
+    //This func runs the program expanded to the specified degree
     @Override
     public RunResult run(int degree, Long... input) {
         requireLoaded();
 
         int maxDegree = current.calculateMaxDegree();
         if (degree < 0 || degree > maxDegree) {
-            throw new IllegalArgumentException(
-                    "Invalid expansion degree: " + degree +
-                            ". Allowed range is 0-" + maxDegree
-            );
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + ". Allowed range is 0-" + maxDegree);
         }
 
         Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
@@ -205,6 +241,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 
+        //Collect final state of all variables after execution
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
                         e.getKey().getRepresentation(),
@@ -218,37 +255,20 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return new RunResult(y, cycles, vars);
     }
 
+    //This func checks whether a program is currently loaded
     @Override
-    public Path saveOrReplaceVersion(Path original, int version) throws IOException {
-        Objects.requireNonNull(original, "original must not be null");
-        if (version < 0) throw new IllegalArgumentException("version must be non-negative");
-        return versionMgr.saveOrReplaceVersion(original, version);
+    public boolean hasProgramLoaded() {
+        return current != null;
     }
 
-    @Override
-    public int lastCycles() {
-        requireLoaded();
-        return executor.getLastExecutionCycles();
-    }
-
-    @Override
-    public List<RunRecord> history() { return List.copyOf(history); }
-
-    @Override
-    public void clearHistory() {
-        history.clear();
-        runCounter = 0;
-    }
-
-    @Override
-    public boolean hasProgramLoaded() { return current != null; }
-
+    //This func ensures a program is loaded
     private void requireLoaded() {
         if (current == null || executor == null) {
             throw new ProgramNotLoadedException();
         }
     }
 
+    //This func extracts and returns a sorted list of unique input variables
     @Override
     public List<String> extractInputVars(ProgramView pv) {
         Pattern VAR_X = Pattern.compile("\\bx([1-9]\\d*)\\b");
@@ -264,5 +284,43 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         List<String> out = new ArrayList<>(uniq);
         out.sort(Comparator.comparingInt(s -> Integer.parseInt(s.substring(1))));
         return out;
+    }
+
+    //This func returns all runs history list
+    @Override
+    public List<RunRecord> history() {
+        return Collections.unmodifiableList(history);
+    }
+
+    //This func saves the program's state
+    @Override
+    public void saveState(Path fileWithoutExt) throws Exception {
+        try (var oos = new ObjectOutputStream(
+                Files.newOutputStream(fileWithoutExt.resolveSibling(fileWithoutExt.getFileName() + ".semu")))) {
+            oos.writeObject(this);
+        }
+    }
+
+    //This func loads the program's state
+    @Override
+    public void loadState(Path fileWithoutExt) throws Exception {
+        try (var ois = new ObjectInputStream(
+                Files.newInputStream(fileWithoutExt.resolveSibling(fileWithoutExt.getFileName() + ".semu")))) {
+            EmulatorEngineImpl loaded = (EmulatorEngineImpl) ois.readObject();
+
+            this.current = loaded.current;
+            this.lastViewProgram = loaded.lastViewProgram;
+            this.executor = loaded.executor;
+            this.history.clear();
+            this.history.addAll(loaded.history);
+            this.runCounter = loaded.runCounter;
+        }
+    }
+
+    //This func creates heavy objects
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        this.executor = new ProgramExecutorImpl(this.current);
+        this.programExpander = new ProgramExpander();
     }
 }

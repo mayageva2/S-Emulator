@@ -1,18 +1,14 @@
 package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
-import emulator.logic.expansion.Expandable;
-import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
-import emulator.logic.label.LabelImpl;
 import emulator.logic.variable.Variable;
-import emulator.logic.variable.VariableImpl;
-import emulator.logic.variable.VariableType;
 
+import java.io.Serializable;
 import java.util.*;
 
-public abstract class AbstractInstruction implements Instruction {
+public abstract class AbstractInstruction implements Instruction, Serializable {
 
     private final InstructionData instructionData;
     private final Label label;
@@ -20,6 +16,7 @@ public abstract class AbstractInstruction implements Instruction {
     private final Map<String, String> arguments = new HashMap<>();
     private int degree;
     private Instruction createdFrom;
+    private static final long serialVersionUID = 1L;
 
     public AbstractInstruction(InstructionData instructionData) {
         this(instructionData,null, FixedLabel.EMPTY);
@@ -45,58 +42,52 @@ public abstract class AbstractInstruction implements Instruction {
         this.degree = 0;
     }
 
+    //This func returns instructionData
     @Override
     public InstructionData getInstructionData() { return instructionData; }
 
+    //This func returns name of instruction
     @Override
-    public String getName() {
-        return instructionData.getName();
-    }
+    public String getName() { return instructionData.getName(); }
 
+    //This func
     @Override
     public int cycles() { return instructionData.getCycles(); }
 
+    //This func returns cycles amount
     @Override
     public Label getLabel() { return label; }
 
+    //This func returns the main variable
     @Override
-    public Variable getVariable() {
-        return variable;
-    }
+    public Variable getVariable() { return variable; }
 
+    //This func returns the variables referenced in instruction
     @Override
-    public Collection<Variable> referencedVariables() {
-        return getVariable() == null ? Collections.emptyList() : List.of(getVariable());
-    }
+    public Collection<Variable> referencedVariables() { return getVariable() == null ? Collections.emptyList() : List.of(getVariable()); }
 
+    //This func returns the instruction’s arguments
     @Override
-    public Map<String, String> getArguments() {
-        return Collections.unmodifiableMap(arguments);
-    }
+    public Map<String, String> getArguments() { return Collections.unmodifiableMap(arguments); }
 
-    public void setArgument(String key, String value) {
-        arguments.put(key, value);
-    }
-
+    //This func
     @Override
     public int degree() {
         return getInstructionData().getDegree();
     }
 
-    protected ExpansionHelper degreeHelper() {
-        return ExpansionHelper.fromUsedSets(
-                Set.of(), Set.of(),
-                name -> new VariableImpl(VariableType.WORK, 0),
-                name -> new LabelImpl(0)
-        );
-    }
-
+    //This func returns the original instruction
     @Override
     public Instruction getCreatedFrom() { return createdFrom; }
 
-    public int getDegree() { return degree; }
-    public void setDegree(int degree) { this.degree = degree; }
+    //This func updates an argument
+    public void setArgument(String key, String value) {
+        arguments.put(key, value);
+    }
 
+    //This func executes the instruction logic
     public abstract Label execute(ExecutionContext context);
+
+    //This func sets which instruction created the given instruction
     public void setCreatedFrom(Instruction origin) { this.createdFrom = origin; }
 }

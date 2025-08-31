@@ -12,7 +12,7 @@ public class InstructionArgXml {
     @XmlAttribute(name = "value")
     private String value;
 
-    // --- getters/setters ---
+    // --- getters/setters --- //
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getValue() { return value; }

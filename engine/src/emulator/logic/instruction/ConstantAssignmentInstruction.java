@@ -32,29 +32,50 @@ public class ConstantAssignmentInstruction extends AbstractInstruction implement
         this.constantValue = constantValue;
     }
 
+    //This func executes the instruction
     @Override
     public Label execute(ExecutionContext context) {
         context.updateVariable(getVariable(), constantValue);
         return FixedLabel.EMPTY;
     }
 
+    //This func expands an CONSTANT_ASSIGNMENT instruction
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
         List<Instruction> out = new ArrayList<>();
         Variable var = getVariable();
+        if (var == null) {
+            throw new IllegalStateException("CONSTANT_ASSIGNMENT missing variable");
+        }
 
         Label firstLabel = getLabel();
         if (firstLabel == null || FixedLabel.EMPTY.equals(firstLabel)) {
-            firstLabel = helper.freshLabel();
+            out.add(new ZeroVariableInstruction(var));
+        } else {
+            out.add(new ZeroVariableInstruction(var, firstLabel));
         }
 
-        out.add(new ZeroVariableInstruction(var, firstLabel));
-        out.add(new IncreaseInstruction(var));
+        for(int i = 0; i < constantValue; i++) {
+            out.add(new IncreaseInstruction(var));
+        }
 
         return out;
     }
 
+    //This func returns the constant value
     public long getConstantValue() { return constantValue; }
+
+    //This func return args
+    @Override
+    public java.util.Map<String, String> getArguments() {
+        java.util.Map<String, String> m = new java.util.LinkedHashMap<>();
+        // if AbstractInstruction already has arguments, merge them:
+        java.util.Map<String, String> base = super.getArguments();
+        if (base != null) m.putAll(base);
+
+        m.put("constantValue", Long.toString(constantValue));
+        return m;
+    }
 }
 
 

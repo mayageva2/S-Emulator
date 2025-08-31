@@ -22,6 +22,7 @@ public class InstructionXml {
     @XmlElement(name = "S-Instruction-Argument")
     private List<InstructionArgXml> arguments;
 
+    // --- getters/setters --- //
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getType() { return type; }
@@ -31,5 +32,4 @@ public class InstructionXml {
     public String getLabel() { return label; }
     public void setLabel(String label) { this.label = label; }
     public List<InstructionArgXml> getArguments() { return arguments; }
-    public void setArguments(List<InstructionArgXml> arguments) { this.arguments = arguments; }
 }

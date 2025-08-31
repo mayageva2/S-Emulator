@@ -13,15 +13,16 @@ public class ConsoleIO {
         this.out = out;
     }
 
+    //This func returns the line of text
     public String ask(String prompt) {
         out.print(prompt);
         return in.nextLine();
     }
 
+    //These funcs print
     public void println(String s) {
         out.println(s);
     }
-
     public void print(String s) {
         out.print(s);
     }
