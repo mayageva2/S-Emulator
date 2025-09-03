@@ -2,6 +2,10 @@ package emulator.logic.xml;
 
 import emulator.exception.InvalidInstructionException;
 import emulator.logic.instruction.*;
+import emulator.logic.instruction.quote.ProgramVarResolver;
+import emulator.logic.instruction.quote.QuotationInstruction;
+import emulator.logic.instruction.quote.QuotationRegistry;
+import emulator.logic.instruction.quote.QuoteParserImpl;
 import emulator.logic.label.*;
 import emulator.logic.program.*;
 import emulator.logic.variable.*;
@@ -15,21 +19,20 @@ public final class XmlToObjects {
     private enum LabelPolicy { REQUIRED, OPTIONAL }
 
     //This func converts a ProgramXml into a Program object
-    public static Program toProgram(ProgramXml pxml) {
+    public static Program toProgram(ProgramXml pxml, QuotationRegistry registry) {
         ProgramImpl program = new ProgramImpl(pxml.getName());
-
         int idx = 0;
         for (InstructionXml ix : pxml.getInstructions().getInstructions()) {
             idx++;
-            program.addInstruction(toInstruction(ix, idx));
+            program.addInstruction(toInstruction(ix, idx, program, registry));
         }
         return program;
     }
 
     //This func converts a InstructionXml into an Instruction object
-    private static Instruction toInstruction(InstructionXml ix, int index) {
+    private static Instruction toInstruction(InstructionXml ix, int index, Program program, QuotationRegistry registry) {
         ParsedParts p = parseParts(ix, index);
-        return buildInstruction(p, index);
+        return buildInstruction(p, index, program, registry);
     }
 
     //This func parse opcode, main variable, label, and args once
@@ -46,7 +49,7 @@ public final class XmlToObjects {
     }
 
     //This func switches to instruction
-    private static Instruction buildInstruction(ParsedParts p, int index) {
+    private static Instruction buildInstruction(ParsedParts p, int index, Program program, QuotationRegistry registry) {
         String opcode = p.opcode();
         Variable v = p.v();
         Label lbl = p.lbl();
@@ -89,6 +92,21 @@ public final class XmlToObjects {
                 Variable other = parseVariable(req(args, "VARIABLENAME", opcode, index), opcode, index);
                 JumpEqualVariableInstruction.Builder b = new JumpEqualVariableInstruction.Builder().variable(v).compareVariable(other).jeVariableLabel(target);
                 if (lbl != null) b.myLabel(lbl);
+                yield b.build();
+            }
+            case "QUOTE" -> {
+                String fname = req(args, "FUNCTIONNAME", opcode, index);
+                String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
+
+                QuotationInstruction.Builder b = new QuotationInstruction.Builder()
+                        .variable(v)
+                        .funcName(fname)
+                        .funcArguments(fargs)
+                        .myLabel(lbl)
+                        .parser(new QuoteParserImpl())
+                        .varResolver(new ProgramVarResolver(program))
+                        .registry(registry);
+
                 yield b.build();
             }
 
