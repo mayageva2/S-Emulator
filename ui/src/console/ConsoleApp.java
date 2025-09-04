@@ -459,8 +459,8 @@ public class ConsoleApp {
             case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
             case "QUOTE": {
                 String fn = getArg(args, "functionName");
-                String funcArgs = getArg(args, "functionArguments");
-                String inside = fn + (funcArgs == null || funcArgs.isBlank() ? "" : ", " + funcArgs);
+                String fargs = getArg(args, "functionArguments");
+                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
                 return args.get(0) + " <- (" + inside + ")";
             }
             default: return iv.opcode() + " " + String.join(", ", args);

@@ -66,7 +66,74 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
-        throw new UnsupportedOperationException("QUOTATION.expand is not implemented yet");
+        List<Instruction> out = new ArrayList<>();
+        List<String> flatArgs = new ArrayList<>(rawArgs.size());
+
+        Variable var = getVariable();
+        if (var == null) {
+            throw new IllegalStateException("QUOTATION missing variable");
+        }
+
+        Label orig = getLabel();
+        boolean hasLabel = (orig != null && !FixedLabel.EMPTY.equals(orig));
+        boolean labelUsed = false;
+        boolean anyNested = false;
+
+        for (String tok : rawArgs) {
+            if (parser.isNestedCall(tok)) {
+                anyNested = true;
+
+                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                Variable tmp = helper.freshVar();
+
+                Label nestedLabel = (hasLabel && !labelUsed) ? orig : FixedLabel.EMPTY;
+
+                QuotationInstruction nested = new QuotationInstruction.Builder()
+                        .variable(tmp)
+                        .funcName(nc.name())
+                        .funcArguments(nc.argsCsv())
+                        .myLabel(nestedLabel)
+                        .parser(this.parser)
+                        .registry(this.registry)
+                        .varResolver(this.varResolver)
+                        .build();
+
+                List<Instruction> nestedOut = nested.expand(helper);
+                if (nestedOut.isEmpty()) {
+                    out.add(nested);
+                } else {
+                    out.addAll(nestedOut);
+                }
+
+                if (nestedLabel != FixedLabel.EMPTY) {
+                    labelUsed = true;
+                }
+
+                flatArgs.add(tmp.getRepresentation());
+            } else {
+                flatArgs.add(tok);
+            }
+        }
+
+        if (!anyNested) {
+            return List.of(this);
+        }
+
+        String newCsv = String.join(", ", flatArgs);
+        Label topLabel = (hasLabel && !labelUsed) ? orig : FixedLabel.EMPTY;
+
+        QuotationInstruction top = new QuotationInstruction.Builder()
+                .variable(var)
+                .funcName(this.functionName)
+                .funcArguments(newCsv)
+                .myLabel(topLabel)
+                .parser(this.parser)
+                .registry(this.registry)
+                .varResolver(this.varResolver)
+                .build();
+
+        out.add(top);
+        return out;
     }
 
     private long runQuotedEval(String fname, String argsCsv, ExecutionContext ctx) {
