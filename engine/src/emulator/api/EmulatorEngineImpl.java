@@ -7,6 +7,8 @@ import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.ProgramExpander;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
+import emulator.logic.instruction.quote.MapBackedQuotationRegistry;
+import emulator.logic.instruction.quote.QuotationRegistry;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.xml.*;
@@ -22,6 +24,8 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
+import static java.util.Locale.ROOT;
+
 public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
 
     private Program current;
@@ -31,6 +35,8 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
     private int runCounter = 0;
     private transient ProgramExpander programExpander = new ProgramExpander();
     private static final long serialVersionUID = 1L;
+    private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
+    private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -193,8 +199,9 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
             MissingLabelException,
             ProgramException,
             IOException {
+
         final String p = String.valueOf(xmlPath);
-        if (!p.toLowerCase(java.util.Locale.ROOT).endsWith(".xml")) {
+        if (!p.toLowerCase(ROOT).endsWith(".xml")) {
             throw new XmlWrongExtensionException("Expected .xml file: " + p);
         }
         if (!java.nio.file.Files.exists(xmlPath)) {
@@ -205,8 +212,9 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
         ProgramXml pxml = reader.read(xmlPath);
         XmlProgramValidator validator = new XmlProgramValidator();
         validator.validate(pxml);
-        this.current = XmlToObjects.toProgram(pxml);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
         this.executor = new ProgramExecutorImpl(this.current);
+        functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
         this.lastViewProgram = null;
         this.history.clear();
         this.runCounter = 0;
@@ -322,5 +330,6 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
         in.defaultReadObject();
         this.executor = new ProgramExecutorImpl(this.current);
         this.programExpander = new ProgramExpander();
+        this.quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     }
 }

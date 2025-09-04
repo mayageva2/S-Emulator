@@ -455,8 +455,14 @@ public class ConsoleApp {
                 String tgt = findLabel(args);
                 return "IF " + args.get(0) + " = " + getArg(args, "variableName") + " GOTO " + tgt;
             }
-            case "ASSIGNMENT":           return args.get(0) + "<-" + getArg(args,"assignedVariable");
-            case "CONSTANT_ASSIGNMENT":  return args.get(0) + "<-" + getArg(args,"constantValue");
+            case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
+            case "QUOTE": {
+                String fn = getArg(args, "functionName");
+                String fargs = getArg(args, "functionArguments");
+                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
+                return args.get(0) + " <- (" + inside + ")";
+            }
             default: return iv.opcode() + " " + String.join(", ", args);
         }
     }
