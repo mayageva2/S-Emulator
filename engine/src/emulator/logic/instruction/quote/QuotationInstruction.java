@@ -1,7 +1,6 @@
 package emulator.logic.instruction.quote;
 
 import emulator.logic.execution.ExecutionContext;
-import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.instruction.*;
@@ -57,7 +56,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
     @Override
     public Label execute(ExecutionContext ctx) {
-        long resultY = runQuotedEval(functionName, functionArguments, ctx);
+        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver);
         ctx.updateVariable(getVariable(), resultY);
         return FixedLabel.EMPTY;
     }
@@ -84,7 +83,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                 }
                 case WORK -> varSub.put(qv, helper.freshVar());
                 default -> {
-                    if (isOutputVar(qv)) {
+                    if (QuoteUtils.isOutputVar(qv)) {
                         newY = helper.freshVar();
                         varSub.put(qv, newY);
                     }
@@ -147,12 +146,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
         out.add(new AssignmentInstruction(getVariable(), newY, lend));
         return out;
-    }
-
-    private static boolean isOutputVar(Variable v) {
-        var t = v.getType();
-        String n = (t == null) ? "" : t.name();
-        return "OUTPUT".equals(n) || "RESULT".equals(n) || "Y".equals(n);
     }
 
     private static Variable subVar(Map<Variable, Variable> map, Variable key) {
@@ -244,42 +237,8 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         return new NeutralInstruction(subVar(varSub, getVariable()), newLbl);
     }
 
-    private long runQuotedEval(String fname, String argsCsv, ExecutionContext ctx) {
-        Program qProgram = registry.getProgramByName(fname);
-        int need = requiredInputCount(qProgram);
 
-        List<String> args = parser.parseTopLevelArgs(argsCsv);
-        Long[] inputs = new Long[need];
-        java.util.Arrays.fill(inputs, 0L);
 
-        int copy = Math.min(need, args.size());
-        for (int i = 0; i < copy; i++) {
-            inputs[i] = evalArgToValue(args.get(i), ctx);
-        }
-
-        ProgramExecutorImpl subExec = new ProgramExecutorImpl(qProgram);
-        return subExec.run(inputs);
-    }
-
-    private Long evalArgToValue(String token, ExecutionContext ctx) {
-        if (parser.isNestedCall(token)) {
-            QuoteParser.NestedCall nc = parser.parseNestedCall(token);
-            return runQuotedEval(nc.name(), nc.argsCsv(), ctx);
-        } else {
-            var src = varResolver.resolve(token);
-            return ctx.getVariableValue(src);
-        }
-    }
-
-    private static int requiredInputCount(Program p) {
-        int max = 0;
-        for (var v : p.getVariables()) {
-            if (v.getType() == emulator.logic.variable.VariableType.INPUT) {
-                max = Math.max(max, v.getNumber());
-            }
-        }
-        return max;
-    }
 
     public String functionName() { return functionName; }
     public String functionArguments() { return functionArguments; }
