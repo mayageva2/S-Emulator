@@ -70,24 +70,23 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         List<String> flatArgs = new ArrayList<>(rawArgs.size());
 
         Variable var = getVariable();
-        if (var == null) {
-            throw new IllegalStateException("QUOTATION missing variable");
-        }
+        if (var == null) throw new IllegalStateException("QUOTATION missing variable");
 
         Label orig = getLabel();
         boolean hasLabel = (orig != null && !FixedLabel.EMPTY.equals(orig));
         boolean labelUsed = false;
         boolean anyNested = false;
+        Map<String, Variable> locals = new HashMap<>();
+        VarResolver localResolver = new DelegatingVarResolver(locals, this.varResolver);
 
         for (String tok : rawArgs) {
             if (parser.isNestedCall(tok)) {
                 anyNested = true;
-
-                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                var nc = parser.parseNestedCall(tok);
                 Variable tmp = helper.freshVar();
+                locals.put(tmp.getRepresentation().toUpperCase(Locale.ROOT), tmp);
 
                 Label nestedLabel = (hasLabel && !labelUsed) ? orig : FixedLabel.EMPTY;
-
                 QuotationInstruction nested = new QuotationInstruction.Builder()
                         .variable(tmp)
                         .funcName(nc.name())
@@ -95,19 +94,12 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                         .myLabel(nestedLabel)
                         .parser(this.parser)
                         .registry(this.registry)
-                        .varResolver(this.varResolver)
+                        .varResolver(localResolver)
                         .build();
 
                 List<Instruction> nestedOut = nested.expand(helper);
-                if (nestedOut.isEmpty()) {
-                    out.add(nested);
-                } else {
-                    out.addAll(nestedOut);
-                }
-
-                if (nestedLabel != FixedLabel.EMPTY) {
-                    labelUsed = true;
-                }
+                if (nestedOut.isEmpty()) out.add(nested); else out.addAll(nestedOut);
+                if (nestedLabel != FixedLabel.EMPTY) labelUsed = true;
 
                 flatArgs.add(tmp.getRepresentation());
             } else {
@@ -129,7 +121,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                 .myLabel(topLabel)
                 .parser(this.parser)
                 .registry(this.registry)
-                .varResolver(this.varResolver)
+                .varResolver(localResolver)
                 .build();
 
         out.add(top);
