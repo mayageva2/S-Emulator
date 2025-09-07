@@ -9,9 +9,10 @@
 <?import javafx.scene.text.Font?>
 
 
+<?import javafx.scene.layout.VBox?>
 <BorderPane nodeOrientation="LEFT_TO_RIGHT" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.HeaderAndLoadButtonController">
    <top>
-      <HBox alignment="CENTER" prefWidth="600.0" BorderPane.alignment="CENTER">
+      <HBox alignment="CENTER" prefWidth="900.0" BorderPane.alignment="CENTER">
          <children>
             <Label alignment="TOP_CENTER" contentDisplay="CENTER" text="S-Emulator" textFill="#9a0cb2d7">
                <font>
@@ -22,19 +23,23 @@
       </HBox>
    </top>
    <center>
-      <HBox prefHeight="102.0" prefWidth="600.0" spacing="10.0" BorderPane.alignment="CENTER" style="-fx-padding: 10;">
-         <children>
-            <Button fx:id="LoadButton" mnemonicParsing="false" onAction="#handleLoadButtonClick" prefHeight="43.0" prefWidth="117.0" style="-fx-background-color: purple;" text="Load File" textFill="WHITE" HBox.hgrow="NEVER">
-               <font>
-                  <Font size="20.0" />
-               </font>
-            </Button>
-            <TextField maxWidth="Infinity" prefHeight="43.0" prefWidth="473.0" HBox.hgrow="ALWAYS" fx:id="xmlPathField" />
-            <Label fx:id="statusLabel" />
-         </children>
-         <padding>
-            <Insets left="10.0" />
-         </padding>
-      </HBox>
+      <VBox spacing="5" style="-fx-padding: 10;">
+         <HBox prefHeight="90.0" prefWidth="900.0" spacing="10.0" BorderPane.alignment="CENTER" style="-fx-padding: 10;">
+            <children>
+               <Button fx:id="LoadButton" mnemonicParsing="false" onAction="#handleLoadButtonClick" prefHeight="43.0" prefWidth="133.0" style="-fx-background-color: purple;" text="Load File" textFill="WHITE" HBox.hgrow="NEVER">
+                  <font>
+                     <Font size="20.0" />
+                  </font>
+               </Button>
+               <TextField maxWidth="Infinity" prefHeight="43.0" prefWidth="473.0" HBox.hgrow="ALWAYS" fx:id="xmlPathField" />
+
+            </children>
+            <padding>
+               <Insets left="10.0" />
+            </padding>
+
+         </HBox>
+         <Label fx:id="statusLabel" textFill="black"/>
+      </VBox>
    </center>
 </BorderPane>
