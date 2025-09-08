@@ -1,10 +1,19 @@
-.table-view .column-header-background {
-    /* header background */
-    -fx-background-color: rgba(154,12,178,0.84);
+.table-view.instructions .column-header-background {
+    -fx-background-color: linear-gradient(#9a0cb2d7, purple);
 }
-
-.table-view .column-header .label {
-    /* header text */
+.table-view.instructions .column-header, .table-view.instructions .filler {
+    -fx-background-color: transparent;
+}
+.table-view.instructions .column-header .label {
     -fx-text-fill: white;
     -fx-font-weight: bold;
+    -fx-alignment: CENTER;
 }
+
+/* zebra rows */
+.table-view.instructions .table-row-cell:odd  { -fx-background-color: #f7eef9; }
+.table-view.instructions .table-row-cell:even { -fx-background-color: white; }
+
+
+.table-view.instructions .table-row-cell:selected { -fx-background-color: #e6c8ef; }
+.table-view.instructions .table-cell { -fx-alignment: CENTER; }

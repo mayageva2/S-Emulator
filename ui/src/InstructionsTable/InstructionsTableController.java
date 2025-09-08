@@ -27,32 +27,42 @@ public class InstructionsTableController {
 
     @FXML
     private void initialize() {
-        // column factories (once)
-        indexCol .setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().index()));
-        typeCol  .setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().basic() ? "B" : "S"));
+        assert instructionsTable != null : "instructionsTable not injected";
+        assert indexCol  != null && typeCol != null && cyclesCol != null && InstructionsCol != null;
+
+        var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
+        if (css != null) {
+            instructionsTable.getStylesheets().add(css.toExternalForm());
+            instructionsTable.getStyleClass().add("instructions");
+        }
+
+        // Value factories
+        indexCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().index()));
+        typeCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().basic() ? "B" : "S"));
         cyclesCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().cycles()));
         InstructionsCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(prettyOpcode(c.getValue().opcode(), c.getValue().args())));
 
-        // optional niceties
-        instructionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
-        indexCol.setStyle("-fx-alignment: CENTER-RIGHT;");
-        cyclesCol.setStyle("-fx-alignment: CENTER-RIGHT;");
+        instructionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+
+        indexCol.setMinWidth(40);         indexCol.setPrefWidth(60);
+        typeCol.setMinWidth(70);          typeCol.setPrefWidth(100);
+        cyclesCol.setMinWidth(60);        cyclesCol.setPrefWidth(80);
+        InstructionsCol.setMinWidth(160); InstructionsCol.setPrefWidth(400);
+
+        indexCol.setStyle("-fx-alignment: CENTER;");
+        typeCol.setStyle("-fx-alignment: CENTER;");
+        cyclesCol.setStyle("-fx-alignment: CENTER;");
+        InstructionsCol.setStyle("-fx-alignment: CENTER-LEFT;");
     }
 
     public void update(ProgramView pv) {
         currentDegree = pv.degree();
         instructionsTable.setItems(FXCollections.observableArrayList(pv.instructions()));
+        instructionsTable.refresh();
     }
 
     private static String prettyOpcode(String opcode, java.util.List<String> args) {
         return (args == null || args.isEmpty()) ? nz(opcode) : nz(opcode) + " " + String.join(", ", args);
-    }
-
-    private static String formatChain(List<Integer> chain, int degree) {
-        if (degree > 0 && chain != null && !chain.isEmpty()) {
-            return chain.stream().map(Object::toString).collect(Collectors.joining(" -> "));
-        }
-        return "";
     }
 
     private static String nz(String s) { return (s == null) ? "" : s; }

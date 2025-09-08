@@ -6,8 +6,14 @@ import InstructionsTable.InstructionsTableController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
+import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.DoubleBinding;
 import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.TextArea;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +24,8 @@ public class MainController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
     @FXML private InstructionsTableController instructionsController;
+    @FXML private VBox contentBox;
+    @FXML private Node toolbar;
     @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
@@ -29,6 +37,21 @@ public class MainController {
         toolbarController.setOnExpand(this::onExpandOne);
         toolbarController.setOnCollapse(this::onCollapseOne);
         toolbarController.bindDegree(0, 0);
+
+        Platform.runLater(() -> {
+            contentBox.setMinWidth(0);                         // allow shrinking
+            contentBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+
+            // Track width of the toolbar
+            DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
+                    () -> toolbar.getBoundsInParent().getWidth(),
+                    toolbar.boundsInParentProperty()
+            );
+
+            // Match toolbar width EXACTLY
+            contentBox.prefWidthProperty().bind(toolbarContentW);
+            contentBox.maxWidthProperty().bind(toolbarContentW);
+        });
     }
 
     public void setEngine(EmulatorEngine engine) {
