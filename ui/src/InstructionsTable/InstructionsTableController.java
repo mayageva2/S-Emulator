@@ -17,10 +17,11 @@ public class InstructionsTableController {
 
     @FXML private BorderPane root;
     @FXML private TableView<InstructionView> instructionsTable;
+
     @FXML private TableColumn<InstructionView, Number> indexCol;
     @FXML private TableColumn<InstructionView, String> typeCol;
-    @FXML private TableColumn<InstructionView, String> InstructionsCol;
     @FXML private TableColumn<InstructionView, Number> cyclesCol;
+    @FXML private TableColumn<InstructionView, String> InstructionsCol;
 
     private int currentDegree = 0;
 

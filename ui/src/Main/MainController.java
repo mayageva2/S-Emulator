@@ -2,6 +2,7 @@ package Main;
 
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
+import InstructionsTable.InstructionsTableController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 public class MainController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
-    @FXML private InstructionsTable.InstructionsTableController instructionsController;
+    @FXML private InstructionsTableController instructionsController;
     @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
@@ -72,7 +73,7 @@ public class MainController {
 
     private void render(int degree) {
         try {
-            ProgramView pv = engine.programView(degree);
+            var pv = engine.programView(degree);
             instructionsController.update(pv);
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
