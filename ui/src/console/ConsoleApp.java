@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,7 +36,7 @@ public class ConsoleApp {
             showMenu(io);
             String choice = io.ask("Choose action [1-8]: ").trim();
             switch (choice) {
-                //case "1" -> doLoad(io);
+                case "1" -> doLoad(io);
                 case "2" -> doShowProgram(io);
                 case "3" -> doExpand(io);
                 case "4" -> doRun(io);
@@ -66,17 +65,17 @@ public class ConsoleApp {
     }
 
     //This func loads an XML file
-    public void doLoad(String raw, Consumer<String> printer){
-        final String input = (raw == null) ? "" : raw.trim();
-        if (input.isEmpty()) { printer.accept("Load cancelled: empty path."); return; }
+    private void doLoad(ConsoleIO io) {
+        final String raw = io.ask("Enter full XML path: ").trim();   //Ask user for the XML file path
+        if (raw.isEmpty()) { io.println("Load cancelled: empty path."); return; }
 
-        final java.nio.file.Path path;
-        try { path = java.nio.file.Paths.get(input); }
-        catch (RuntimeException e) { printer.accept("Load failed: invalid path syntax."); return; }
+        final Path path;
+        try { path = Paths.get(raw); }
+        catch (RuntimeException e) { io.println("Load failed: invalid path syntax."); return; }
 
-        if (!java.nio.file.Files.exists(path)) { printer.accept("Load failed: file not found."); return; }
-        if (!input.toLowerCase(java.util.Locale.ROOT).endsWith(".xml")) {
-            printer.accept("Load failed: file must have .xml extension."); return;
+        if (!Files.exists(path)) { io.println("Load failed: file not found."); return; }
+        if (!raw.toLowerCase(Locale.ROOT).endsWith(".xml")) {
+            io.println("Load failed: file must have .xml extension."); return;
         }
 
         try {
@@ -84,24 +83,24 @@ public class ConsoleApp {
             lastProgramName = res.programName();
             lastMaxDegree   = res.maxDegree();
             lastXmlPath     = path;
-            printer.accept("XML loaded: '" + res.programName() + "' (" +
+            io.println("XML loaded: '" + res.programName() + "' (" +
                     res.instructionCount() + " instructions). Max degree: " + lastMaxDegree);
-        } catch (emulator.exception.XmlWrongExtensionException e) {
-            printer.accept("Load failed: file must have .xml extension.");
-        } catch (emulator.exception.XmlNotFoundException e) {
-            printer.accept("Load failed: file not found.");
-        } catch (emulator.exception.XmlReadException e) {
-            printer.accept("Load failed: XML is malformed – " + e.getMessage());
-        } catch (emulator.exception.XmlInvalidContentException e) {
-            printer.accept("Load failed: invalid XML content – " + e.getMessage());
-        } catch (emulator.exception.InvalidInstructionException e) {
-            printer.accept("Load failed: invalid instruction – " + e.getMessage());
-        } catch (emulator.exception.MissingLabelException e) {
-            printer.accept("Load failed: missing label – " + e.getMessage());
-        } catch (emulator.exception.ProgramException e) {
-            printer.accept("Load failed: program error – " + e.getMessage());
+        } catch (XmlWrongExtensionException e) {
+            io.println("Load failed: file must have .xml extension.");
+        } catch (XmlNotFoundException e) {
+            io.println("Load failed: file not found.");
+        } catch (XmlReadException e) {
+            io.println("Load failed: XML is malformed – " + e.getMessage());
+        } catch (XmlInvalidContentException e) {
+            io.println("Load failed: invalid XML content – " + e.getMessage());
+        } catch (InvalidInstructionException e) {
+            io.println("Load failed: invalid instruction – " + e.getMessage());
+        } catch (MissingLabelException e) {
+            io.println("Load failed: missing label – " + e.getMessage());
+        } catch (ProgramException e) {
+            io.println("Load failed: program error – " + e.getMessage());
         } catch (Exception e) {
-            printer.accept("Load failed: unexpected error – " + e.getMessage());
+            io.println("Load failed: unexpected error – " + e.getMessage());
         }
     }
 

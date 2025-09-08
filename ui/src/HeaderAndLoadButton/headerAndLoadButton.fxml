@@ -10,7 +10,7 @@
 
 
 <?import javafx.scene.layout.VBox?>
-<BorderPane nodeOrientation="LEFT_TO_RIGHT" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.HeaderAndLoadButtonController">
+<BorderPane nodeOrientation="LEFT_TO_RIGHT" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="HeaderAndLoadButton.HeaderAndLoadButtonController">
    <top>
       <HBox alignment="CENTER" prefWidth="900.0" BorderPane.alignment="CENTER">
          <children>
@@ -26,7 +26,7 @@
       <VBox spacing="5" style="-fx-padding: 10;">
          <HBox prefHeight="90.0" prefWidth="900.0" spacing="10.0" BorderPane.alignment="CENTER" style="-fx-padding: 10;">
             <children>
-               <Button fx:id="LoadButton" mnemonicParsing="false" onAction="#handleLoadButtonClick" prefHeight="43.0" prefWidth="133.0" style="-fx-background-color: purple;" text="Load File" textFill="WHITE" HBox.hgrow="NEVER">
+               <Button fx:id="loadButton" mnemonicParsing="false" onAction="#handleLoadButtonClick" prefHeight="43.0" prefWidth="133.0" style="-fx-background-color: purple;" text="Load File" textFill="WHITE" HBox.hgrow="NEVER">
                   <font>
                      <Font size="20.0" />
                   </font>

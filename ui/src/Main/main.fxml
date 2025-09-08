@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.BorderPane?>
+
+<BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Main.MainController">
+
+    <top>
+        <fx:include fx:id="header" source="../HeaderAndLoadButton/headerAndLoadButton.fxml" />
+    </top>
+
+    <center>
+        <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" />
+    </center>
+
+</BorderPane>

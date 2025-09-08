@@ -95,7 +95,7 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
             ));
         }
 
-        return new ProgramView(out, maxDegree);
+        return new ProgramView(out, base.getName(), degree, maxDegree);
     }
 
     //This func builds maps per degree from Instruction identity
