@@ -6,7 +6,10 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -39,10 +42,36 @@ public class HeaderAndLoadButtonController {
 
     @FXML
     private void handleLoadButtonClick() {
-        String raw = (xmlPathField.getText() == null) ? "" : xmlPathField.getText().trim();
-        statusLabel.setText(raw.isEmpty() ? "Empty path" : "Loading: " + raw);
-        doLoad(raw, msg -> statusLabel.setText(msg));
+        String typed = (xmlPathField.getText() == null) ? "" : xmlPathField.getText().trim();
+        if (!typed.isEmpty()) {
+            doLoad(typed, statusLabel::setText);
+            return;
+        }
+        openChooserAndLoad();  // fallback to chooser
     }
+
+    private void openChooserAndLoad() {
+        var owner = loadButton.getScene() != null ? loadButton.getScene().getWindow() : null;
+        var fc = buildChooser();
+        var file = fc.showOpenDialog(owner);
+        if (file == null) { statusLabel.setText("Load cancelled."); return; }
+        String abs = file.getAbsolutePath();
+        xmlPathField.setText(abs);
+        doLoad(abs, statusLabel::setText);
+    }
+
+    private FileChooser buildChooser() {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Open S-Program XML");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("XML files (*.xml)", "*.xml"));
+        if (lastXmlPath != null && lastXmlPath.getParent() != null) {
+            var dir = lastXmlPath.getParent().toFile();
+            if (dir.isDirectory()) fc.setInitialDirectory(dir);
+        }
+        return fc;
+    }
+
+
 
     //This func loads an XML file
     public void doLoad(String raw, Consumer<String> printer){
@@ -65,9 +94,7 @@ public class HeaderAndLoadButtonController {
             lastXmlPath = path;
             printer.accept("XML loaded: '" + res.programName() + "' (" +
                     res.instructionCount() + " instructions). Max degree: " + lastMaxDegree);
-            if (onLoaded != null) {
-                onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
-            }
+            if (onLoaded != null) { onLoaded.accept(new LoadedEvent( lastXmlPath, lastProgramName, lastMaxDegree)); }
         } catch (emulator.exception.XmlWrongExtensionException e) {
             printer.accept("Load failed: file must have .xml extension.");
         } catch (emulator.exception.XmlNotFoundException e) {

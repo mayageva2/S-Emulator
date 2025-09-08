@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+
+<BorderPane fx:id="root" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" >
+   <center>
+      <TableView prefHeight="200.0" prefWidth="250.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
+        <columns>
+          <TableColumn fx:id="indexCol" prefWidth="75.0" text="Index" />
+          <TableColumn fx:id="typeCol" prefWidth="111.20001220703125" text="Basic / Synthetic" />
+            <TableColumn fx:id="cyclesCol" prefWidth="62.4000244140625" text="Cycles" />
+            <TableColumn fx:id="InstructionsCol" prefWidth="348.79998779296875" text="Instruction" />
+        </columns>
+         <opaqueInsets>
+            <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+         </opaqueInsets>
+      </TableView>
+   </center>
+   <opaqueInsets>
+      <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+   </opaqueInsets>
+   <padding>
+      <Insets left="10.0" />
+   </padding>
+</BorderPane>

@@ -12,7 +12,7 @@
 <?import javafx.scene.layout.VBox?>
 <BorderPane nodeOrientation="LEFT_TO_RIGHT" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="HeaderAndLoadButton.HeaderAndLoadButtonController">
    <top>
-      <HBox alignment="CENTER" prefWidth="900.0" BorderPane.alignment="CENTER">
+      <HBox alignment="CENTER" prefWidth="1200.0" prefHeight="50.0" BorderPane.alignment="CENTER">
          <children>
             <Label alignment="TOP_CENTER" contentDisplay="CENTER" text="S-Emulator" textFill="#9a0cb2d7">
                <font>
@@ -23,8 +23,8 @@
       </HBox>
    </top>
    <center>
-      <VBox spacing="5" style="-fx-padding: 10;">
-         <HBox prefHeight="90.0" prefWidth="900.0" spacing="10.0" BorderPane.alignment="CENTER" style="-fx-padding: 10;">
+      <VBox spacing="5" style="-fx-padding: 5;">
+         <HBox prefHeight="30.0" prefWidth="900.0" spacing="10.0" BorderPane.alignment="CENTER" style="-fx-padding: 5;">
             <children>
                <Button fx:id="loadButton" mnemonicParsing="false" onAction="#handleLoadButtonClick" prefHeight="43.0" prefWidth="133.0" style="-fx-background-color: purple;" text="Load File" textFill="WHITE" HBox.hgrow="NEVER">
                   <font>

@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class MainController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
+    @FXML private InstructionsTable.InstructionsTableController instructionsController;
     @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
@@ -72,10 +73,9 @@ public class MainController {
     private void render(int degree) {
         try {
             ProgramView pv = engine.programView(degree);
-            String text = formatProgramView(pv);
-            centerOutput.setText(text);
+            instructionsController.update(pv);
         } catch (Exception e) {
-            centerOutput.setText("Render failed: " + e.getMessage());
+            if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
         }
     }
 
