@@ -23,10 +23,10 @@
                   spacing="0"
                   fillWidth="true"
                   minWidth="0.0"
+                  HBox.hgrow="ALWAYS"
                   VBox.vgrow="ALWAYS">
                 <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS"/>
             </VBox>
-            <Region HBox.hgrow="ALWAYS"/>
         </HBox>
     </center>
 </BorderPane>

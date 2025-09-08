@@ -20,6 +20,7 @@ public class InstructionsTableController {
 
     @FXML private TableColumn<InstructionView, Number> indexCol;
     @FXML private TableColumn<InstructionView, String> typeCol;
+    @FXML private TableColumn<InstructionView, String> labelCol;
     @FXML private TableColumn<InstructionView, Number> cyclesCol;
     @FXML private TableColumn<InstructionView, String> InstructionsCol;
 
@@ -39,6 +40,7 @@ public class InstructionsTableController {
         // Value factories
         indexCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().index()));
         typeCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().basic() ? "B" : "S"));
+        labelCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().label()));
         cyclesCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().cycles()));
         InstructionsCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(prettyOpcode(c.getValue().opcode(), c.getValue().args())));
 
@@ -46,11 +48,13 @@ public class InstructionsTableController {
 
         indexCol.setMinWidth(40);         indexCol.setPrefWidth(60);
         typeCol.setMinWidth(70);          typeCol.setPrefWidth(100);
+        labelCol.setMinWidth(70);         indexCol.setPrefWidth(100);
         cyclesCol.setMinWidth(60);        cyclesCol.setPrefWidth(80);
         InstructionsCol.setMinWidth(160); InstructionsCol.setPrefWidth(400);
 
         indexCol.setStyle("-fx-alignment: CENTER;");
         typeCol.setStyle("-fx-alignment: CENTER;");
+        labelCol.setStyle("-fx-alignment: CENTER;");
         cyclesCol.setStyle("-fx-alignment: CENTER;");
         InstructionsCol.setStyle("-fx-alignment: CENTER-LEFT;");
     }
