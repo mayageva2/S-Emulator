@@ -1,32 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.VBox?>
-
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
 <BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Main.MainController">
 
     <top>
-        <VBox spacing="2" style="-fx-padding: 6 10 0 10">
-            <fx:include fx:id="header" source="../HeaderAndLoadButton/headerAndLoadButton.fxml"/>
-            <HBox alignment="CENTER_LEFT">
-                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" />
-                <Region HBox.hgrow="ALWAYS"/>
-            </HBox>
+        <VBox spacing="2" style="-fx-padding: 6 10 0 10" >
+            <fx:include fx:id="header" source="../HeaderAndLoadButton/headerAndLoadButton.fxml" />
         </VBox>
     </top>
 
     <center>
-        <HBox spacing="0" style="-fx-padding: 0 10 10 10">
-            <VBox fx:id="contentBox"
-                  spacing="0"
-                  fillWidth="true"
-                  minWidth="0.0"
-                  HBox.hgrow="ALWAYS"
-                  VBox.vgrow="ALWAYS">
-                <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS"/>
+        <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 10 10 10">
+            <HBox alignment="CENTER_LEFT">
+                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" HBox.hgrow="ALWAYS" />
+                <Region HBox.hgrow="ALWAYS" />
+            </HBox>
+            <VBox fx:id="contentBox" fillWidth="true" minWidth="0.0" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
             </VBox>
-        </HBox>
+        </VBox>
     </center>
 </BorderPane>

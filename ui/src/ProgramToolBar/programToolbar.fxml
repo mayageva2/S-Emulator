@@ -10,31 +10,31 @@
 
 
 <?import javafx.scene.layout.Region?>
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="60.0" prefWidth="800.0" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+<BorderPane maxWidth="750.0" prefHeight="60.0" prefWidth="700.0" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
    <center>
-      <HBox prefHeight="50.0" prefWidth="695.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5;">
+      <HBox maxWidth="Infinity" prefHeight="50.0" prefWidth="700.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5;">
          <children>
-            <Button  fx:id="selectProgramButton" mnemonicParsing="false" prefWidth="250" prefHeight="43.0" style="-fx-background-color: purple;" text="Program/Function selector" textFill="WHITE">
+            <Button  fx:id="selectProgramButton" mnemonicParsing="false" prefWidth="200" prefHeight="43.0" style="-fx-background-color: purple;" text="Program/Function selector" textFill="WHITE">
                <font>
-                  <Font size="16.0" />
+                  <Font size="14.0" />
                </font>
             </Button>
-            <Button fx:id="CollapseButton" mnemonicParsing="false" prefWidth="120" prefHeight="43.0" style="-fx-background-color: purple;" text="Collapse" textFill="WHITE">
+            <Button fx:id="CollapseButton" mnemonicParsing="false" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;" text="Collapse" textFill="WHITE">
                <font>
-                  <Font size="16.0" />
+                  <Font size="14.0" />
                </font>
             </Button>
-            <Label fx:id="CurrentOrMaxDegreeLabel" prefWidth="120" prefHeight="43.0" textFill="#9a0cb2">
+            <Label fx:id="CurrentOrMaxDegreeLabel" prefWidth="100" prefHeight="43.0" textFill="#9a0cb2">
                <font>
-                  <Font size="16.0" />
+                  <Font size="14.0" />
                </font>
             </Label>
-            <Button fx:id="ExpandButton" mnemonicParsing="false" prefWidth="120" prefHeight="43.0" style="-fx-background-color: purple;" text="Expand" textFill="WHITE">
+            <Button fx:id="ExpandButton" mnemonicParsing="false" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;" text="Expand" textFill="WHITE">
                <font>
-                  <Font size="16.0" />
+                  <Font size="14.0" />
                </font>
             </Button>
-            <ChoiceBox fx:id="HighlightChoices" prefHeight="43.0" prefWidth="243.0" style="-fx-background-color: purple;" HBox.hgrow="NEVER"/>
+            <ChoiceBox fx:id="HighlightChoices" prefHeight="43.0" prefWidth="200.0" style="-fx-background-color: purple;" HBox.hgrow="NEVER"/>
          </children>
          <opaqueInsets>
             <Insets />
