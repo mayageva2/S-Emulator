@@ -3,6 +3,7 @@ package Main;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
+import SummaryLine.SummaryLineController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
@@ -24,6 +25,7 @@ public class MainController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
     @FXML private InstructionsTableController instructionsController;
+    @FXML private SummaryLineController summaryLineController;
     @FXML private VBox contentBox;
     @FXML private Node toolbar;
     @FXML private TextArea centerOutput;
@@ -57,6 +59,7 @@ public class MainController {
     public void setEngine(EmulatorEngine engine) {
         this.engine = Objects.requireNonNull(engine, "engine");
         headerController.setEngine(engine);
+        summaryLineController.setEngine(engine);
     }
 
     private boolean isLoaded() {
@@ -98,6 +101,7 @@ public class MainController {
         try {
             var pv = engine.programView(degree);
             instructionsController.update(pv);
+            summaryLineController.update(pv);
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
         }

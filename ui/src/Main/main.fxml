@@ -21,6 +21,7 @@
             </HBox>
             <VBox fx:id="contentBox" fillWidth="true" minWidth="0.0" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                 <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
+                <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml"/>
             </VBox>
         </VBox>
     </center>
