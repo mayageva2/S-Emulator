@@ -26,6 +26,7 @@ public class MainController {
     @FXML private ProgramToolbarController toolbarController;
     @FXML private InstructionsTableController instructionsController;
     @FXML private SummaryLineController summaryLineController;
+    @FXML private SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController historyChainController;
     @FXML private VBox contentBox;
     @FXML private Node toolbar;
     @FXML private TextArea centerOutput;
@@ -38,6 +39,7 @@ public class MainController {
         headerController.setOnLoaded(this::onProgramLoaded);
         toolbarController.setOnExpand(this::onExpandOne);
         toolbarController.setOnCollapse(this::onCollapseOne);
+        instructionsController.setOnRowSelected(this::onExpandedRowSelected);
         toolbarController.bindDegree(0, 0);
 
         Platform.runLater(() -> {
@@ -94,6 +96,16 @@ public class MainController {
             currentDegree--;
             toolbarController.bindDegree(currentDegree, max);
             render(currentDegree);
+        }
+    }
+
+    private void onExpandedRowSelected(emulator.api.dto.InstructionView selected) {
+        try {
+            if (currentDegree <= 0 || selected == null) { historyChainController.clear(); return; }
+            ProgramView pvOriginal = engine.programView(0);
+            historyChainController.showForSelected(selected, pvOriginal);
+        } catch (Exception e) {
+            historyChainController.clear();
         }
     }
 

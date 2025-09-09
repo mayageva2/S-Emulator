@@ -5,7 +5,7 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.BorderPane?>
 
-<BorderPane fx:id="root" maxWidth="750.0" prefHeight="200.0" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"  fx:controller="InstructionsTable.InstructionsTableController">
+<BorderPane fx:id="root" maxWidth="750.0" prefHeight="200.0" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"  fx:controller="SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController">
    <center>
       <TableView fx:id="instructionsTable" maxWidth="Infinity" prefHeight="200.0" minWidth="0.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
         <columns>
