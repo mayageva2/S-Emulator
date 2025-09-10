@@ -8,7 +8,7 @@
 
 <BorderPane maxHeight="Infinity" prefHeight="50.0" prefWidth="500.0" fx:controller="RunButtons.RunButtonsController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
    <center>
-      <HBox prefHeight="50.0" prefWidth="200.0" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
+      <HBox prefHeight="50.0" prefWidth="500.0" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
          <children>
             <Button fx:id="btnRun" onAction="#onRun" prefHeight="40.0" prefWidth="50.0" style="-fx-background-color: purple;" text="▶" textFill="#cf94d4">
                <font>
@@ -26,11 +26,11 @@
                <font>
                   <Font size="20.0" />
                </font></Button>
-            <Button fx:id="btnStepOver" onAction="#onStepOver" prefHeight="40.0" prefWidth="50.0" style="-fx-background-color: purple;" text="⏭" textFill="#cf94d4">
+            <Button fx:id="btnStepBack" onAction="#onStepBack" prefHeight="40.0" prefWidth="50.0" style="-fx-background-color: purple;" text="⏮" textFill="#cf94d4">
                <font>
                   <Font size="20.0" />
                </font></Button>
-            <Button fx:id="btnStepBack" onAction="#onStepBack" prefHeight="40.0" prefWidth="50.0" style="-fx-background-color: purple;" text="⏮" textFill="#cf94d4">
+            <Button fx:id="btnStepOver" onAction="#onStepOver" prefHeight="40.0" prefWidth="50.0" style="-fx-background-color: purple;" text="⏭" textFill="#cf94d4">
                <font>
                   <Font size="20.0" />
                </font></Button>

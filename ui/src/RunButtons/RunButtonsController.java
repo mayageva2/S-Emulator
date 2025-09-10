@@ -1,5 +1,6 @@
 package RunButtons;
 
+import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
@@ -8,10 +9,8 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
 import javafx.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+
+import java.util.*;
 import java.util.function.Function;
 
 public class RunButtonsController {
@@ -21,9 +20,9 @@ public class RunButtonsController {
     @FXML private Button btnResume;
     @FXML private Button btnStepOver;
     @FXML private Button btnStepBack;
-    @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
+    private int currentDegree = 0;
     private int lastMaxDegree = 0;
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
@@ -49,12 +48,13 @@ public class RunButtonsController {
     @FXML
     private void initialize() {
         // Optional: tooltips
-        if (btnRun != null) btnRun.setTooltip(new Tooltip("Run (regular)"));
-        if (btnDebug != null) btnDebug.setTooltip(new Tooltip("Start debug"));
+        if (btnRun != null) btnRun.setTooltip(new Tooltip("Run"));
+        if (btnDebug != null) btnDebug.setTooltip(new Tooltip("Debug"));
         if (btnStop != null) btnStop.setTooltip(new Tooltip("Stop"));
         if (btnResume != null) btnResume.setTooltip(new Tooltip("Resume"));
-        if (btnStepOver != null) btnStepOver.setTooltip(new Tooltip("Step over"));
         if (btnStepBack != null) btnStepBack.setTooltip(new Tooltip("Step backward"));
+        if (btnStepOver != null) btnStepOver.setTooltip(new Tooltip("Step over"));
+
 
         refreshButtonsEnabled();
     }
@@ -66,31 +66,41 @@ public class RunButtonsController {
             return;
         }
 
-        int degree = 0;
-        if (lastMaxDegree > 0) {
-            Optional<Integer> choice = promptExpansionDegree(0, lastMaxDegree);
-            if (choice.isEmpty()) return; // user canceled
-            degree = choice.get();
+        int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
+        if (max == 0) {
+            try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {}
         }
+        int degree = Math.max(0, Math.min(currentDegree, max));
 
         try {
             ProgramView pv = engine.programView(degree);
             Long[] inputs = promptInputsAsCsv(pv);
             RunResult result = engine.run(degree, inputs);
-            String rendered =
-                    (degree == 0 ? basicRenderer.apply(pv) : provenanceRenderer.apply(pv));
+            String rendered = (degree == 0 ? basicRenderer.apply(pv) : provenanceRenderer.apply(pv));
             StringBuilder out = new StringBuilder();
             if (rendered != null && !rendered.isBlank()) {
                 out.append(rendered.trim()).append("\n");
             }
 
+            if (varsBoxController != null) {
+                varsBoxController.renderFromRun(result, inputs);
+            }
+
             out.append("\nResult y = ").append(result.y()).append('\n');
             out.append("Total cycles = ").append(result.cycles()).append('\n');
 
-            setOutput(out.toString());
         } catch (Exception ex) {
             alertError("Run failed", friendlyMsg(ex));
         }
+    }
+
+    public void setCurrentDegree(int degree) {
+        this.currentDegree = Math.max(0, degree);
+    }
+
+    private VariablesBoxController varsBoxController;
+    public void setVarsBoxController(VariablesBoxController c) {
+        this.varsBoxController = c;
     }
 
     @FXML
@@ -121,11 +131,6 @@ public class RunButtonsController {
     private void onStepBack(ActionEvent e) {
         // TODO: hook to your engine's step-back API if available
         alertInfo("Not implemented", "Step backward is not yet implemented in the UI.");
-    }
-
-    private void setOutput(String text) {
-        if (centerOutput == null) return;
-        Platform.runLater(() -> centerOutput.setText(text == null ? "" : text));
     }
 
     private void refreshButtonsEnabled() {

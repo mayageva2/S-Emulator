@@ -15,21 +15,27 @@
 
     <center>
         <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 10 10 10">
-            <HBox alignment="CENTER_LEFT">
-                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" HBox.hgrow="ALWAYS" />
+            <HBox alignment="CENTER_LEFT" >
+                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" />
                 <Region HBox.hgrow="ALWAYS" />
-                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT" HBox.hgrow="ALWAYS" />
+                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT"/>
             </HBox>
-            <VBox fx:id="contentBox" fillWidth="true" minWidth="0.0" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-                <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
-                <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml"/>
-            </VBox>
+
+            <HBox alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" spacing="10">
+                <VBox fx:id="contentBox" fillWidth="true" maxWidth="Infinity" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                    <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
+                    <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml" VBox.vgrow="ALWAYS"/>
+                </VBox>
+                <VBox fx:id="VariablesBox" fillWidth="true" maxWidth="Infinity" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                    <fx:include fx:id="varsBox" source="../VariablesBox/VariablesBox.fxml"/>
+                </VBox>
+            </HBox>
         </VBox>
     </center>
 
     <bottom>
-        <VBox fx:id="historyChainBox" fillWidth="true" minWidth="0.0" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" style="-fx-padding: 0 10 10 10">
-            <fx:include fx:id="historyChain" source="../SelectedInstructionHistoryChainTable/SelectedInstructionHistoryChainTable.fxml"/>
+        <VBox fx:id="historyChainBox" fillWidth="true" maxWidth="Infinity" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" style="-fx-padding: 0 0 10 10">
+            <fx:include fx:id="historyChain" source="../SelectedInstructionHistoryChainTable/SelectedInstructionHistoryChainTable.fxml" VBox.vgrow="ALWAYS"/>
         </VBox>
     </bottom>
 </BorderPane>

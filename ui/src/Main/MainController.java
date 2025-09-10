@@ -4,6 +4,7 @@ import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
 import SummaryLine.SummaryLineController;
+import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
@@ -13,6 +14,7 @@ import javafx.beans.binding.DoubleBinding;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.TextArea;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
@@ -27,7 +29,11 @@ public class MainController {
     @FXML private InstructionsTableController instructionsController;
     @FXML private SummaryLineController summaryLineController;
     @FXML private SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController historyChainController;
+    @FXML private RunButtons.RunButtonsController RunButtonsController;
+    @FXML private VariablesBoxController varsBoxController;
     @FXML private VBox contentBox;
+    @FXML private VBox historyChainBox;
+    @FXML private BorderPane varsBox;
     @FXML private Node toolbar;
     @FXML private TextArea centerOutput;
 
@@ -43,8 +49,11 @@ public class MainController {
         toolbarController.bindDegree(0, 0);
 
         Platform.runLater(() -> {
-            contentBox.setMinWidth(0);                         // allow shrinking
+            // allow shrinking
+            contentBox.setMinWidth(0);
             contentBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+            historyChainBox.setMinWidth(0);
+            historyChainBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
 
             // Track width of the toolbar
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
@@ -53,8 +62,11 @@ public class MainController {
             );
 
             // Match toolbar width EXACTLY
-            contentBox.prefWidthProperty().bind(toolbarContentW);
-            contentBox.maxWidthProperty().bind(toolbarContentW);
+            contentBox.prefWidthProperty().unbind();
+            contentBox.maxWidthProperty().unbind();
+            historyChainBox.prefWidthProperty().unbind();
+            historyChainBox.maxWidthProperty().unbind();
+
         });
     }
 
@@ -62,6 +74,11 @@ public class MainController {
         this.engine = Objects.requireNonNull(engine, "engine");
         headerController.setEngine(engine);
         summaryLineController.setEngine(engine);
+
+        if (RunButtonsController != null) {
+            RunButtonsController.setEngine(engine);
+            RunButtonsController.setVarsBoxController(varsBoxController);
+        }
     }
 
     private boolean isLoaded() {
@@ -76,6 +93,10 @@ public class MainController {
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         currentDegree = 0;
         toolbarController.bindDegree(0, ev.maxDegree());
+        if (RunButtonsController != null) {
+            RunButtonsController.setEngine(engine);
+            RunButtonsController.setLastMaxDegree(ev.maxDegree());
+        }
         render(0);
     }
 
