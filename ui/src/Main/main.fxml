@@ -27,9 +27,15 @@
                     <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
                     <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml" VBox.vgrow="ALWAYS"/>
                 </VBox>
-                <VBox fx:id="VariablesBox" fillWidth="true" spacing="0">
-                    <fx:include fx:id="varsBox" source="../VariablesBox/VariablesBox.fxml"/>
-                </VBox>
+                <HBox spacing="0" style="-fx-padding: 0 10 10 10">
+                    <VBox fx:id="VariablesBox" fillWidth="true" spacing="0">
+                        <fx:include fx:id="varsBox" source="../VariablesBox/VariablesBox.fxml"/>
+                    </VBox>
+                    <Region fx:id="Inputspacer" HBox.hgrow="ALWAYS"/>
+                    <VBox fx:id="InputsBox" fillWidth="true" spacing="0">
+                        <fx:include fx:id="inputsBox" source="../InputsBox/InputsBox.fxml"/>
+                    </VBox>
+                </HBox>
             </HBox>
 
             <VBox fx:id="historyChainBox" fillWidth="true" maxWidth="Infinity" spacing="20" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">

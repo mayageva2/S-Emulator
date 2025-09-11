@@ -31,7 +31,7 @@ public class MainController {
     @FXML private SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController historyChainController;
     @FXML private RunButtons.RunButtonsController RunButtonsController;
     @FXML private VariablesBoxController varsBoxController;
-    @FXML private cyclesLine.CyclesLineController cyclesLineController;
+    @FXML private InputsBox.InputsBoxController inputsBoxController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private BorderPane varsBox;
@@ -117,6 +117,17 @@ public class MainController {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setLastMaxDegree(ev.maxDegree());
         }
+
+        // Build the inputs UI for the loaded program
+        try {
+            if (inputsBoxController != null) {
+                ProgramView pv0 = engine.programView(0);
+                inputsBoxController.showForProgram(pv0);
+            }
+        } catch (Exception ex) {
+            System.err.println("Inputs panel setup failed: " + ex.getMessage());
+        }
+
         render(0);
     }
 

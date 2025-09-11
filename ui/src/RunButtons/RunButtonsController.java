@@ -1,5 +1,6 @@
 package RunButtons;
 
+import InputsBox.InputsBoxController;
 import VariablesBox.VariablesBoxController;
 import cyclesLine.CyclesLineController;
 import emulator.api.EmulatorEngine;
@@ -25,6 +26,9 @@ public class RunButtonsController {
     private EmulatorEngine engine;
     private int currentDegree = 0;
     private int lastMaxDegree = 0;
+    private VariablesBoxController varsBoxController;
+    private InputsBoxController inputController;
+
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
     private Function<ProgramView, String> provenanceRenderer = pv -> pv != null ? pv.toString() : "";
@@ -55,8 +59,6 @@ public class RunButtonsController {
         if (btnResume != null) btnResume.setTooltip(new Tooltip("Resume"));
         if (btnStepBack != null) btnStepBack.setTooltip(new Tooltip("Step backward"));
         if (btnStepOver != null) btnStepOver.setTooltip(new Tooltip("Step over"));
-
-
         refreshButtonsEnabled();
     }
 
@@ -75,7 +77,10 @@ public class RunButtonsController {
 
         try {
             ProgramView pv = engine.programView(degree);
-            Long[] inputs = promptInputsAsCsv(pv);
+            var window = ((javafx.scene.Node)e.getSource()).getScene().getWindow();
+            Optional<Long[]> ans = InputsBox.InputsPrompt.show(window, pv);
+            if (ans.isEmpty()) return;
+            Long[] inputs = ans.get();
             RunResult result = engine.run(degree, inputs);
             String rendered = (degree == 0 ? basicRenderer.apply(pv) : provenanceRenderer.apply(pv));
 
@@ -92,7 +97,6 @@ public class RunButtonsController {
         this.currentDegree = Math.max(0, degree);
     }
 
-    private VariablesBoxController varsBoxController;
     public void setVarsBoxController(VariablesBoxController c) {
         this.varsBoxController = c;
     }
