@@ -1,6 +1,7 @@
 package RunButtons;
 
 import VariablesBox.VariablesBoxController;
+import cyclesLine.CyclesLineController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
@@ -77,17 +78,10 @@ public class RunButtonsController {
             Long[] inputs = promptInputsAsCsv(pv);
             RunResult result = engine.run(degree, inputs);
             String rendered = (degree == 0 ? basicRenderer.apply(pv) : provenanceRenderer.apply(pv));
-            StringBuilder out = new StringBuilder();
-            if (rendered != null && !rendered.isBlank()) {
-                out.append(rendered.trim()).append("\n");
-            }
 
             if (varsBoxController != null) {
                 varsBoxController.renderFromRun(result, inputs);
             }
-
-            out.append("\nResult y = ").append(result.y()).append('\n');
-            out.append("Total cycles = ").append(result.cycles()).append('\n');
 
         } catch (Exception ex) {
             alertError("Run failed", friendlyMsg(ex));

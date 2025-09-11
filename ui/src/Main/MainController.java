@@ -31,10 +31,14 @@ public class MainController {
     @FXML private SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController historyChainController;
     @FXML private RunButtons.RunButtonsController RunButtonsController;
     @FXML private VariablesBoxController varsBoxController;
+    @FXML private cyclesLine.CyclesLineController cyclesLineController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private BorderPane varsBox;
     @FXML private Node toolbar;
+    @FXML private Region instructions;
+    @FXML private Region summaryLine;
+    @FXML private Region historyChain;
     @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
@@ -62,10 +66,26 @@ public class MainController {
             );
 
             // Match toolbar width EXACTLY
-            contentBox.prefWidthProperty().unbind();
-            contentBox.maxWidthProperty().unbind();
-            historyChainBox.prefWidthProperty().unbind();
-            historyChainBox.maxWidthProperty().unbind();
+            contentBox.prefWidthProperty().bind(toolbarContentW);
+            contentBox.maxWidthProperty().bind(toolbarContentW);
+            historyChainBox.prefWidthProperty().bind(toolbarContentW);
+            historyChainBox.maxWidthProperty().bind(toolbarContentW);
+
+            if (instructions != null) {
+                instructions.setMinWidth(0);
+                instructions.prefWidthProperty().bind(contentBox.widthProperty());
+                instructions.maxWidthProperty().bind(contentBox.widthProperty());
+            }
+            if (summaryLine != null) {
+                summaryLine.setMinWidth(0);
+                summaryLine.prefWidthProperty().bind(contentBox.widthProperty());
+                summaryLine.maxWidthProperty().bind(contentBox.widthProperty());
+            }
+            if (historyChain != null) {
+                historyChain.setMinWidth(0);
+                historyChain.prefWidthProperty().bind(historyChainBox.widthProperty());
+                historyChain.maxWidthProperty().bind(historyChainBox.widthProperty());
+            }
 
         });
     }

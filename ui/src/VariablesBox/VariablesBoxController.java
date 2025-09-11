@@ -1,5 +1,6 @@
 package VariablesBox;
 
+import cyclesLine.CyclesLineController;
 import emulator.api.dto.RunResult;
 import emulator.api.dto.VarType;
 import emulator.api.dto.VariableView;
@@ -9,6 +10,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
@@ -20,11 +22,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class VariablesBoxController {
 
     @FXML private VBox varsContainer;
-
+    @FXML private Region variablesRoot;
+    @FXML private CyclesLineController cyclesLineController;
     private final Map<String, Label> valueLabels = new ConcurrentHashMap<>();
 
     @FXML
-    private void initialize() {}
+    private void initialize() {
+        if (cyclesLineController != null && variablesRoot != null) {
+            cyclesLineController.bindWidthTo(variablesRoot);
+        }
+    }
 
     private Map<String, Long> buildVarsMapLikeConsole(RunResult result, Long[] inputs) {
         var xValues = new java.util.TreeMap<Integer, Long>();
@@ -41,6 +48,9 @@ public class VariablesBoxController {
     public void renderFromRun(RunResult result, Long[] inputs) {
         Map<String, Long> vars = buildVarsMapLikeConsole(result, inputs);
         renderAll(vars);
+        if (cyclesLineController != null) {
+            cyclesLineController.renderFromRun(result, inputs);
+        }
     }
 
     //This func fills inputs
@@ -101,6 +111,12 @@ public class VariablesBoxController {
                 }
             }
         });
+    }
+
+    public void setCycles(int cycles) {
+        if (cyclesLineController != null) {
+            cyclesLineController.setCycles(cycles);
+        }
     }
 
     public void clear() {

@@ -5,32 +5,38 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane xmlns="http://javafx.com/javafx/22.0.2"
+<BorderPane fx:id="variablesRoot" xmlns="http://javafx.com/javafx/22.0.2"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="VariablesBox.VariablesBoxController"
-            prefHeight="100.0" maxWidth="200.0">
+            prefHeight="200.0" maxWidth="200.0">
 
     <center>
-         <VBox maxWidth="Infinity" prefHeight="50.0" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
+        <VBox maxWidth="Infinity" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
             <Label text="Variables:" textFill="WHITE" BorderPane.alignment="CENTER_LEFT" wrapText="true">
-               <font><Font size="16.0"/></font>
-               <padding><Insets left="10.0" top="6.0" bottom="6.0"/></padding>
-               <BorderPane.margin><Insets bottom="4.0"/></BorderPane.margin>
-               <style>-fx-background-color: purple; -fx-padding: 6 10;</style>
+                <font><Font size="16.0"/></font>
+                <padding><Insets left="10.0" top="6.0" bottom="6.0"/></padding>
+                <BorderPane.margin><Insets bottom="4.0"/></BorderPane.margin>
+                <style>-fx-background-color: purple; -fx-padding: 6 10;</style>
             </Label>
 
-            <ScrollPane prefHeight="150.0" fitToWidth="true" hbarPolicy="NEVER" style="-fx-background-color: transparent; -fx-border-color: purple;">
-               <content>
-                  <VBox fx:id="varsContainer" spacing="6.0" maxWidth="Infinity">
-                     <padding>
-                        <Insets top="10" right="10" bottom="10" left="10"/>
-                     </padding>
-                  </VBox>
-               </content>
+            <ScrollPane prefHeight="150.0" fitToWidth="true" hbarPolicy="NEVER"
+                        style="-fx-background-color: transparent; -fx-border-color: purple;">
+                <content>
+                    <VBox fx:id="varsContainer" spacing="6.0" maxWidth="Infinity">
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+                    </VBox>
+                </content>
             </ScrollPane>
-         </VBox>
+
+            <VBox>
+                <fx:include fx:id="cyclesLine" source="../cyclesLine/CyclesLine.fxml"/>
+            </VBox>
+        </VBox>
     </center>
-      <padding>
-         <Insets left="30.0" top="5.0" right="0.0" />
-      </padding>
+
+    <padding>
+        <Insets left="30.0" top="5.0" right="0.0"/>
+    </padding>
 </BorderPane>
