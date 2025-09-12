@@ -19,7 +19,7 @@
 
             <HBox alignment="CENTER_LEFT" spacing="10">
                 <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT"/>
-                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT"/>
+                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT" HBox.hgrow="ALWAYS"/>
             </HBox>
 
             <HBox alignment="CENTER_LEFT" spacing="10">

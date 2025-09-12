@@ -7,21 +7,19 @@ import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
 import javafx.event.ActionEvent;
+import javafx.scene.layout.HBox;
 
 import java.util.*;
 import java.util.function.Function;
 
 public class RunButtonsController {
-    @FXML private Button btnRun;
-    @FXML private Button btnDebug;
-    @FXML private Button btnStop;
-    @FXML private Button btnResume;
-    @FXML private Button btnStepOver;
-    @FXML private Button btnStepBack;
+    @FXML private Button btnRun, btnDebug, btnStop, btnResume, btnStepOver, btnStepBack;
+    @FXML private HBox runButtonsHBox;
 
     private EmulatorEngine engine;
     private int currentDegree = 0;
@@ -60,7 +58,30 @@ public class RunButtonsController {
         if (btnStepBack != null) btnStepBack.setTooltip(new Tooltip("Step backward"));
         if (btnStepOver != null) btnStepOver.setTooltip(new Tooltip("Step over"));
         refreshButtonsEnabled();
+
+        final double MIN_GAP = 2;
+        final double MAX_GAP = 15;
+        final int GAPS = 5;
+
+        var totalButtonsWidthBinding = Bindings.createDoubleBinding(
+                () -> get(btnRun) + get(btnDebug) + get(btnStop) + get(btnResume) + get(btnStepBack) + get(btnStepOver),
+                btnRun.widthProperty(), btnDebug.widthProperty(), btnStop.widthProperty(),
+                btnResume.widthProperty(), btnStepBack.widthProperty(), btnStepOver.widthProperty()
+        );
+
+        runButtonsHBox.spacingProperty().bind(Bindings.createDoubleBinding(() -> {
+            double contentW   = runButtonsHBox.getWidth();
+            double buttonsW   = totalButtonsWidthBinding.get();
+            double paddingW   = runButtonsHBox.getPadding() == null ? 0
+                    : runButtonsHBox.getPadding().getLeft() + runButtonsHBox.getPadding().getRight();
+            double availForGaps = Math.max(0, contentW - buttonsW - paddingW);
+            double gap = (GAPS > 0) ? availForGaps / GAPS : 0;
+            if (Double.isNaN(gap) || Double.isInfinite(gap)) gap = MIN_GAP;
+            return Math.max(MIN_GAP, Math.min(MAX_GAP, gap));
+        }, runButtonsHBox.widthProperty(), totalButtonsWidthBinding));
     }
+
+    private static double get(Control c) { return (c == null) ? 0 : c.getWidth(); }
 
     @FXML
     private void onRun(ActionEvent e) {
