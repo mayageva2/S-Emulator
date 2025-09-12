@@ -69,20 +69,20 @@ public class RunButtonsController {
             return;
         }
 
-        int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
-        if (max == 0) {
-            try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {}
+        if (inputController == null) {
+            alertError("Inputs not connected",
+                    "Inputs panel is not available. Make sure MainController calls setInputsBoxController(...).");
+            return;
         }
+
+        int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
+        if (max == 0) { try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {} }
         int degree = Math.max(0, Math.min(currentDegree, max));
 
         try {
             ProgramView pv = engine.programView(degree);
-            var window = ((javafx.scene.Node)e.getSource()).getScene().getWindow();
-            Optional<Long[]> ans = InputsBox.InputsPrompt.show(window, pv);
-            if (ans.isEmpty()) return;
-            Long[] inputs = ans.get();
+            Long[] inputs = inputController.collectAsLongsOrThrow();
             RunResult result = engine.run(degree, inputs);
-            String rendered = (degree == 0 ? basicRenderer.apply(pv) : provenanceRenderer.apply(pv));
 
             if (varsBoxController != null) {
                 varsBoxController.renderFromRun(result, inputs);
@@ -100,6 +100,8 @@ public class RunButtonsController {
     public void setVarsBoxController(VariablesBoxController c) {
         this.varsBoxController = c;
     }
+
+    public void setInputsBoxController(InputsBox.InputsBoxController c) { this.inputController = c; }
 
     @FXML
     private void onDebug(ActionEvent e) {

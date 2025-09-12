@@ -22,8 +22,9 @@
    <center>
       <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" style="-fx-background-color: transparent; -fx-border-color: purple;">
          <content>
-            <VBox fx:id="inputsList" spacing="6.0" fillWidth="true">
+            <VBox spacing="0" fillWidth="true">
                <padding><Insets top="6" right="10" bottom="10" left="10"/></padding>
+               <VBox fx:id="inputsList" spacing="0" fillWidth="true"/>
             </VBox>
          </content>
       </ScrollPane>

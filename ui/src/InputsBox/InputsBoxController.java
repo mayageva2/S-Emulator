@@ -5,15 +5,9 @@ import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextFormatter;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 
-import java.lang.reflect.Method;
 import java.util.*;
-import java.util.function.UnaryOperator;
-import java.util.regex.Pattern;
 
 public class InputsBoxController {
 
@@ -26,18 +20,13 @@ public class InputsBoxController {
     private void initialize() {}
 
     public void showForProgram(ProgramView pv) {
-        List<String> names = extractInputNames(pv);
-        buildRows(names);
+        showNames(Collections.emptyList()); // fallback – real names come from MainController
     }
 
-    public String[] collectAsStrings() {
-        String[] out = new String[inputNames.size()];
-        for (int i = 0; i < inputNames.size(); i++) {
-            String name = inputNames.get(i);
-            TextField tf = fieldsByName.get(name);
-            out[i] = tf.getText();
-        }
-        return out;
+    public void showNames(List<String> names) {
+        if (names == null) names = Collections.emptyList();
+        buildRows(names);
+        System.out.println("InputsBox rows: " + inputNames);
     }
 
     public Long[] collectAsLongsOrThrow() {
@@ -45,18 +34,13 @@ public class InputsBoxController {
         for (int i = 0; i < inputNames.size(); i++) {
             String name = inputNames.get(i);
             String raw = Optional.ofNullable(fieldsByName.get(name).getText()).orElse("").trim();
-            if (raw.isEmpty()) {
-                out[i] = 0L;
-            } else {
-                try {
-                    out[i] = Long.parseLong(raw);
-                } catch (NumberFormatException nfe) {
-                    throw new IllegalArgumentException("Input '" + name + "' must be an integer.");
-                }
-            }
+            long v = raw.isEmpty() ? 0L : Long.parseLong(raw); // may throw NumberFormatException
+            if (v < 0) throw new IllegalArgumentException("Negative numbers are not allowed: " + v);
+            out[i] = v;
         }
         return out;
     }
+
 
     private void buildRows(List<String> names) {
         inputsList.getChildren().clear();
@@ -73,41 +57,33 @@ public class InputsBoxController {
         }
 
         GridPane grid = new GridPane();
-        grid.setHgap(8);
+        grid.setHgap(6);
         grid.setVgap(6);
-        grid.setPadding(new Insets(0));
+        grid.setPadding(new Insets(0, 0, 0, 0));
+
+        ColumnConstraints c0 = new ColumnConstraints();
+        c0.setMinWidth(50);
+        c0.setPrefWidth(80);
+        c0.setHgrow(Priority.NEVER);
+
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setHgrow(Priority.ALWAYS);
+
+        grid.getColumnConstraints().setAll(c0, c1);
 
         for (int row = 0; row < names.size(); row++) {
             String name = names.get(row);
 
-            Label nameLbl = new Label(name);
-            Label eq = new Label(" = ");
+            Label nameLbl = new Label(names.get(row) + " =");
             TextField tf = new TextField();
-            tf.setPromptText(""); // free text (string)
 
             fieldsByName.put(name, tf);
 
             grid.add(nameLbl, 0, row);
-            grid.add(eq,      1, row);
-            grid.add(tf,      2, row);
-
-            // make the field stretch horizontally
-            GridPane.setHgrow(tf, javafx.scene.layout.Priority.ALWAYS);
+            grid.add(tf,      1, row);
+            GridPane.setHgrow(tf, Priority.ALWAYS);
         }
-        inputsList.getChildren().add(grid);
-    }
 
-    @SuppressWarnings("unchecked")
-    private static List<String> extractInputNames(ProgramView pv) {
-        try {
-            Method m = pv.getClass().getMethod("inputNames");
-            Object obj = m.invoke(pv);
-            if (obj instanceof List<?> list && !list.isEmpty()) {
-                List<String> out = new ArrayList<>(list.size());
-                for (Object o : list) out.add(String.valueOf(o));
-                return out;
-            }
-        } catch (ReflectiveOperationException ignore) {}
-        return Collections.emptyList();
+        inputsList.getChildren().add(grid);
     }
 }

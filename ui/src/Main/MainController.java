@@ -99,6 +99,12 @@ public class MainController {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setVarsBoxController(varsBoxController);
         }
+
+        Platform.runLater(() -> {
+            if (RunButtonsController != null && inputsBoxController != null) {
+                RunButtonsController.setInputsBoxController(inputsBoxController);
+            }
+        });
     }
 
     private boolean isLoaded() {
@@ -116,19 +122,46 @@ public class MainController {
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setLastMaxDegree(ev.maxDegree());
+            if (inputsBoxController != null) {
+                RunButtonsController.setInputsBoxController(inputsBoxController);
+            }
         }
 
-        // Build the inputs UI for the loaded program
-        try {
-            if (inputsBoxController != null) {
+        // Build the Inputs UI immediately after load, using engine.extractInputVars(pv)
+        Platform.runLater(() -> {
+            try {
                 ProgramView pv0 = engine.programView(0);
-                inputsBoxController.showForProgram(pv0);
+                if (inputsBoxController != null) {
+                    // THIS mirrors your console code path:
+                    java.util.List<String> names = engine.extractInputVars(pv0); // <- trusted API
+                    inputsBoxController.showNames(names);                        // <- build rows now
+                    System.out.println("Main extracted inputs: " + names);
+                }
+            } catch (Exception ex) {
+                System.err.println("Inputs panel setup failed: " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println("Inputs panel setup failed: " + ex.getMessage());
-        }
+        });
 
         render(0);
+    }
+
+    private static List<String> extractInputNames(ProgramView pv) {
+        try {
+            for (String mname : new String[]{"inputNames", "getInputNames", "inputs", "getInputs"}) {
+                try {
+                    var m = pv.getClass().getMethod(mname);
+                    Object obj = m.invoke(pv);
+                    if (obj instanceof java.util.List<?> list && !list.isEmpty()) {
+                        java.util.List<String> out = new java.util.ArrayList<>(list.size());
+                        for (Object o : list) out.add(String.valueOf(o));
+                        return out;
+                    }
+                } catch (NoSuchMethodException ignore) { /* try next */ }
+            }
+        } catch (ReflectiveOperationException ex) {
+            System.err.println("MainController.extractInputNames failed: " + ex);
+        }
+        return java.util.Collections.emptyList();
     }
 
     private void onExpandOne() {
