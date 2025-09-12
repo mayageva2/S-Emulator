@@ -17,7 +17,7 @@
     <center>
         <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 10 10 10">
 
-            <HBox alignment="CENTER_LEFT">
+            <HBox alignment="CENTER_LEFT" spacing="10">
                 <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT"/>
                 <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT"/>
             </HBox>
@@ -27,16 +27,14 @@
                     <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
                     <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml" VBox.vgrow="ALWAYS"/>
                 </VBox>
-                <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10">
-                    <padding>
-                        <Insets left="25"/>
-                    </padding>
-                    <fx:include fx:id="varsBox" source="../VariablesBox/VariablesBox.fxml"/>
-                    <fx:include fx:id="inputsBox" source="../InputsBox/InputsBox.fxml"/>
+                <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10"  HBox.hgrow="ALWAYS">
+                    <padding><Insets left="25"/></padding>
+                    <fx:include fx:id="varsBox" source="../VariablesBox/VariablesBox.fxml" HBox.hgrow="ALWAYS"/>
+                    <fx:include fx:id="inputsBox" source="../InputsBox/InputsBox.fxml" HBox.hgrow="ALWAYS"/>
                 </HBox>
             </HBox>
 
-            <HBox>
+            <HBox style="-fx-padding: 10 0 0 0">
                 <VBox fx:id="historyChainBox" fillWidth="true" maxWidth="Infinity" spacing="20" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <fx:include fx:id="historyChain" source="../SelectedInstructionHistoryChainTable/SelectedInstructionHistoryChainTable.fxml" VBox.vgrow="ALWAYS"/>
                 </VBox>

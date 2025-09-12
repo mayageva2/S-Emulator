@@ -37,6 +37,7 @@ public class MainController {
     @FXML private VBox statisticsBox;
     @FXML private HBox sidePanels;
     @FXML private BorderPane varsBox;
+    @FXML private BorderPane inputsBox;
     @FXML private Node toolbar;
     @FXML private Region instructions;
     @FXML private Region summaryLine;
@@ -61,6 +62,11 @@ public class MainController {
             contentBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
             historyChainBox.setMinWidth(0);
             historyChainBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+
+            varsBox.setMinWidth(0);
+            inputsBox.setMinWidth(0);
+            varsBox.setMaxWidth(Double.MAX_VALUE);
+            inputsBox.setMaxWidth(Double.MAX_VALUE);
 
             // Track width of the toolbar
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
@@ -94,14 +100,20 @@ public class MainController {
                 sidePanels.prefWidthProperty().bind(RunButtons.widthProperty());
                 sidePanels.maxWidthProperty().bind(RunButtons.widthProperty());
             }
-            if(RunButtons != null && statisticsBox != null) {
+            if (statisticsBox != null) {
                 statisticsBox.setMinWidth(0);
-                statisticsBox.prefWidthProperty().bind(RunButtons.widthProperty());
-                statisticsBox.maxWidthProperty().bind(RunButtons.widthProperty());
+                HBox.setHgrow(statisticsBox, Priority.ALWAYS);
+                VBox.setVgrow(statisticsBox, Priority.ALWAYS);
             }
             HBox.setHgrow(contentBox, Priority.ALWAYS);
             HBox.setHgrow(sidePanels, Priority.NEVER);
-            VBox.setVgrow(statisticsBox, Priority.NEVER);
+            HBox.setHgrow(varsBox, Priority.ALWAYS);
+            HBox.setHgrow(inputsBox, Priority.ALWAYS);
+
+            var half = sidePanels.widthProperty().subtract(sidePanels.getSpacing()).divide(2);
+            varsBox.prefWidthProperty().bind(half);
+            inputsBox.prefWidthProperty().bind(half);
+
         });
     }
 

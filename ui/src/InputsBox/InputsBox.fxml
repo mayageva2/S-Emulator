@@ -9,12 +9,12 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="InputsBox.InputsBoxController"
-            prefHeight="200.0">
+            maxWidth="Infinity" minWidth="0.0">
 
    <top>
-      <Label text="Inputs:" textFill="WHITE" style="-fx-background-color: purple;" maxWidth="Infinity">
+      <Label text="Inputs:" textFill="WHITE" style="-fx-background-color: purple;">
          <font><Font size="16.0"/></font>
-         <BorderPane.margin><Insets top="0" right="10" bottom="6" left="10"/></BorderPane.margin>
+         <BorderPane.margin><Insets top="0" right="10" bottom="6"/></BorderPane.margin>
          <padding><Insets top="6" right="10" bottom="6" left="10"/></padding>
       </Label>
    </top>

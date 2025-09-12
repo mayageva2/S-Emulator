@@ -2,7 +2,7 @@
 
 <?import javafx.scene.layout.*?>
 
-<BorderPane fx:id="root" maxWidth="750.0" prefHeight="200.0" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="StatisticsTable.StatisticsTableController">
+<BorderPane fx:id="root" maxWidth="Infinity" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="StatisticsTable.StatisticsTableController">
     <center>
         <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml"/>
     </center>

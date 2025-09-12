@@ -6,18 +6,20 @@
 <?import javafx.scene.text.Font?>
 
 <BorderPane fx:id="variablesRoot" xmlns="http://javafx.com/javafx/22.0.2"
-            xmlns:fx="http://javafx.com/fxml/1"
+            maxWidth="Infinity" minWidth="0.0" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="VariablesBox.VariablesBoxController">
 
-    <center>
-        <VBox maxWidth="Infinity" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
-            <Label text="Variables:" textFill="WHITE" BorderPane.alignment="CENTER_LEFT" wrapText="true">
-                <font><Font size="16.0"/></font>
-                <padding><Insets left="10.0" top="6.0" bottom="6.0"/></padding>
-                <BorderPane.margin><Insets bottom="4.0"/></BorderPane.margin>
-                <style>-fx-background-color: purple; -fx-padding: 6 10;</style>
-            </Label>
+    <top>
+        <Label text="Variables:" textFill="WHITE">
+            <font><Font size="16.0"/></font>
+            <BorderPane.margin><Insets right="10" bottom="6" /></BorderPane.margin>
+            <padding><Insets top="6" right="10" bottom="6" left="10"/></padding>
+            <style>-fx-background-color: purple;</style>
+        </Label>
+    </top>
 
+    <center>
+        <VBox maxWidth="Infinity" spacing="6.0" BorderPane.alignment="CENTER_LEFT">
             <ScrollPane prefHeight="150.0" fitToWidth="true" hbarPolicy="NEVER"
                         style="-fx-background-color: transparent; -fx-border-color: purple;">
                 <content>
