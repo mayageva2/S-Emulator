@@ -7,8 +7,7 @@
 
 <BorderPane fx:id="variablesRoot" xmlns="http://javafx.com/javafx/22.0.2"
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="VariablesBox.VariablesBoxController"
-            prefHeight="200.0" maxWidth="200.0">
+            fx:controller="VariablesBox.VariablesBoxController">
 
     <center>
         <VBox maxWidth="Infinity" spacing="15.0" BorderPane.alignment="CENTER_LEFT">

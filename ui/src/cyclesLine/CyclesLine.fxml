@@ -1,13 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.HBox?>
-
 <?import javafx.scene.text.Font?>
-<HBox fx:id="root"
-      xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="cyclesLine.CyclesLineController"
-      spacing="4" alignment="TOP_LEFT">
-   <Label text="Total Cycles:" style="-fx-font-weight: bold; -fx-font-size: 16;" textFill="purple"/>
-   <Label fx:id="cyclesValue" text="" styleClass="kv-value"/>
-</HBox>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.geometry.Insets?>
+
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.StackPane?>
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="cyclesLine.CyclesLineController">
+   <center>
+      <HBox alignment="TOP_LEFT" prefWidth="220" maxWidth="220">
+
+         <Label text="Total Cycles:" textFill="WHITE" textOverrun="CLIP" maxWidth="Infinity">
+            <font><Font size="16.0"/></font>
+            <padding><Insets left="13.0" right="13.0" top="6.0" bottom="6.0"/></padding>
+            <BorderPane.margin><Insets bottom="4.0"/></BorderPane.margin>
+            <style>-fx-background-color: purple;</style>
+         </Label>
+
+         <ScrollPane prefHeight="30.0" fitToWidth="true" fitToHeight="true"
+                     hbarPolicy="NEVER" vbarPolicy="NEVER" VBox.vgrow="ALWAYS"
+                     style="-fx-background-color: transparent; -fx-border-color: purple;">
+            <content>
+               <StackPane>
+                  <children>
+                     <Label fx:id="cyclesValue" text="" styleClass="kv-value"
+                            maxWidth="Infinity" wrapText="true" alignment="CENTER"
+                            textAlignment="CENTER">
+                        <font><Font size="14.0"/></font>
+                     </Label>
+                  </children>
+               </StackPane>
+            </content>
+         </ScrollPane>
+      </HBox>
+   </center>
+</BorderPane>
 
