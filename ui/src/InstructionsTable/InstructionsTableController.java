@@ -2,6 +2,7 @@ package InstructionsTable;
 
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
+import javafx.beans.property.ReadOnlyIntegerWrapper;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -10,76 +11,89 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.layout.BorderPane;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class InstructionsTableController {
 
-    @FXML private BorderPane root;
-    @FXML private TableView<InstructionView> instructionsTable;
+    @FXML private TableView<InstructionRow> table;
+    @FXML private TableColumn<InstructionRow, Number> indexCol;
+    @FXML private TableColumn<InstructionRow, String> typeCol;
+    @FXML private TableColumn<InstructionRow, String> labelCol;
+    @FXML private TableColumn<InstructionRow, Number> cyclesCol;
+    @FXML private TableColumn<InstructionRow, String> instructionCol;
 
-    @FXML private TableColumn<InstructionView, Number> indexCol;
-    @FXML private TableColumn<InstructionView, String> typeCol;
-    @FXML private TableColumn<InstructionView, String> labelCol;
-    @FXML private TableColumn<InstructionView, Number> cyclesCol;
-    @FXML private TableColumn<InstructionView, String> InstructionsCol;
-
-    private int currentDegree = 0;
     private Consumer<InstructionView> onRowSelected;
 
     @FXML
     private void initialize() {
-        assert instructionsTable != null : "instructionsTable not injected";
-        assert indexCol  != null && typeCol != null && cyclesCol != null && InstructionsCol != null;
-        instructionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index));
+        typeCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().basic ? "B" : "S"));
+        labelCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(ns(cd.getValue().label)));
+        cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
+        instructionCol.setCellValueFactory(cd -> {
+            var r = cd.getValue();
+            String text = pretty(r.opcode, r.args);
+            return new ReadOnlyStringWrapper("  ".repeat(Math.max(0, r.depth)) + text);
+        });
 
-        var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
-        if (css != null) {
-            instructionsTable.getStylesheets().add(css.toExternalForm());
-            instructionsTable.getStyleClass().add("instructions");
-        }
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
-        instructionsTable.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
-            if (sel != null && onRowSelected != null) {
-                onRowSelected.accept(sel);  // notify MainController
+        table.getSelectionModel().selectedItemProperty().addListener((obs, old, row) -> {
+            if (onRowSelected != null && row != null && row.sourceIv != null) {
+                onRowSelected.accept(row.sourceIv);
             }
         });
 
-        // Value factories
-        indexCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().index()));
-        typeCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().basic() ? "B" : "S"));
-        labelCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().label()));
-        cyclesCol.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().cycles()));
-        InstructionsCol.setCellValueFactory(c -> new ReadOnlyStringWrapper(prettyOpcode(c.getValue().opcode(), c.getValue().args())));
-
-        indexCol.setMinWidth(30);          indexCol.setMaxWidth(100);
-        typeCol.setMinWidth(50);           typeCol.setMaxWidth(100);
-        labelCol.setMinWidth(60);          labelCol.setMaxWidth(100);
-        cyclesCol.setMinWidth(50);         cyclesCol.setMaxWidth(100);
-        InstructionsCol.setMinWidth(90);   InstructionsCol.setResizable(true);
-
-
-        indexCol.setStyle("-fx-alignment: CENTER;");
-        typeCol.setStyle("-fx-alignment: CENTER;");
-        labelCol.setStyle("-fx-alignment: CENTER;");
-        cyclesCol.setStyle("-fx-alignment: CENTER;");
-        InstructionsCol.setStyle("-fx-alignment: CENTER-LEFT;");
+        var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
+        if (css != null) {
+            table.getStylesheets().add(css.toExternalForm());
+            table.getStyleClass().add("instructions");
+        }
     }
+
+    public void setItems(List<InstructionRow> items) {
+        table.getItems().setAll(items);
+    }
+
+    public void clear() {
+        table.getItems().clear();
+    }
+
+    public void scrollToEnd() {
+        var n = table.getItems().size();
+        if (n > 0) table.scrollTo(n - 1);
+    }
+
+    public TableView<InstructionRow> getTableView() { return table; }
 
     public void update(ProgramView pv) {
-        currentDegree = pv.degree();
-        instructionsTable.setItems(FXCollections.observableArrayList(pv.instructions()));
-        instructionsTable.refresh();
+        Objects.requireNonNull(pv, "pv");
+        List<InstructionRow> rows = new ArrayList<>(pv.instructions().size());
+        for (InstructionView iv : pv.instructions()) {
+            rows.add(new InstructionRow(
+                    iv.index(),
+                    iv.basic(),
+                    ns(iv.label()),
+                    iv.cycles(),
+                    ns(iv.opcode()),
+                    iv.args(),
+                    0,            // depth 0 in the main table
+                    iv            // keep the source for selection callback
+            ));
+        }
+        setItems(rows);
     }
 
-    private static String prettyOpcode(String opcode, java.util.List<String> args) {
-        return (args == null || args.isEmpty()) ? nz(opcode) : nz(opcode) + " " + String.join(", ", args);
+    public void setOnRowSelected(Consumer<InstructionView> handler) {
+        this.onRowSelected = handler;
     }
-
-    public void setOnRowSelected(java.util.function.Consumer<InstructionView> cb) {
-        this.onRowSelected = cb;
+    private static String ns(String s) { return s == null ? "" : s; }
+    private static String pretty(String op, List<String> args) {
+        op = ns(op);
+        return (args == null || args.isEmpty()) ? op : op + " " + String.join(", ", args);
     }
-
-    private static String nz(String s) { return (s == null) ? "" : s; }
 }

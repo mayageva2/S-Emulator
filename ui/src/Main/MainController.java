@@ -3,6 +3,7 @@ package Main;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
+import StatisticsTable.StatisticsTableController;
 import SummaryLine.SummaryLineController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
@@ -14,9 +15,7 @@ import javafx.beans.binding.DoubleBinding;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.TextArea;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 
 import java.util.List;
 import java.util.Locale;
@@ -32,13 +31,17 @@ public class MainController {
     @FXML private RunButtons.RunButtonsController RunButtonsController;
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBox.InputsBoxController inputsBoxController;
+    @FXML private StatisticsTable.StatisticsTableController statisticsController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
+    @FXML private VBox statisticsBox;
+    @FXML private HBox sidePanels;
     @FXML private BorderPane varsBox;
     @FXML private Node toolbar;
     @FXML private Region instructions;
     @FXML private Region summaryLine;
     @FXML private Region historyChain;
+    @FXML private Region RunButtons;
     @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
@@ -86,7 +89,19 @@ public class MainController {
                 historyChain.prefWidthProperty().bind(historyChainBox.widthProperty());
                 historyChain.maxWidthProperty().bind(historyChainBox.widthProperty());
             }
-
+            if (RunButtons != null && sidePanels != null) {
+                sidePanels.setMinWidth(0);
+                sidePanels.prefWidthProperty().bind(RunButtons.widthProperty());
+                sidePanels.maxWidthProperty().bind(RunButtons.widthProperty());
+            }
+            if(RunButtons != null && statisticsBox != null) {
+                statisticsBox.setMinWidth(0);
+                statisticsBox.prefWidthProperty().bind(RunButtons.widthProperty());
+                statisticsBox.maxWidthProperty().bind(RunButtons.widthProperty());
+            }
+            HBox.setHgrow(contentBox, Priority.ALWAYS);
+            HBox.setHgrow(sidePanels, Priority.NEVER);
+            VBox.setVgrow(statisticsBox, Priority.NEVER);
         });
     }
 

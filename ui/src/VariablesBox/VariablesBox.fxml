@@ -34,8 +34,7 @@
             </VBox>
         </VBox>
     </center>
-
     <padding>
-        <Insets left="30.0" top="5.0" right="0.0"/>
+        <Insets left="0" top="5" right="0"/>
     </padding>
 </BorderPane>

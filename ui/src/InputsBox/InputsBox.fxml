@@ -9,7 +9,7 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="InputsBox.InputsBoxController"
-            prefHeight="200.0" maxWidth="200.0">
+            prefHeight="200.0">
 
    <top>
       <Label text="Inputs:" textFill="WHITE" style="-fx-background-color: purple;" maxWidth="Infinity">
@@ -30,6 +30,6 @@
       </ScrollPane>
    </center>
    <padding>
-      <Insets left="60.0" top="5.0" right="0.0"/>
+      <Insets left="0" top="5" right="0"/>
    </padding>
 </BorderPane>

@@ -5,25 +5,11 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.BorderPane?>
 
-<BorderPane fx:id="root" maxWidth="750.0" prefHeight="200.0" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"  fx:controller="SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController">
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController">
    <center>
-      <TableView fx:id="instructionsTable" maxWidth="Infinity" prefHeight="200.0" minWidth="0.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
-        <columns>
-            <TableColumn fx:id="indexCol" text="Index" />
-            <TableColumn fx:id="typeCol" text="Basic / Synthetic" />
-            <TableColumn fx:id="labelCol" text="Label" />
-            <TableColumn fx:id="cyclesCol" text="Cycles" />
-            <TableColumn fx:id="InstructionsCol" text="Instruction" />
-        </columns>
-         <opaqueInsets>
-            <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
-         </opaqueInsets>
-      </TableView>
+      <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml"/>
    </center>
-   <opaqueInsets>
-      <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
-   </opaqueInsets>
-   <padding>
-      <Insets left="10.0" />
-   </padding>
 </BorderPane>
+
