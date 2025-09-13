@@ -2,22 +2,28 @@ package HeaderAndLoadButton;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.LoadResult;
+import emulator.api.dto.ProgramView;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public class HeaderAndLoadButtonController {
     @FXML private Button loadButton;
     @FXML private TextField xmlPathField;
     @FXML private Label statusLabel;
+    @FXML private ProgressBar progress;
 
     private EmulatorEngine engine;
     private Path lastXmlPath;
@@ -39,15 +45,85 @@ public class HeaderAndLoadButtonController {
     public Path getLastXmlPath() { return lastXmlPath; }
     public int getLastMaxDegree() { return lastMaxDegree; }
     public String getLastProgramName() { return lastProgramName; }
+    private static String nz(String s) { return s == null ? "" : s; }
 
     @FXML
     private void handleLoadButtonClick() {
-        String typed = (xmlPathField.getText() == null) ? "" : xmlPathField.getText().trim();
-        if (!typed.isEmpty()) {
-            doLoad(typed, statusLabel::setText);
-            return;
-        }
-        openChooserAndLoad();  // fallback to chooser
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Open S-Program XML (Exercise 2)");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("XML files (*.xml)", "*.xml"));
+        File file = fc.showOpenDialog(loadButton.getScene().getWindow());
+        if (file == null) return;
+        xmlPathField.setText(file.getAbsolutePath());
+        runLoadTask(file.toPath());
+    }
+
+    private void runLoadTask(Path xmlPath) {
+        Task<LoadResult> task = new Task<>() {
+            @Override
+            protected LoadResult call() throws Exception {
+                updateMessage("Opening file...");
+                updateProgress(0.05, 1);
+                Thread.sleep(150);
+
+                if (!Files.isReadable(xmlPath))
+                    throw new IllegalArgumentException("Cannot read file: " + xmlPath);
+
+                String xml = Files.readString(xmlPath);
+                updateMessage("Validating schema (Exercise 2)...");
+                updateProgress(0.20, 1);
+                Thread.sleep(150);
+
+                updateMessage("Parsing program...");
+                updateProgress(0.45, 1);
+                LoadResult res = engine.loadProgram(xmlPath);
+                Thread.sleep(150);
+
+                updateMessage("Running validations...");
+                updateProgress(0.70, 1);
+               // add validation checks
+
+                updateMessage("Finishing...");
+                updateProgress(0.90, 1);
+                Thread.sleep(400);
+
+                updateMessage("Done");
+                updateProgress(1, 1);
+                return res;
+            }
+        };
+
+        progress.progressProperty().bind(task.progressProperty());
+        statusLabel.textProperty().bind(task.messageProperty());
+        progress.setVisible(true);
+        loadButton.setDisable(true);
+
+        task.setOnSucceeded(e -> {
+            progress.progressProperty().unbind();
+            statusLabel.textProperty().unbind();
+            progress.setVisible(false);
+            loadButton.setDisable(false);
+
+            LoadResult res = task.getValue();
+            statusLabel.setText("Loaded: " + nz(res.programName()));
+            if (onLoaded != null) {
+                onLoaded.accept(new LoadedEvent(xmlPath, res.programName(), res.maxDegree()));
+            }
+        });
+
+        task.setOnFailed(e -> {
+            progress.progressProperty().unbind();
+            statusLabel.textProperty().unbind();
+            progress.setVisible(false);
+            loadButton.setDisable(false);
+
+            Throwable ex = task.getException();
+            statusLabel.setText("Load failed");
+            new Alert(Alert.AlertType.ERROR,
+                    "File load failed:\n" + (ex != null ? ex.getMessage() : "Unknown error"),
+                    ButtonType.OK).showAndWait();
+        });
+        new Thread(task, "load-xml-task").start();
     }
 
     private void openChooserAndLoad() {
@@ -70,8 +146,6 @@ public class HeaderAndLoadButtonController {
         }
         return fc;
     }
-
-
 
     //This func loads an XML file
     public void doLoad(String raw, Consumer<String> printer){

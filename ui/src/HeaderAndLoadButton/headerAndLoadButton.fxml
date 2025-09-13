@@ -10,6 +10,7 @@
 
 
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.ProgressBar?>
 <BorderPane nodeOrientation="LEFT_TO_RIGHT" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="HeaderAndLoadButton.HeaderAndLoadButtonController">
    <top>
       <HBox alignment="CENTER" prefWidth="1200.0" prefHeight="50.0" BorderPane.alignment="CENTER">
@@ -32,14 +33,17 @@
                   </font>
                </Button>
                <TextField maxWidth="Infinity" prefHeight="43.0" prefWidth="473.0" HBox.hgrow="ALWAYS" fx:id="xmlPathField" />
-
             </children>
             <padding>
                <Insets left="10.0" />
             </padding>
 
          </HBox>
+
+         <HBox>
          <Label fx:id="statusLabel" textFill="black"/>
+         <ProgressBar fx:id="progress" prefWidth="180" progress="0" visible="false"/>
+         </HBox>
       </VBox>
    </center>
 </BorderPane>
