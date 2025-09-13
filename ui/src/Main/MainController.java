@@ -17,9 +17,8 @@ import javafx.scene.Node;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.*;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class MainController {
@@ -31,13 +30,15 @@ public class MainController {
     @FXML private RunButtons.RunButtonsController RunButtonsController;
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBox.InputsBoxController inputsBoxController;
-    @FXML private StatisticsTable.StatisticsTableController statisticsController;
+    @FXML private StatisticsTable.StatisticsTableController statisticsTableController;
+
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private VBox statisticsBox;
     @FXML private HBox sidePanels;
     @FXML private BorderPane varsBox;
     @FXML private BorderPane inputsBox;
+
     @FXML private Node toolbar;
     @FXML private Region instructions;
     @FXML private Region summaryLine;
@@ -46,7 +47,9 @@ public class MainController {
     @FXML private TextArea centerOutput;
 
     private EmulatorEngine engine;
+    private List<String> inputNames = java.util.Collections.emptyList();
     private int currentDegree = 0;
+    private Consumer<String> onHighlightChanged;
 
     @FXML
     private void initialize() {
@@ -55,6 +58,12 @@ public class MainController {
         toolbarController.setOnCollapse(this::onCollapseOne);
         instructionsController.setOnRowSelected(this::onExpandedRowSelected);
         toolbarController.bindDegree(0, 0);
+        toolbarController.setHighlightEnabled(false);
+
+        if (RunButtonsController != null && statisticsTableController != null) {
+            RunButtonsController.setStatisticsTableController(statisticsTableController);
+            RunButtonsController.setInputsFormatter(this::formatInputsByPosition);
+        }
 
         Platform.runLater(() -> {
             // allow shrinking
@@ -68,18 +77,19 @@ public class MainController {
             varsBox.setMaxWidth(Double.MAX_VALUE);
             inputsBox.setMaxWidth(Double.MAX_VALUE);
 
-            // Track width of the toolbar
+            // Track width of the toolbar (kept in case you need it later)
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
                     () -> toolbar.getBoundsInParent().getWidth(),
                     toolbar.boundsInParentProperty()
             );
 
-            // Match toolbar width EXACTLY
-            contentBox.prefWidthProperty().bind(toolbarContentW);
-            contentBox.maxWidthProperty().bind(toolbarContentW);
-            historyChainBox.prefWidthProperty().bind(toolbarContentW);
-            historyChainBox.maxWidthProperty().bind(toolbarContentW);
+            // --- REMOVED: locking the left column to the toolbar width ---
+            // contentBox.prefWidthProperty().bind(toolbarContentW);
+            // contentBox.maxWidthProperty().bind(toolbarContentW);
+            // historyChainBox.prefWidthProperty().bind(toolbarContentW);
+            // historyChainBox.maxWidthProperty().bind(toolbarContentW);
 
+            // Children widths follow their parent containers
             if (instructions != null) {
                 instructions.setMinWidth(0);
                 instructions.prefWidthProperty().bind(contentBox.widthProperty());
@@ -94,26 +104,36 @@ public class MainController {
                 historyChain.setMinWidth(0);
                 historyChain.prefWidthProperty().bind(historyChainBox.widthProperty());
                 historyChain.maxWidthProperty().bind(historyChainBox.widthProperty());
+                historyChainBox.prefWidthProperty().bind(contentBox.widthProperty());
             }
+
+            // Keep right column aligned with RunButtons width (preserves your separation)
             if (RunButtons != null && sidePanels != null) {
                 sidePanels.setMinWidth(0);
-                sidePanels.prefWidthProperty().bind(RunButtons.widthProperty());
+              //  sidePanels.prefWidthProperty().bind(RunButtons.widthProperty());
                 sidePanels.maxWidthProperty().bind(RunButtons.widthProperty());
             }
-            if (statisticsBox != null) {
+            if (RunButtons != null && statisticsBox != null) {
                 statisticsBox.setMinWidth(0);
-                HBox.setHgrow(statisticsBox, Priority.ALWAYS);
-                VBox.setVgrow(statisticsBox, Priority.ALWAYS);
+              //  statisticsBox.prefWidthProperty().bind(RunButtons.widthProperty());
+                statisticsBox.maxWidthProperty().bind(RunButtons.widthProperty());
+                statisticsBox.prefWidthProperty().bind(sidePanels.widthProperty());
             }
+
+            // Let both columns participate in resizing
             HBox.setHgrow(contentBox, Priority.ALWAYS);
-            HBox.setHgrow(sidePanels, Priority.NEVER);
+            HBox.setHgrow(sidePanels, Priority.ALWAYS);
+
+            // Inside the right column, allow both panels to grow/shrink
             HBox.setHgrow(varsBox, Priority.ALWAYS);
             HBox.setHgrow(inputsBox, Priority.ALWAYS);
 
-            var half = sidePanels.widthProperty().subtract(sidePanels.getSpacing()).divide(2);
+            // Even 50/50 split inside sidePanels that updates on resize
+            var half = sidePanels.widthProperty()
+                    .subtract(sidePanels.getSpacing())
+                    .divide(2);
             varsBox.prefWidthProperty().bind(half);
             inputsBox.prefWidthProperty().bind(half);
-
         });
     }
 
@@ -125,6 +145,11 @@ public class MainController {
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setVarsBoxController(varsBoxController);
+
+            if (statisticsTableController != null) {
+                RunButtonsController.setStatisticsTableController(statisticsTableController);
+                RunButtonsController.setInputsFormatter(this::formatInputsByPosition);
+            }
         }
 
         Platform.runLater(() -> {
@@ -149,6 +174,7 @@ public class MainController {
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setLastMaxDegree(ev.maxDegree());
+            RunButtonsController.setCurrentDegree(0);
             if (inputsBoxController != null) {
                 RunButtonsController.setInputsBoxController(inputsBoxController);
             }
@@ -158,14 +184,36 @@ public class MainController {
         Platform.runLater(() -> {
             try {
                 ProgramView pv0 = engine.programView(0);
+                List<String> varNames = engine.extractInputVars(pv0);
+                List<String> labels = pv0.instructions().stream()
+                        .map(InstructionView::label)
+                        .filter(Objects::nonNull)
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .toList();
+
+                this.inputNames = (varNames != null) ? varNames : Collections.emptyList();
+
+                List<String> choices = new ArrayList<>();
+                if (varNames != null) choices.addAll(varNames);
+                choices.addAll(labels);
+                toolbarController.setHighlightOptions(choices);
+                toolbarController.setHighlightEnabled(true);
+
+                toolbarController.setOnHighlightChanged(term -> {
+                    if (instructionsController != null) {
+                        instructionsController.setHighlightTerm(term);
+                    }
+                });
+
                 if (inputsBoxController != null) {
-                    // THIS mirrors your console code path:
-                    java.util.List<String> names = engine.extractInputVars(pv0); // <- trusted API
-                    inputsBoxController.showNames(names);                        // <- build rows now
-                    System.out.println("Main extracted inputs: " + names);
+                    inputsBoxController.showNames(varNames);
+                    System.out.println("Main extracted inputs: " + varNames);
                 }
             } catch (Exception ex) {
-                System.err.println("Inputs panel setup failed: " + ex.getMessage());
+                System.err.println("Inputs/highlight setup failed: " + ex.getMessage());
+                toolbarController.setHighlightOptions(Collections.emptyList());
             }
         });
 
@@ -197,6 +245,7 @@ public class MainController {
         if (currentDegree < max) {
             currentDegree++;
             toolbarController.bindDegree(currentDegree, max);
+            if (RunButtonsController != null) RunButtonsController.setCurrentDegree(currentDegree);
             render(currentDegree);
         }
     }
@@ -207,6 +256,7 @@ public class MainController {
         if (currentDegree > 0) {
             currentDegree--;
             toolbarController.bindDegree(currentDegree, max);
+            if (RunButtonsController != null) RunButtonsController.setCurrentDegree(currentDegree);
             render(currentDegree);
         }
     }
@@ -261,6 +311,26 @@ public class MainController {
         if (args == null || args.isEmpty()) return nz(opcode);
         return nz(opcode) + " " + String.join(", ", args);
     }
+
+    private String formatInputsByPosition(String csv) {
+        if (csv == null || csv.isBlank()) return "";
+        String[] vals = csv.split(",");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < vals.length; i++) {
+            String val = vals[i].trim();
+            String name;
+            if (inputNames != null && i < inputNames.size() && inputNames.get(i) != null && !inputNames.get(i).isBlank()) {
+                name = inputNames.get(i);
+            } else {
+                name = "x" + (i + 1);
+            }
+            if (i > 0) sb.append('\n');
+            sb.append(name).append(" = ").append(val);
+        }
+        return sb.toString();
+    }
+
+    public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }
 
     private String nz(String s) { return s == null ? "" : s; }
 }

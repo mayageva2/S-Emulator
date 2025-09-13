@@ -26,6 +26,8 @@ public class RunButtonsController {
     private int lastMaxDegree = 0;
     private VariablesBoxController varsBoxController;
     private InputsBoxController inputController;
+    private StatisticsTable.StatisticsTableController statisticsController;
+    private Function<String, String> inputsFormatter;
 
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
@@ -42,6 +44,14 @@ public class RunButtonsController {
 
     public void setProvenanceRenderer(Function<ProgramView, String> renderer) {
         if (renderer != null) this.provenanceRenderer = renderer;
+    }
+
+    public void setStatisticsTableController(StatisticsTable.StatisticsTableController c) {
+        this.statisticsController = c;
+    }
+
+    public void setInputsFormatter(java.util.function.Function<String, String> f) {
+        this.inputsFormatter = f;
     }
 
     public void setLastMaxDegree(int maxDegree) {
@@ -109,6 +119,8 @@ public class RunButtonsController {
                 varsBoxController.renderFromRun(result, inputs);
             }
 
+            updateStatisticsFromEngineHistory();
+
         } catch (Exception ex) {
             alertError("Run failed", friendlyMsg(ex));
         }
@@ -123,6 +135,13 @@ public class RunButtonsController {
     }
 
     public void setInputsBoxController(InputsBox.InputsBoxController c) { this.inputController = c; }
+
+    private void updateStatisticsFromEngineHistory() {
+        if (statisticsController == null || engine == null) return;
+        var history = engine.history();
+        Function<String, String> fmt = (inputsFormatter != null) ? inputsFormatter : (s -> s);
+        Platform.runLater(() -> statisticsController.setHistory(history, fmt));
+    }
 
     @FXML
     private void onDebug(ActionEvent e) {

@@ -20,7 +20,7 @@
 
     <center>
         <VBox maxWidth="Infinity" spacing="6.0" BorderPane.alignment="CENTER_LEFT">
-            <ScrollPane prefHeight="150.0" fitToWidth="true" hbarPolicy="NEVER"
+            <ScrollPane prefHeight="150.0" fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0"
                         style="-fx-background-color: transparent; -fx-border-color: purple;">
                 <content>
                     <VBox fx:id="varsContainer" spacing="6.0" maxWidth="Infinity">

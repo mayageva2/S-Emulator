@@ -3,19 +3,16 @@ package InstructionsTable;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
-import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
-import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.layout.BorderPane;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class InstructionsTableController {
 
@@ -27,7 +24,7 @@ public class InstructionsTableController {
     @FXML private TableColumn<InstructionRow, String> instructionCol;
 
     private Consumer<InstructionView> onRowSelected;
-
+    private String highlightTerm = null;
     @FXML
     private void initialize() {
         indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index));
@@ -41,6 +38,18 @@ public class InstructionsTableController {
         });
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setRowFactory(tv -> new TableRow<InstructionRow>() {
+            @Override protected void updateItem(InstructionRow row, boolean empty) {
+                super.updateItem(row, empty);
+                if (empty || row == null || isBlank(highlightTerm)) {
+                    setStyle("");
+                } else if (matches(row, highlightTerm)) {
+                    setStyle("-fx-background-color: #fff3cd;"); // soft yellow
+                } else {
+                    setStyle("");
+                }
+            }
+        });
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, row) -> {
             if (onRowSelected != null && row != null && row.sourceIv != null) {
@@ -53,6 +62,29 @@ public class InstructionsTableController {
             table.getStylesheets().add(css.toExternalForm());
             table.getStyleClass().add("instructions");
         }
+    }
+
+    public void setHighlightTerm(String term) {
+        this.highlightTerm = isNone(term) ? null : term;
+        table.refresh();
+    }
+
+    private static boolean isNone(String s) {
+        return s == null || s.isBlank() || "— None —".equals(s);
+    }
+
+    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
+
+    private static boolean matches(InstructionRow r, String term) {
+        String t = term.toLowerCase();
+        if (r.label != null && r.label.equalsIgnoreCase(t)) return true;
+        if (r.opcode != null && r.opcode.toLowerCase().contains(t)) return true;
+        if (r.args != null) {
+            for (String a : r.args) {
+                if (a != null && a.toLowerCase().contains(t)) return true;
+            }
+        }
+        return false;
     }
 
     public void setItems(List<InstructionRow> items) {

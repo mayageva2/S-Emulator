@@ -13,8 +13,6 @@ import java.util.*;
 public class SelectedInstructionHistoryChainTableController {
 
     @FXML private BorderPane root;
-
-    // NOTE: name is <fx:id> + "Controller"
     @FXML private InstructionsTableController instructionsController;
 
     @FXML

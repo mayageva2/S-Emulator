@@ -10,7 +10,11 @@
 
 
 <?import javafx.scene.layout.Region?>
-<BorderPane maxWidth="750.0" prefHeight="60.0" prefWidth="700.0" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+<?import java.net.URL?>
+<BorderPane maxWidth="750.0" prefHeight="60.0" prefWidth="700.0" styleClass="program-toolbar" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+   <stylesheets>
+      <URL value="@program-toolbar.css"/>
+   </stylesheets>
    <center>
       <HBox maxWidth="Infinity" prefHeight="50.0" prefWidth="700.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5;">
          <children>
@@ -34,7 +38,7 @@
                   <Font size="14.0" />
                </font>
             </Button>
-            <ChoiceBox fx:id="HighlightChoices" prefHeight="43.0" prefWidth="200.0" style="-fx-background-color: purple;" HBox.hgrow="NEVER"/>
+            <ChoiceBox fx:id="HighlightChoices" prefHeight="43.0" prefWidth="200.0"  style="-fx-background-color: purple;" HBox.hgrow="NEVER"/>
          </children>
          <opaqueInsets>
             <Insets />
