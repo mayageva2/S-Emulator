@@ -411,19 +411,19 @@ public class XmlProgramValidator {
                 // e.g., validateInstructionTypeAndName for function body, etc.
             }
         }
+        boolean hasFunctions = !functionNames.isEmpty();
 
-        // Cross-reference from main instructions (e.g., JUMP_EQUAL_FUNCTION requires an existing function)
+        // Cross-reference from main instructions
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             for (int i = 0; i < p.getInstructions().getInstructions().size(); i++) {
                 InstructionXml ins = p.getInstructions().getInstructions().get(i);
                 int idx = i + 1;
                 if (ins.getArguments() == null) continue;
 
-                boolean needsFunctionCheck =
-                        "JUMP_EQUAL_FUNCTION".equalsIgnoreCase(String.valueOf(ins.getName()))
-                                || "QUOTE".equalsIgnoreCase(String.valueOf(ins.getName()));
+                String opcode = String.valueOf(ins.getName());
 
-                if (needsFunctionCheck) {
+                // 1) JUMP_EQUAL_FUNCTION -> hard require a known function
+                if ("JUMP_EQUAL_FUNCTION".equalsIgnoreCase(opcode)) {
                     for (InstructionArgXml arg : ins.getArguments()) {
                         String n = arg.getName();
                         if (n == null) continue;
@@ -431,10 +431,26 @@ public class XmlProgramValidator {
                             String val = (arg.getValue() == null ? "" : arg.getValue().trim());
                             if (!functionNames.contains(val)) {
                                 throw new InvalidInstructionException(
-                                        norm(ins.getName()),
+                                        norm(opcode),
                                         "Unknown function '" + val + "' at instruction #" + idx,
                                         idx
                                 );
+                            }
+                        }
+                    }
+                }
+
+                // 2) QUOTE -> only check if we actually have functions declared
+                else if ("QUOTE".equalsIgnoreCase(opcode) && hasFunctions) {
+                    for (InstructionArgXml arg : ins.getArguments()) {
+                        String n = arg.getName();
+                        if (n == null) continue;
+                        if (looksLikeFunctionArg(n)) {
+                            String val = (arg.getValue() == null ? "" : arg.getValue().trim());
+                            // If there are no matches in S-Functions, DO NOT throw; QUOTE may use external registry.
+                            if (!functionNames.contains(val)) {
+                                // Optional: just warn in logs, or skip silently
+                                // System.out.println("Note: QUOTE references external function '" + val + "'");
                             }
                         }
                     }
