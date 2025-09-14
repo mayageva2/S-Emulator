@@ -4,6 +4,7 @@ import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.LoadResult;
 import emulator.api.dto.ProgramView;
+import emulator.api.dto.ProgressListener;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -62,30 +63,22 @@ public class HeaderAndLoadButtonController {
         Task<LoadResult> task = new Task<>() {
             @Override
             protected LoadResult call() throws Exception {
-                updateMessage("Opening file...");
-                updateProgress(0.05, 1);
-                Thread.sleep(150);
+                ProgressListener cb = (stage, fraction) -> {
+                    updateMessage(stage);
+                    updateProgress(fraction, 1.0);
+                };
 
-                if (!Files.isReadable(xmlPath))
-                    throw new IllegalArgumentException("Cannot read file: " + xmlPath);
-
-                String xml = Files.readString(xmlPath);
-                updateMessage("Validating schema (Exercise 2)...");
-                updateProgress(0.20, 1);
-                Thread.sleep(150);
+                updateMessage("Starting...");
+                updateProgress(0, 1.0);
 
                 updateMessage("Parsing program...");
-                updateProgress(0.45, 1);
-                LoadResult res = engine.loadProgram(xmlPath);
+                updateProgress(0.05, 1);
+                LoadResult res = engine.loadProgram(xmlPath, cb);
                 Thread.sleep(150);
-
-                updateMessage("Running validations...");
-                updateProgress(0.70, 1);
-               // add validation checks
 
                 updateMessage("Finishing...");
                 updateProgress(0.90, 1);
-                Thread.sleep(400);
+                Thread.sleep(200);
 
                 updateMessage("Done");
                 updateProgress(1, 1);

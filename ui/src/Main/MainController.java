@@ -83,12 +83,6 @@ public class MainController {
                     toolbar.boundsInParentProperty()
             );
 
-            // --- REMOVED: locking the left column to the toolbar width ---
-            // contentBox.prefWidthProperty().bind(toolbarContentW);
-            // contentBox.maxWidthProperty().bind(toolbarContentW);
-            // historyChainBox.prefWidthProperty().bind(toolbarContentW);
-            // historyChainBox.maxWidthProperty().bind(toolbarContentW);
-
             // Children widths follow their parent containers
             if (instructions != null) {
                 instructions.setMinWidth(0);
@@ -110,12 +104,10 @@ public class MainController {
             // Keep right column aligned with RunButtons width (preserves your separation)
             if (RunButtons != null && sidePanels != null) {
                 sidePanels.setMinWidth(0);
-              //  sidePanels.prefWidthProperty().bind(RunButtons.widthProperty());
                 sidePanels.maxWidthProperty().bind(RunButtons.widthProperty());
             }
             if (RunButtons != null && statisticsBox != null) {
                 statisticsBox.setMinWidth(0);
-              //  statisticsBox.prefWidthProperty().bind(RunButtons.widthProperty());
                 statisticsBox.maxWidthProperty().bind(RunButtons.widthProperty());
                 statisticsBox.prefWidthProperty().bind(sidePanels.widthProperty());
             }
