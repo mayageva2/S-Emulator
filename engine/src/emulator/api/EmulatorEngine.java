@@ -1,9 +1,6 @@
 package emulator.api;
 
-import emulator.api.dto.LoadResult;
-import emulator.api.dto.ProgramView;
-import emulator.api.dto.RunRecord;
-import emulator.api.dto.RunResult;
+import emulator.api.dto.*;
 import emulator.exception.*;
 
 import java.io.IOException;
@@ -27,6 +24,7 @@ public interface EmulatorEngine {
             MissingLabelException,         // label refs without definition
             ProgramException,              // other domain errors
             IOException;                   // reader surfaces raw IO
+    LoadResult loadProgram(Path xmlPath, ProgressListener listener) throws Exception;
     void saveState(Path fileWithoutExt) throws Exception;
     void loadState(Path fileWithoutExt) throws Exception;
 }

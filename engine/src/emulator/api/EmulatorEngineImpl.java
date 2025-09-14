@@ -12,11 +12,10 @@ import emulator.logic.instruction.quote.QuotationRegistry;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.xml.*;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Unmarshaller;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -26,7 +25,7 @@ import java.util.regex.Matcher;
 
 import static java.util.Locale.ROOT;
 
-public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
+public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program current;
     private Program lastViewProgram;
@@ -37,6 +36,7 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
     private static final long serialVersionUID = 1L;
     private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
+    private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -67,6 +67,50 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
 
         Program base = byDegree.get(degree);
         return buildProgramView(base, degree, byDegree);
+    }
+
+    private ProgramXml parseXmlToProgram(String xml) throws Exception {
+        JAXBContext ctx = JAXBContext.newInstance(ProgramXml.class);
+        Unmarshaller um = ctx.createUnmarshaller();
+        try (StringReader reader = new StringReader(xml)) {
+            return (ProgramXml) um.unmarshal(reader);
+        }
+    }
+
+    public LoadResult loadProgram(Path xmlPath, ProgressListener cb) throws Exception {
+        ProgressListener listener = (cb != null) ? cb : (stage, frac) -> {};
+
+        final String p = String.valueOf(xmlPath);
+        if (!p.toLowerCase(ROOT).endsWith(".xml")) {
+            throw new XmlWrongExtensionException("Expected .xml file: " + p);
+        }
+        if (!java.nio.file.Files.exists(xmlPath)) {
+            throw new XmlNotFoundException("File not found: " + p);
+        }
+
+        listener.onProgress("Reading file...", 0.10);
+        Thread.sleep(300);
+        XmlProgramReader reader = new XmlProgramReader();
+        ProgramXml pxml = reader.read(xmlPath);
+
+        listener.onProgress("Validating XML...", 0.60);
+        Thread.sleep(150);
+        xmlProgramValidator.validate(pxml);
+
+        listener.onProgress("Building program...", 0.85);
+        Thread.sleep(200);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.executor = new ProgramExecutorImpl(this.current);
+        functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
+        this.lastViewProgram = null;
+        this.history.clear();
+        this.runCounter = 0;
+
+        return new LoadResult(
+                current.getName(),
+                current.getInstructions().size(),
+                current.calculateMaxDegree()
+        );
     }
 
     //------programView Helpers------//
@@ -191,39 +235,31 @@ public class EmulatorEngineImpl implements EmulatorEngine, Serializable {
     //This function loads a program from an XML file and validates it
     @Override
     public LoadResult loadProgram(Path xmlPath)
-            throws XmlWrongExtensionException,
-            XmlNotFoundException,
-            XmlReadException,
-            XmlInvalidContentException,
-            InvalidInstructionException,
-            MissingLabelException,
-            ProgramException,
-            IOException {
-
-        final String p = String.valueOf(xmlPath);
-        if (!p.toLowerCase(ROOT).endsWith(".xml")) {
-            throw new XmlWrongExtensionException("Expected .xml file: " + p);
+            throws emulator.exception.XmlWrongExtensionException,
+            emulator.exception.XmlNotFoundException,
+            emulator.exception.XmlReadException,
+            emulator.exception.XmlInvalidContentException,
+            emulator.exception.InvalidInstructionException,
+            emulator.exception.MissingLabelException,
+            emulator.exception.ProgramException,
+            java.io.IOException {
+        try {
+            // Delegate to the unified loader with a no-op progress listener
+            return loadProgram(xmlPath, (stage, fraction) -> {});
+        } catch (emulator.exception.ProgramException | java.io.IOException e) {
+            // Re-throw the exact types declared by the original signature
+            throw e;
+        } catch (RuntimeException e) {
+            // Don’t wrap runtime exceptions
+            throw e;
+        } catch (Exception e) {
+            // Anything unexpected -> wrap into ProgramException USING THE CORRECT CTOR
+            // Adjust the two strings to match your ProgramException semantics.
+            throw new emulator.exception.ProgramException(
+                    "Unexpected error while loading program",
+                    (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())
+            );
         }
-        if (!java.nio.file.Files.exists(xmlPath)) {
-            throw new XmlNotFoundException("File not found: " + p);
-        }
-
-        XmlProgramReader reader = new XmlProgramReader();
-        ProgramXml pxml = reader.read(xmlPath);
-        XmlProgramValidator validator = new XmlProgramValidator();
-        validator.validate(pxml);
-        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
-        this.executor = new ProgramExecutorImpl(this.current);
-        functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
-        this.lastViewProgram = null;
-        this.history.clear();
-        this.runCounter = 0;
-
-        return new LoadResult(
-                current.getName(),
-                current.getInstructions().size(),
-                current.calculateMaxDegree()
-        );
     }
 
     //This func runs the currently loaded program at expansion degree 0
