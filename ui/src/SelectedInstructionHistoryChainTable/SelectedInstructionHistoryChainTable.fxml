@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController">
+   <center>
+      <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml"/>
+   </center>
+</BorderPane>
+

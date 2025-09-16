@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="InputsBox.InputsBoxController"
+            maxWidth="Infinity" minWidth="0.0">
+
+   <top>
+      <Label text="Inputs:" textFill="WHITE" style="-fx-background-color: purple;">
+         <font><Font size="16.0"/></font>
+         <BorderPane.margin><Insets top="0" right="10" bottom="6"/></BorderPane.margin>
+         <padding><Insets top="6" right="10" bottom="6" left="10"/></padding>
+      </Label>
+   </top>
+
+   <center>
+      <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" minWidth="0.0" style="-fx-background-color: transparent; -fx-border-color: purple;">
+         <content>
+            <VBox spacing="0" fillWidth="true" minWidth="0.0">
+               <padding><Insets top="6" right="10" bottom="10" left="10"/></padding>
+               <VBox fx:id="inputsList" spacing="0" fillWidth="true" minWidth="0.0"/>
+            </VBox>
+         </content>
+      </ScrollPane>
+   </center>
+   <padding>
+      <Insets left="0" top="5" right="0"/>
+   </padding>
+</BorderPane>

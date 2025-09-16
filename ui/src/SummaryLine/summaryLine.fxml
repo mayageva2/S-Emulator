@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import java.net.URL?>
+
+<?import javafx.geometry.Insets?>
+<?import java.lang.String?>
+<BorderPane fx:id="root" prefHeight="50.0" prefWidth="750.0"
+            fx:controller="SummaryLine.SummaryLineController"
+            xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+   <center>
+      <HBox alignment="CENTER_LEFT" spacing="14" prefHeight="40.0"
+            BorderPane.alignment="CENTER">
+         <styleClass>
+            <String fx:value="summary-line"/>
+            <String fx:value="theme-ribbon"/>
+         </styleClass>
+         <children>
+            <Label text="Total:"        styleClass="key"/>
+            <Label fx:id="totalCount"   styleClass="chip chip-total"/>
+            <Label text="Basic:"        styleClass="key"/>
+            <Label fx:id="basicCount"   styleClass="chip chip-basic"/>
+            <Label text="Synthetic:"    styleClass="key"/>
+            <Label fx:id="syntheticCount" styleClass="chip chip-synth"/>
+         </children>
+      </HBox>
+   </center>
+   <padding>
+      <Insets left="10.0" />
+   </padding>
+
+   <!-- Load CSS file -->
+   <stylesheets>
+      <URL value="@summary-line.css"/>
+   </stylesheets>
+
+</BorderPane>
+

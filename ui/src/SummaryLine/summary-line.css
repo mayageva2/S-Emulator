@@ -1,0 +1,35 @@
+.summary-line {
+    -fx-padding: 8 14;
+    -fx-spacing: 14;
+    -fx-font-size: 15px;
+    -fx-font-smoothing-type: lcd;
+}
+
+.summary-line .label { -fx-alignment: CENTER_LEFT; }
+
+.summary-line .key { -fx-font-weight: 600; }
+
+.summary-line .chip {
+    -fx-padding: 4 10;
+    -fx-background-radius: 999;
+    -fx-background-insets: 0;
+    -fx-font-weight: 700;
+    -fx-min-width: 34;
+    -fx-alignment: CENTER;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 6, 0.2, 0, 1);
+}
+
+.summary-line.theme-ribbon {
+    -fx-background-color: linear-gradient(to right, purple, white);
+    -fx-border-color: rgba(0,0,0,0.15);
+    -fx-border-width: 0 0 1 0;
+}
+.summary-line.theme-ribbon .label,
+.summary-line.theme-ribbon .key { -fx-text-fill: white; -fx-opacity: 0.95; }
+.summary-line.theme-ribbon .chip {
+    -fx-background-color: white;
+    -fx-text-fill: #4A148C;
+    -fx-padding: 3 8;
+    -fx-background-radius: 6;
+    -fx-effect: none;
+}
