@@ -4,6 +4,7 @@ import emulator.api.dto.*;
 import emulator.exception.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
+import emulator.logic.expansion.Expander;
 import emulator.logic.expansion.ProgramExpander;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
@@ -34,6 +35,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
     private transient ProgramExpander programExpander = new ProgramExpander();
+    private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
     private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
@@ -44,30 +46,57 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public ProgramView programView() {
         requireLoaded();
         List<Program> only0 = List.of(current);
-        return buildProgramView(current, 0, only0);
+        int max0 = expander.calculateMaxDegree(current.getInstructions());
+        return buildProgramView(current, 0, only0, max0);
     }
 
     //This func returns a ProgramView of the currently loaded program at a specified degree
     @Override
     public ProgramView programView(int degree) {
         requireLoaded();
-        int max = current.calculateMaxDegree();
+        int max = expander.calculateMaxDegree(current.getInstructions());
         if (degree < 0 || degree > max) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
         }
 
+        Program base = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
         List<Program> byDegree = new ArrayList<>(degree + 1);
         byDegree.add(current);
 
         //Expand according to degree
         for (int d = 1; d <= degree; d++) {
-            Program prev = byDegree.get(d - 1);
-            Program next = programExpander.expandOnce(prev);
-            byDegree.add(next);
+            byDegree.add(programExpander.expandToDegree(current, d));
         }
 
+        if (degree > 0) byDegree.add(base);
+        System.out.println("DEBUG: degree=" + degree + " rows=" + base.getInstructions().size());
+        return buildProgramView(base, degree, byDegree, max);
+    }
+
+    @Override
+    public ProgramView programView(String programName, int degree) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName);
+        if (target == null) {
+            // try exact and uppercase alias the registry stores
+            target = functionLibrary.get(programName.toUpperCase(ROOT));
+        }
+        if (target == null) {
+            throw new IllegalArgumentException("Unknown program: " + programName);
+        }
+        int max = expander.calculateMaxDegree(current.getInstructions());
+        if (degree < 0 || degree > max) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
+        }
+
+        // Build degree ladder for provenance (like your current programView(int))
+        List<Program> byDegree = new ArrayList<>(degree + 1);
+        byDegree.add(target);
+        for (int d = 1; d <= degree; d++) {
+            byDegree.add(programExpander.expandOnce(byDegree.get(d - 1)));
+        }
         Program base = byDegree.get(degree);
-        return buildProgramView(base, degree, byDegree);
+        return buildProgramView(base, degree, byDegree, max);
     }
 
     private ProgramXml parseXmlToProgram(String xml) throws Exception {
@@ -117,11 +146,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //------programView Helpers------//
 
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
-    private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree) {
+    private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree, int maxDegree) {
         List<Instruction> real = base.getInstructions();
-        int maxDegree = byDegree.get(0).calculateMaxDegree();
         int totalCycles = new ProgramCost().cyclesAtDegree(byDegree.get(0), degree);
-
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
 
@@ -142,6 +169,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
+    }
+
+    @Override
+    public List<String> availablePrograms() {
+        return functionLibrary.keySet().stream().toList();
     }
 
     //This func builds maps per degree from Instruction identity
@@ -369,5 +401,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.executor = new ProgramExecutorImpl(this.current);
         this.programExpander = new ProgramExpander();
         this.quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
+        this.expander = new Expander();
     }
 }
