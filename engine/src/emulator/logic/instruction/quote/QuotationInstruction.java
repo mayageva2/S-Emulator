@@ -99,7 +99,11 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         int nInputs = inputIndexToFresh.isEmpty() ? 0 : Collections.max(inputIndexToFresh.keySet());
         for (int i = 1; i <= nInputs; i++) {
             Variable dstZi = inputIndexToFresh.get(i);
-            if (dstZi == null) continue;
+            if (dstZi == null) {
+                Variable filler = helper.freshVar();
+                out.add(new ZeroVariableInstruction(filler, FixedLabel.EMPTY));
+                continue;
+            }
 
             String tok = (i - 1 < rawArgs.size()) ? rawArgs.get(i - 1) : "";
             if (tok.isBlank()) {
@@ -115,27 +119,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                         .varResolver(varResolver)
                         .build());
             } else {
-                Variable src;
-                try {
-                    src = varResolver.resolve(tok);
-                } catch (RuntimeException ex) {
-                    String t = tok.trim();
-                    if ("y".equals(t)) {
-                        src = new emulator.logic.variable.VariableImpl(
-                                emulator.logic.variable.VariableType.RESULT, 0);
-                    } else if (t.length() >= 2 && (t.charAt(0) == 'x' || t.charAt(0) == 'z')) {
-                        char kind = t.charAt(0);
-                        int idx = Integer.parseInt(t.substring(1));
-                        if (idx <= 0) throw new IllegalArgumentException("Illegal variable index: " + tok);
-                        src = new emulator.logic.variable.VariableImpl(
-                                (kind == 'x')
-                                        ? emulator.logic.variable.VariableType.INPUT
-                                        : emulator.logic.variable.VariableType.WORK,
-                                idx);
-                    } else {
-                        throw ex;
-                    }
-                }
+                Variable src = resolveLoose(varResolver, tok);
                 out.add(new AssignmentInstruction(dstZi, src, FixedLabel.EMPTY));
             }
         }
@@ -146,6 +130,27 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
         out.add(new AssignmentInstruction(getVariable(), newY, lend));
         return out;
+    }
+
+    private Variable resolveLoose(VarResolver varResolver, String tok) {
+        try {
+            return varResolver.resolve(tok);
+        } catch (RuntimeException ex) {
+            String t = tok.trim();
+            if ("y".equals(t)) {
+                return new emulator.logic.variable.VariableImpl(
+                        emulator.logic.variable.VariableType.RESULT, 0);
+            } else if (t.length() >= 2 && (t.charAt(0) == 'x' || t.charAt(0) == 'z')) {
+                char kind = t.charAt(0);
+                int idx = Integer.parseInt(t.substring(1));
+                if (idx <= 0) throw new IllegalArgumentException("Illegal variable index: " + tok);
+                return new emulator.logic.variable.VariableImpl(
+                        (kind == 'x') ? emulator.logic.variable.VariableType.INPUT
+                                : emulator.logic.variable.VariableType.WORK,
+                        idx);
+            }
+            throw ex;
+        }
     }
 
     private static Variable subVar(Map<Variable, Variable> map, Variable key) {
@@ -234,7 +239,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                     .build();
         }
 
-        return new NeutralInstruction(subVar(varSub, getVariable()), newLbl);
+        return new NeutralInstruction(subVar(varSub, iq.getVariable()), newLbl);
     }
 
 
