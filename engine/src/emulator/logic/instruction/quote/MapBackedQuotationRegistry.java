@@ -29,4 +29,11 @@ public final class MapBackedQuotationRegistry implements QuotationRegistry {
         }
         throw new IllegalArgumentException("Unknown function: " + functionName);
     }
+
+    @Override
+    public void putProgram(String name, Program program) {
+        if (name == null || program == null) return;
+        funcs.put(name, program);
+        funcs.put(name.toUpperCase(Locale.ROOT), program);
+    }
 }
