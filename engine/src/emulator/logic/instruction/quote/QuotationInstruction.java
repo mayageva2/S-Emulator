@@ -132,6 +132,27 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         return out;
     }
 
+    @Override
+    public int degree() {
+        // Depth contributed by the quoted program body
+        Program q = registry.getProgramByName(functionName);
+        int body = (q == null) ? 0 : q.calculateMaxDegree();
+
+        // Depth contributed by nested function calls inside the quote arguments
+        int argsDepth = 0;
+        for (String tok : rawArgs) {
+            if (parser.isNestedCall(tok)) {
+                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                Program p = registry.getProgramByName(nc.name());
+                int d = 1 + ((p == null) ? 0 : p.calculateMaxDegree()); // +1 for the inner QUOTE layer
+                if (d > argsDepth) argsDepth = d;
+            }
+        }
+
+        // 1 for *this* QUOTE layer + the deeper of (body, deepest nested-arg)
+        return 1 + Math.max(body, argsDepth);
+    }
+
     private Variable resolveLoose(VarResolver varResolver, String tok) {
         try {
             return varResolver.resolve(tok);
@@ -241,9 +262,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
         return new NeutralInstruction(subVar(varSub, iq.getVariable()), newLbl);
     }
-
-
-
 
     public String functionName() { return functionName; }
     public String functionArguments() { return functionArguments; }

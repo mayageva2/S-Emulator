@@ -1,6 +1,9 @@
 package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.instruction.quote.DynamicDegree;
+import emulator.logic.instruction.quote.QuotationRegistry;
+import emulator.logic.instruction.quote.QuoteParser;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
@@ -8,7 +11,7 @@ import emulator.logic.variable.Variable;
 import java.io.Serializable;
 import java.util.*;
 
-public abstract class AbstractInstruction implements Instruction, Serializable {
+public abstract class AbstractInstruction implements Instruction, DynamicDegree {
 
     private final InstructionData instructionData;
     private final Label label;
@@ -40,6 +43,11 @@ public abstract class AbstractInstruction implements Instruction, Serializable {
         this.label = (label == null) ? FixedLabel.EMPTY : label;
         this.variable = variable;
         this.degree = 0;
+    }
+
+    @Override
+    public int degree(QuotationRegistry registry, QuoteParser parser) {
+        return degree();
     }
 
     //This func returns instructionData

@@ -11,6 +11,7 @@ import emulator.logic.instruction.quote.MapBackedQuotationRegistry;
 import emulator.logic.instruction.quote.QuotationRegistry;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
+import emulator.logic.program.ProgramCost;
 import emulator.logic.xml.*;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
@@ -119,6 +120,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree) {
         List<Instruction> real = base.getInstructions();
         int maxDegree = byDegree.get(0).calculateMaxDegree();
+        int totalCycles = new ProgramCost().cyclesAtDegree(byDegree.get(0), degree);
 
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
@@ -139,7 +141,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             ));
         }
 
-        return new ProgramView(out, base.getName(), degree, maxDegree);
+        return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
     }
 
     //This func builds maps per degree from Instruction identity
