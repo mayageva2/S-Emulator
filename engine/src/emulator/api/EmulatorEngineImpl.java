@@ -38,6 +38,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
     private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
+    private final Map<String, String> fnDisplayMap = new HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
 
@@ -69,7 +70,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         if (degree > 0) byDegree.add(base);
-        System.out.println("DEBUG: degree=" + degree + " rows=" + base.getInstructions().size());
         return buildProgramView(base, degree, byDegree, max);
     }
 
@@ -122,6 +122,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(300);
         XmlProgramReader reader = new XmlProgramReader();
         ProgramXml pxml = reader.read(xmlPath);
+
+        fnDisplayMap.clear();
+        if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
+            for (var fx : pxml.getFunctions().getFunctions()) {
+                String name = fx.getName();
+                String us = fx.getUserString();
+                if (!name.isBlank() && !us.isBlank()) {
+                    fnDisplayMap.put(name, us);
+                }
+            }
+        }
 
         listener.onProgress("Validating XML...", 0.60);
         Thread.sleep(150);
@@ -206,20 +217,66 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     // This func collects ordered arguments and sorts extra arguments
     private List<String> collectArgs(Instruction ins) {
-        List<String> args = new ArrayList<>();
+        List<String> out = new ArrayList<>();
+
         if (ins.getVariable() != null) {
-            args.add(ins.getVariable().getRepresentation());
+            out.add(ins.getVariable().getRepresentation());
         }
-        Map<String, String> extra = ins.getArguments();
-        if (extra != null && !extra.isEmpty()) {
+        Map<String, String> extra = new LinkedHashMap<>();
+        if (ins.getArguments() != null) {
+            extra.putAll(ins.getArguments());
+        }
+
+        String opcode = ins.getInstructionData().getName();
+        if ("QUOTE".equals(opcode) || "JUMP_EQUAL_FUNCTION".equals(opcode)) {
+            String fn = extra.get("functionName");
+            if (fn != null && !fn.isBlank()) {
+                String disp = displayOf(fn);
+                if (!disp.isBlank() && !disp.equals(fn)) {
+                    extra.put("userString", disp);
+                    extra.putIfAbsent("functionUserString", disp);
+                }
+                String fargs = extra.get("functionArguments");
+                if (fargs != null && !fargs.isBlank()) {
+                    extra.put("functionArguments", mapHeadFunctions(fargs));
+                }
+            }
+        }
+        if (!extra.isEmpty()) {
             var keys = new ArrayList<>(extra.keySet());
             Collections.sort(keys);
             for (String k : keys) {
                 String v = extra.get(k);
-                args.add(k + "=" + (v == null ? "" : v));
+                out.add(k + "=" + (v == null ? "" : v));
             }
         }
-        return args;
+        return out;
+    }
+
+    private String displayOf(String functionName) {
+        if (functionName.isBlank()) return "";
+        return fnDisplayMap.getOrDefault(functionName, functionName);
+    }
+
+    private String mapHeadFunctions(String s) {
+        if (s == null || s.isBlank()) return s;
+        StringBuilder out = new StringBuilder();
+        int n = s.length(), i = 0;
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c == '(') {
+                out.append(c);
+                i++;
+                int start = i;
+                while (i < n && s.charAt(i) != ',' && s.charAt(i) != ')') i++;
+                String head = s.substring(start, i).trim();
+                out.append(displayOf(head));
+            } else {
+                out.append(c);
+                i++;
+            }
+        }
+        return out.toString();
     }
 
     // This func builds provenance chain
