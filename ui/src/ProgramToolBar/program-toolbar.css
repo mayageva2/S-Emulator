@@ -6,11 +6,6 @@
     -fx-font-size: 14px;
 }
 
-.program-toolbar .label {
-    -fx-text-fill: #9a0cb2;  /* your CurrentOrMaxDegreeLabel */
-    -fx-font-size: 14px;
-}
-
 .program-toolbar .choice-box {
     -fx-background-color: purple;
     -fx-mark-color: white; /* dropdown arrow */

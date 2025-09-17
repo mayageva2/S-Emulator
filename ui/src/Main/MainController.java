@@ -57,8 +57,10 @@ public class MainController {
         toolbarController.setOnExpand(this::onExpandOne);
         toolbarController.setOnCollapse(this::onCollapseOne);
         instructionsController.setOnRowSelected(this::onExpandedRowSelected);
+        toolbarController.setOnJumpToDegree(this::onJumpToDegree);
         toolbarController.bindDegree(0, 0);
         toolbarController.setHighlightEnabled(false);
+        toolbarController.setDegreeButtonEnabled(false);
 
         if (RunButtonsController != null && statisticsTableController != null) {
             RunButtonsController.setStatisticsTableController(statisticsTableController);
@@ -163,6 +165,7 @@ public class MainController {
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         currentDegree = 0;
         toolbarController.bindDegree(0, ev.maxDegree());
+        toolbarController.setDegreeButtonEnabled(true);
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setLastMaxDegree(ev.maxDegree());
@@ -270,6 +273,35 @@ public class MainController {
             summaryLineController.update(pv);
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
+        }
+    }
+
+    private void onJumpToDegree(Integer target) {
+        if (target == null || !isLoaded()) return;
+
+        int max = engine.programView(0).maxDegree();
+        // clamp (just in case)
+        int clamped = Math.max(0, Math.min(target, max));
+
+        currentDegree = clamped;
+        toolbarController.bindDegree(currentDegree, max);
+
+        if (RunButtonsController != null) {
+            RunButtonsController.setCurrentDegree(currentDegree);
+            RunButtonsController.setLastMaxDegree(max);
+        }
+
+        render(currentDegree);
+        // optional: refresh provenance panel if a row is selected
+        if (currentDegree > 0 && instructionsController != null) {
+            var sel = instructionsController.getTableView().getSelectionModel().getSelectedItem();
+            if (sel != null && sel.sourceIv != null) {
+                onExpandedRowSelected(sel.sourceIv);
+            } else {
+                historyChainController.clear();
+            }
+        } else {
+            historyChainController.clear();
         }
     }
 

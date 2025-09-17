@@ -2,21 +2,24 @@ package ProgramToolBar;
 
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.ChoiceBox;
-import javafx.scene.control.Label;
+import javafx.scene.Node;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Modality;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public class ProgramToolbarController {
 
-    @FXML private Button selectProgramButton, CollapseButton, ExpandButton;
-    @FXML private Label CurrentOrMaxDegreeLabel;
+    @FXML private Button selectProgramButton, CollapseButton, ExpandButton, CurrentOrMaxDegreeButton;
     @FXML private ChoiceBox<String> HighlightChoices;
+    private Consumer<Integer> onJumpToDegree;
 
+    public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
     private Runnable onSelectProgram, onCollapseClick, onExpandClick;
     private Consumer<String> onHighlightChanged;
     private int currentDegree = 0;
@@ -26,6 +29,9 @@ public class ProgramToolbarController {
     private void initialize() {
         CollapseButton.setOnAction(e -> { if (onCollapseClick != null) onCollapseClick.run(); });
         ExpandButton.setOnAction(e ->   { if (onExpandClick   != null) onExpandClick.run();   });
+
+        CurrentOrMaxDegreeButton.setMnemonicParsing(false);
+        CurrentOrMaxDegreeButton.setOnAction(e -> openDegreeDialog());
         updateButtons();
 
         if (HighlightChoices != null) {
@@ -42,7 +48,7 @@ public class ProgramToolbarController {
     public void bindDegree(int current, int max) {
         this.currentDegree = current;
         this.maxDegree = max;
-        CurrentOrMaxDegreeLabel.setText("Degree: " + current + "/" + max);
+        CurrentOrMaxDegreeButton.setText("Degree: " + current + "/" + max);
         updateButtons();
     }
 
@@ -85,6 +91,74 @@ public class ProgramToolbarController {
                 HighlightChoices.setItems(FXCollections.observableArrayList("None"));
             }
             HighlightChoices.getSelectionModel().selectFirst();
+        }
+    }
+
+    private void openDegreeDialog() {
+        Dialog<Integer> dialog = new Dialog<>();
+        dialog.setTitle("Go to Degree");
+        dialog.setHeaderText("Enter a degree between 0 and " + maxDegree);
+        dialog.initModality(Modality.WINDOW_MODAL);
+        if (CurrentOrMaxDegreeButton.getScene() != null)
+            dialog.initOwner(CurrentOrMaxDegreeButton.getScene().getWindow());
+
+        ButtonType goType = new ButtonType("Expand", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(goType, ButtonType.CANCEL);
+
+        // Content: Spinner (editable)
+        Spinner<Integer> spin = new Spinner<>(0, Math.max(0, maxDegree), Math.min(currentDegree, maxDegree));
+        spin.setEditable(true);
+        spin.setPrefWidth(120);
+
+        // Validate text edits in the spinner
+        Node okBtn = dialog.getDialogPane().lookupButton(goType);
+        okBtn.setDisable(false);
+
+        // keep OK disabled on invalid input
+        spin.getEditor().textProperty().addListener((obs, oldV, newV) -> {
+            okBtn.setDisable(!isValidDegree(newV));
+        });
+
+        GridPane gp = new GridPane();
+        gp.setHgap(10);
+        gp.setVgap(10);
+        gp.add(new Label("Degree:"), 0, 0);
+        gp.add(spin, 1, 0);
+        dialog.getDialogPane().setContent(gp);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == goType) {
+                // commit editor text to spinner value
+                String txt = spin.getEditor().getText();
+                if (isValidDegree(txt)) {
+                    spin.getValueFactory().setValue(Integer.parseInt(txt));
+                    return spin.getValue();
+                }
+            }
+            return null;
+        });
+
+        Optional<Integer> res = dialog.showAndWait();
+        res.ifPresent(target -> {
+            // update the toolbar label immediately
+            bindDegree(target, maxDegree);
+            // let the app actually expand to that degree
+            if (onJumpToDegree != null) onJumpToDegree.accept(target);
+        });
+    }
+
+    public void setDegreeButtonEnabled(boolean enabled) {
+        if (CurrentOrMaxDegreeButton != null) {
+            CurrentOrMaxDegreeButton.setDisable(!enabled);
+        }
+    }
+
+    private boolean isValidDegree(String s) {
+        try {
+            int v = Integer.parseInt(s.trim());
+            return v >= 0 && v <= maxDegree;
+        } catch (Exception e) {
+            return false;
         }
     }
 }
