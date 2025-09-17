@@ -3,7 +3,6 @@ package Main;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
-import StatisticsTable.StatisticsTableController;
 import SummaryLine.SummaryLineController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
@@ -45,6 +44,8 @@ public class MainController {
     @FXML private Region historyChain;
     @FXML private Region RunButtons;
     @FXML private TextArea centerOutput;
+
+    private static final String MAIN_PSEUDO = "Main Program";
 
     private EmulatorEngine engine;
     private List<String> inputNames = java.util.Collections.emptyList();
@@ -179,6 +180,7 @@ public class MainController {
         Platform.runLater(() -> {
             try {
                 ProgramView pv0 = engine.programView(0);
+                List<String> quotedFns = extractQuotedFunctionNames(pv0);
                 List<String> varNames = engine.extractInputVars(pv0);
                 List<String> labels = pv0.instructions().stream()
                         .map(InstructionView::label)
@@ -189,10 +191,18 @@ public class MainController {
                         .toList();
 
                 this.inputNames = (varNames != null) ? varNames : Collections.emptyList();
+                Set<String> available = new HashSet<>(engine.availablePrograms());
+                quotedFns = quotedFns.stream().filter(available::contains).sorted(String.CASE_INSENSITIVE_ORDER).toList();
+                List<String> targets = new ArrayList<>();
+                targets.add(MAIN_PSEUDO);
+                targets.addAll(quotedFns);
 
                 List<String> choices = new ArrayList<>();
                 if (varNames != null) choices.addAll(varNames);
                 choices.addAll(labels);
+
+                toolbarController.setPrograms(targets);
+                toolbarController.setOnProgramSelected(this::onProgramPicked);
                 toolbarController.setHighlightOptions(choices);
                 toolbarController.setHighlightEnabled(true);
 
@@ -276,6 +286,35 @@ public class MainController {
         }
     }
 
+    private void onProgramPicked(String name) {
+        if (name == null) return;
+        try {
+            if (MAIN_PSEUDO.equals(name)) {
+                int max = engine.programView(0).maxDegree();
+                currentDegree = Math.min(currentDegree, max);
+                toolbarController.bindDegree(currentDegree, max);
+                render(currentDegree);
+            } else {
+                // Show function view at the same degree (clamped to that function’s max)
+                int fMax = engine.programView(name, 0).maxDegree();
+                int deg = Math.min(currentDegree, fMax);
+                toolbarController.bindDegree(deg, fMax);
+                // re-render using the overload that targets a function:
+                var pv = engine.programView(name, deg);
+                instructionsController.update(pv);
+                summaryLineController.update(pv);
+                // provenance panel is only meaningful vs original program at deg>0:
+                if (deg > 0) historyChainController.clear(); // or adapt if you keep provenance per function
+            }
+        } catch (Exception ex) {
+            // fall back to main if anything goes wrong
+            int max = engine.programView(0).maxDegree();
+            currentDegree = Math.min(currentDegree, max);
+            toolbarController.bindDegree(currentDegree, max);
+            render(currentDegree);
+        }
+    }
+
     private void onJumpToDegree(Integer target) {
         if (target == null || !isLoaded()) return;
 
@@ -352,6 +391,50 @@ public class MainController {
             sb.append(name).append(" = ").append(val);
         }
         return sb.toString();
+    }
+
+    private List<String> extractQuotedFunctionNames(ProgramView pv) {
+        Set<String> out = new LinkedHashSet<>();
+        for (var iv : pv.instructions()) {
+            String op = String.valueOf(iv.opcode());
+            if ("QUOTE".equals(op) || "JUMP_EQUAL_FUNCTION".equals(op)) {
+                String fn = getArg(iv.args(), "functionName");
+                if (fn != null && !fn.isBlank()) out.add(fn);
+                // also scan functionArguments for heads like "(Name,...)" and "(Name,(...))"
+                String fargs = getArg(iv.args(), "functionArguments");
+                out.addAll(extractHeadsFromCallString(fargs));
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    private Set<String> extractHeadsFromCallString(String s) {
+        Set<String> out = new LinkedHashSet<>();
+        if (s == null || s.isBlank()) return out;
+        int n = s.length(), i = 0;
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c == '(') {
+                i++;
+                int start = i;
+                while (i < n && s.charAt(i) != ',' && s.charAt(i) != ')') i++;
+                String head = s.substring(start, i).trim();
+                if (!head.isEmpty()) out.add(head);
+            } else i++;
+        }
+        return out;
+    }
+
+    private String getArg(java.util.List<String> args, String key) {
+        if (args == null) return null;
+        for (String a : args) {
+            if (a == null) continue;
+            int eq = a.indexOf('=');
+            if (eq > 0 && a.substring(0, eq).equals(key)) {
+                return a.substring(eq + 1).trim();
+            }
+        }
+        return null;
     }
 
     public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }

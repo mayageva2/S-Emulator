@@ -15,20 +15,29 @@ import java.util.function.Consumer;
 
 public class ProgramToolbarController {
 
-    @FXML private Button selectProgramButton, CollapseButton, ExpandButton, CurrentOrMaxDegreeButton;
-    @FXML private ChoiceBox<String> HighlightChoices;
+    @FXML private Button CollapseButton, ExpandButton, CurrentOrMaxDegreeButton;
+    @FXML private ChoiceBox<String> HighlightChoices, selectProgramChoice;;
     private Consumer<Integer> onJumpToDegree;
+    private Consumer<String> onHighlightChanged;
+    private Consumer<String> onProgramSelected;
 
     public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
+    public void setOnProgramSelected(java.util.function.Consumer<String> c) { this.onProgramSelected = c; }
     private Runnable onSelectProgram, onCollapseClick, onExpandClick;
-    private Consumer<String> onHighlightChanged;
     private int currentDegree = 0;
     private int maxDegree = 0;
 
     @FXML
     private void initialize() {
         CollapseButton.setOnAction(e -> { if (onCollapseClick != null) onCollapseClick.run(); });
-        ExpandButton.setOnAction(e ->   { if (onExpandClick   != null) onExpandClick.run();   });
+        ExpandButton.setOnAction(e -> { if (onExpandClick   != null) onExpandClick.run(); });
+
+        if (selectProgramChoice != null) {
+            selectProgramChoice.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
+                if (newV != null && onProgramSelected != null) onProgramSelected.accept(newV);
+            });
+            selectProgramChoice.setDisable(true); // disabled until we load a program
+        }
 
         CurrentOrMaxDegreeButton.setMnemonicParsing(false);
         CurrentOrMaxDegreeButton.setOnAction(e -> openDegreeDialog());
@@ -151,6 +160,19 @@ public class ProgramToolbarController {
         if (CurrentOrMaxDegreeButton != null) {
             CurrentOrMaxDegreeButton.setDisable(!enabled);
         }
+    }
+
+    public void setPrograms(java.util.List<String> names) {
+        if (selectProgramChoice == null) return;
+        var items = (names == null) ? java.util.List.<String>of() : names;
+        selectProgramChoice.setItems(javafx.collections.FXCollections.observableArrayList(items));
+        if (!items.isEmpty()) selectProgramChoice.getSelectionModel().select(0);
+        selectProgramChoice.setDisable(items.isEmpty());
+    }
+
+    public void setSelectedProgram(String name) {
+        if (selectProgramChoice == null || name == null) return;
+        selectProgramChoice.getSelectionModel().select(name);
     }
 
     private boolean isValidDegree(String s) {

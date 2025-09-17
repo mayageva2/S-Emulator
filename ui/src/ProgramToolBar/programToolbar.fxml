@@ -15,11 +15,7 @@
    <center>
       <HBox maxWidth="Infinity" prefHeight="50.0" prefWidth="700.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5;">
          <children>
-            <Button  fx:id="selectProgramButton" mnemonicParsing="false" prefWidth="200" prefHeight="43.0" style="-fx-background-color: purple;" text="Program/Function selector" textFill="WHITE">
-               <font>
-                  <Font size="14.0" />
-               </font>
-            </Button>
+            <ChoiceBox fx:id="selectProgramChoice" prefWidth="200" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <Button fx:id="CollapseButton" mnemonicParsing="false" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;" text="Collapse" textFill="WHITE">
                <font>
                   <Font size="14.0" />
