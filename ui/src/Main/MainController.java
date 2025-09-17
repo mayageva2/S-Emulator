@@ -48,7 +48,7 @@ public class MainController {
     private static final String MAIN_PSEUDO = "Main Program";
 
     private EmulatorEngine engine;
-    private List<String> inputNames = java.util.Collections.emptyList();
+    private List<String> inputNames = Collections.emptyList();
     private int currentDegree = 0;
     private Consumer<String> onHighlightChanged;
 
@@ -181,7 +181,7 @@ public class MainController {
             try {
                 ProgramView pv0 = engine.programView(0);
                 List<String> quotedFns = extractQuotedFunctionNames(pv0);
-                List<String> varNames = engine.extractInputVars(pv0);
+                List<String> XVars = engine.extractInputVars(pv0);
                 List<String> labels = pv0.instructions().stream()
                         .map(InstructionView::label)
                         .filter(Objects::nonNull)
@@ -189,8 +189,9 @@ public class MainController {
                         .filter(s -> !s.isEmpty())
                         .distinct()
                         .toList();
+                VarScan scan = scanZsAndY(pv0);
 
-                this.inputNames = (varNames != null) ? varNames : Collections.emptyList();
+                this.inputNames = (XVars != null) ? XVars : Collections.emptyList();
                 Set<String> available = new HashSet<>(engine.availablePrograms());
                 quotedFns = quotedFns.stream().filter(available::contains).sorted(String.CASE_INSENSITIVE_ORDER).toList();
                 List<String> targets = new ArrayList<>();
@@ -198,7 +199,9 @@ public class MainController {
                 targets.addAll(quotedFns);
 
                 List<String> choices = new ArrayList<>();
-                if (varNames != null) choices.addAll(varNames);
+                if (XVars != null) choices.addAll(XVars);
+                if (scan.hasY)  choices.add("y");
+                choices.addAll(scan.zs);
                 choices.addAll(labels);
 
                 toolbarController.setPrograms(targets);
@@ -213,8 +216,8 @@ public class MainController {
                 });
 
                 if (inputsBoxController != null) {
-                    inputsBoxController.showNames(varNames);
-                    System.out.println("Main extracted inputs: " + varNames);
+                    inputsBoxController.showNames(XVars);
+                    System.out.println("Main extracted inputs: " + XVars);
                 }
             } catch (Exception ex) {
                 System.err.println("Inputs/highlight setup failed: " + ex.getMessage());
@@ -223,6 +226,55 @@ public class MainController {
         });
 
         render(0);
+    }
+
+    private static final java.util.regex.Pattern Z_TOKEN =
+            java.util.regex.Pattern.compile("\\bz(?:[1-9]\\d*)?\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern Y_TOKEN =
+            java.util.regex.Pattern.compile("\\by\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private static class VarScan {
+        final List<String> zs;
+        final boolean hasY;
+        VarScan(List<String> zs, boolean hasY) { this.zs = zs; this.hasY = hasY; }
+    }
+
+    private VarScan scanZsAndY(ProgramView pv) {
+        // preserve insertion order + uniqueness
+        java.util.Set<String> zs = new java.util.LinkedHashSet<>();
+        boolean hasY = false;
+
+        for (InstructionView iv : pv.instructions()) {
+            List<String> args = iv.args();
+            if (args == null) continue;
+            for (String a : args) {
+                if (a == null) continue;
+
+                // collect z and zN
+                var mz = Z_TOKEN.matcher(a);
+                while (mz.find()) zs.add(mz.group().toLowerCase());
+
+                // detect a plain 'y'
+                if (!hasY && Y_TOKEN.matcher(a).find()) hasY = true;
+            }
+        }
+
+        // sort z, z1, z2, z10… (bare z before numbered ones)
+        java.util.List<String> sortedZs = zs.stream()
+                .sorted((a, b) -> {
+                    int na = (a.equalsIgnoreCase("z")) ? 0 : numSuffix(a);
+                    int nb = (b.equalsIgnoreCase("z")) ? 0 : numSuffix(b);
+                    return Integer.compare(na, nb);
+                })
+                .toList();
+
+        return new VarScan(sortedZs, hasY);
+    }
+
+    private static int numSuffix(String s) {
+        // assumes s starts with 'z' or 'Z'
+        if (s.length() == 1) return 0;
+        try { return Integer.parseInt(s.substring(1)); } catch (Exception e) { return Integer.MAX_VALUE; }
     }
 
     private static List<String> extractInputNames(ProgramView pv) {
@@ -281,6 +333,7 @@ public class MainController {
             var pv = engine.programView(degree);
             instructionsController.update(pv);
             summaryLineController.update(pv);
+            refreshHighlightOptions(pv);
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
         }
@@ -303,6 +356,7 @@ public class MainController {
                 var pv = engine.programView(name, deg);
                 instructionsController.update(pv);
                 summaryLineController.update(pv);
+                refreshHighlightOptions(pv);
                 // provenance panel is only meaningful vs original program at deg>0:
                 if (deg > 0) historyChainController.clear(); // or adapt if you keep provenance per function
             }
@@ -424,6 +478,38 @@ public class MainController {
         }
         return out;
     }
+
+    private void refreshHighlightOptions(ProgramView pv) {
+        // x* from engine (still OK to use engine helper)
+        List<String> xs = engine.extractInputVars(pv);
+
+        // labels from this view
+        List<String> labels = pv.instructions().stream()
+                .map(InstructionView::label)
+                .filter(Objects::nonNull).map(String::trim)
+                .filter(s -> !s.isEmpty()).distinct().toList();
+
+        // z / zN and a single y from this view (expanded degree!)
+        VarScan scan = scanZsAndY(pv);
+
+        // assemble list in your order
+        List<String> choices = new ArrayList<>();
+        if (xs != null) choices.addAll(xs);
+        if (scan.hasY)  choices.add("y");
+        choices.addAll(scan.zs);
+        choices.addAll(labels);
+
+        // keep previous selection if still present
+        String prev = null; // add getters in toolbar if you want to preserve selection
+        // prev = toolbarController.getSelectedHighlight();
+
+        // de-dup while preserving order
+        choices = new ArrayList<>(new LinkedHashSet<>(choices));
+
+        toolbarController.setHighlightOptions(choices);
+        // if (prev != null && choices.contains(prev)) toolbarController.setSelectedHighlight(prev);
+    }
+
 
     private String getArg(java.util.List<String> args, String key) {
         if (args == null) return null;
