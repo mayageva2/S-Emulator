@@ -18,11 +18,11 @@
         <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 10 10 10">
 
             <HBox alignment="CENTER_LEFT" spacing="10">
-                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT"/>
+                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" HBox.hgrow="ALWAYS"/>
                 <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT" HBox.hgrow="ALWAYS"/>
             </HBox>
 
-            <HBox alignment="CENTER_LEFT" spacing="10">
+            <HBox fx:id="topSplit" alignment="CENTER_LEFT" spacing="10">
                 <VBox fx:id="contentBox" fillWidth="true" maxWidth="Infinity" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml" VBox.vgrow="ALWAYS" />
                     <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml" VBox.vgrow="ALWAYS"/>
@@ -34,7 +34,7 @@
                 </HBox>
             </HBox>
 
-            <HBox>
+            <HBox fx:id="bottomSplit">
                 <VBox fx:id="historyChainBox" fillWidth="true" maxWidth="Infinity" spacing="20" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <fx:include fx:id="historyChain" source="../SelectedInstructionHistoryChainTable/SelectedInstructionHistoryChainTable.fxml" VBox.vgrow="ALWAYS"/>
                     <padding><Insets right="5"/></padding>

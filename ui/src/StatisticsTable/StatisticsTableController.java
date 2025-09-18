@@ -1,11 +1,13 @@
 package StatisticsTable;
 
+import InstructionsTable.InstructionRow;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.beans.property.ReadOnlyLongWrapper;
 
@@ -51,6 +53,8 @@ public class StatisticsTableController {
         yCol.setCellValueFactory(cd -> new ReadOnlyLongWrapper(cd.getValue().y));
         cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
 
+       // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+
         // Right-align numeric cells
         TableCellAlign.right(runCol);
         TableCellAlign.right(degreeCol);
@@ -59,13 +63,6 @@ public class StatisticsTableController {
 
         // Make Inputs the flexible column; keep the others tight.
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
-        lockWidth(runCol);
-        lockWidth(degreeCol);
-        lockWidth(yCol);
-        lockWidth(cyclesCol);
-
-        table.setFixedCellSize(-1);
 
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
@@ -111,12 +108,6 @@ public class StatisticsTableController {
     }
 
     // ---- helpers ----
-    private static void lockWidth(TableColumn<?, ?> col) {
-        double w = col.getPrefWidth() > 0 ? col.getPrefWidth() : 80;
-        col.setMinWidth(w);
-        col.setMaxWidth(w);
-        col.setResizable(false);
-    }
 
     private static final class TableCellAlign {
         static <S, T> void right(TableColumn<S, T> col) {

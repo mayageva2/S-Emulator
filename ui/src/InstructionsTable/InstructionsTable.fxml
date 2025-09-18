@@ -5,15 +5,15 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.BorderPane?>
 
-<BorderPane fx:id="root" maxWidth="750.0" prefHeight="200.0" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"  fx:controller="InstructionsTable.InstructionsTableController">
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"  fx:controller="InstructionsTable.InstructionsTableController">
    <center>
-      <TableView fx:id="table" maxWidth="Infinity" prefHeight="200.0" minWidth="0.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
+      <TableView fx:id="table" maxWidth="Infinity" minWidth="0.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
         <columns>
-            <TableColumn fx:id="indexCol" text="Index" />
-            <TableColumn fx:id="typeCol" text="Basic / Synthetic" />
-            <TableColumn fx:id="labelCol" text="Label" />
-            <TableColumn fx:id="cyclesCol" text="Cycles" />
-            <TableColumn fx:id="instructionCol" text="Instruction" />
+            <TableColumn fx:id="indexCol" text="Index" prefWidth="70"/>
+            <TableColumn fx:id="typeCol" text="Basic / Synthetic" prefWidth="90"/>
+            <TableColumn fx:id="labelCol" text="Label" prefWidth="90"/>
+            <TableColumn fx:id="cyclesCol" text="Cycles"  prefWidth="80"/>
+            <TableColumn fx:id="instructionCol" text="Instruction" prefWidth="100"/>
         </columns>
          <opaqueInsets>
             <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
