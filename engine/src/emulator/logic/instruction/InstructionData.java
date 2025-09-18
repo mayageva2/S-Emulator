@@ -13,8 +13,8 @@ public enum InstructionData {
     JUMP_ZERO("JUMP_ZERO", 2, false, 2),
     JUMP_EQUAL_CONSTANT("JUMP_EQUAL_CONSTANT", 2, false, 3),
     JUMP_EQUAL_VARIABLE("JUMP_EQUAL_VARIABLE", 2, false, 3),
-    QUOTATION("QUOTE", 5, false, 1),
-    JUMP_EQUAL_FUNCTION("JUMP_EQUAL_FUNCTION", 6, false, 0),
+    QUOTATION("QUOTE", 5, false, 0),                               //max degree changes dynamically
+    JUMP_EQUAL_FUNCTION("JUMP_EQUAL_FUNCTION", 6, false, 0),       //max degree and cycle changes dynamically
     ;
 
     private final String name;

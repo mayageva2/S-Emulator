@@ -10,9 +10,11 @@ import java.util.List;
 public interface EmulatorEngine {
     ProgramView programView();
     ProgramView programView(int degree);
+    ProgramView programView(String programName, int degree);
     RunResult run(Long... input);
     RunResult run(int degree, Long... input);
     List<RunRecord> history();
+    List<String> availablePrograms();
     boolean hasProgramLoaded();
     List<String> extractInputVars(ProgramView pv);
     LoadResult loadProgram(Path xmlPath)
