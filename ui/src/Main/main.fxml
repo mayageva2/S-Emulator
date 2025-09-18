@@ -6,6 +6,8 @@
 <?import javafx.scene.layout.VBox?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
 <BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Main.MainController" maxWidth="Infinity">
 
     <top>
@@ -17,10 +19,14 @@
     <center>
         <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 10 10 10">
 
-            <HBox alignment="CENTER_LEFT" spacing="10">
-                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" BorderPane.alignment="BOTTOM_LEFT" HBox.hgrow="ALWAYS"/>
-                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" BorderPane.alignment="BOTTOM_RIGHT" HBox.hgrow="ALWAYS"/>
-            </HBox>
+            <GridPane hgap="10">
+            <columnConstraints>
+                <ColumnConstraints hgrow="ALWAYS"/>
+                <ColumnConstraints hgrow="NEVER"/>
+            </columnConstraints>
+                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" GridPane.columnIndex="0" GridPane.hgrow="ALWAYS"/>
+                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" GridPane.columnIndex="1"  GridPane.halignment="RIGHT"/>
+            </GridPane>
 
             <HBox fx:id="topSplit" alignment="CENTER_LEFT" spacing="10">
                 <VBox fx:id="contentBox" fillWidth="true" maxWidth="Infinity" spacing="0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">

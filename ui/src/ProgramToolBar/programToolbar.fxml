@@ -16,15 +16,15 @@
    <center>
       <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5; ">
          <children>
-            <ChoiceBox fx:id="selectProgramChoice" prefWidth="200" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <ChoiceBox fx:id="selectProgramChoice" prefWidth="300" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="150" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="120" prefHeight="43.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
+            <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="200" prefHeight="43.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="150" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <ChoiceBox fx:id="HighlightChoices" prefWidth="200" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <ChoiceBox fx:id="HighlightChoices" prefWidth="300" prefHeight="43.0" style="-fx-background-color: purple;"/>
          </children>
          <opaqueInsets>
             <Insets />
