@@ -11,6 +11,7 @@ import javafx.scene.control.TableView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -33,7 +34,7 @@ public class InstructionsTableController {
         cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
         instructionCol.setCellValueFactory(cd -> {
             var r = cd.getValue();
-            String text = pretty(r.opcode, r.args);
+            String text = prettyCommand(r.sourceIv);
             return new ReadOnlyStringWrapper("  ".repeat(Math.max(0, r.depth)) + text);
         });
 
@@ -127,5 +128,99 @@ public class InstructionsTableController {
     private static String pretty(String op, List<String> args) {
         op = ns(op);
         return (args == null || args.isEmpty()) ? op : op + " " + String.join(", ", args);
+    }
+
+    //This func generates a readable string representation of an instruction
+    private String prettyCommand(InstructionView iv) {
+        var args = iv.args();
+        switch (iv.opcode()) {
+            case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
+            case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
+            case "NEUTRAL":  return args.get(0) + "<-" + args.get(0);
+            case "ZERO_VARIABLE": return args.get(0) + "<-0";
+            case "JUMP_NOT_ZERO": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " != 0 GOTO " + tgt;
+            }
+            case "JUMP_ZERO": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = 0 GOTO " + tgt;
+            }
+            case "GOTO_LABEL": {
+                String tgt = findLabel(args);
+                return "GOTO " + tgt;
+            }
+            case "JUMP_EQUAL_CONSTANT": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = " + getArg(args, "constantValue") + " GOTO " + tgt;
+            }
+            case "JUMP_EQUAL_VARIABLE": {
+                String tgt = findLabel(args);
+                return "IF " + args.get(0) + " = " + getArg(args, "variableName") + " GOTO " + tgt;
+            }
+            case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
+            case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
+            case "QUOTE": {
+                String V = args.get(0); // destination variable
+                String fn = getArg(args, "userString"); // prefer userString if defined
+                if (fn.isEmpty()) fn = getArg(args, "functionUserString");
+                if (fn.isEmpty()) fn = getArg(args, "functionName"); // fallback
+                String fargs = getArg(args, "functionArguments");
+                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
+                return V + " <- (" + inside + ")";
+            }
+            case "JUMP_EQUAL_FUNCTION": {
+                String V = args.get(0); // the variable being compared
+                String fn = getArg(args, "userString");
+                if (fn.isEmpty()) fn = getArg(args, "functionUserString");
+                if (fn.isEmpty()) fn = getArg(args, "functionName");
+                String fargs = getArg(args, "functionArguments");
+                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
+
+                String label = findLabel(args); // reuse your helper
+                return "IF " + V + " = (" + inside + ") GOTO " + label;
+            }
+            default: return iv.opcode() + " " + String.join(", ", args);
+        }
+    }
+
+    //This func extracts and returns the label value
+    private String findLabel(List<String> args) {
+        String v;
+        if (!(v = getArg(args, "JNZLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "gotoLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JZLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JEConstantLabel")).isEmpty()) return v;
+        if (!(v = getArg(args, "JEVariableLabel")).isEmpty()) return v;
+
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String k = a.substring(0, eq).toLowerCase(Locale.ROOT);
+                if (k.contains("label") || k.contains("goto") || k.contains("target")) {
+                    return a.substring(eq + 1);
+                }
+            }
+        }
+
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String val = a.substring(eq + 1);
+                if (val.matches("[A-Za-z]?\\d+") || val.matches("L\\d+")) return val;
+            }
+        }
+        return "";
+    }
+
+    //This func returns the value for the given key
+    private String getArg(List<String> args, String key) {
+        for (String a : args) {
+            int eq = a.indexOf('=');
+            if (eq > 0 && a.substring(0,eq).equals(key)) {
+                return a.substring(eq+1);
+            }
+        }
+        return "";
     }
 }

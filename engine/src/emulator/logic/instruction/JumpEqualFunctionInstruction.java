@@ -177,6 +177,25 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         return out;
     }
 
+    @Override
+    public int degree() {
+        Program q = registry.getProgramByName(functionName);
+        int body = (q == null) ? 0 : q.calculateMaxDegree();
+
+        int argsDepth = 0;
+        for (String tok : parser.parseTopLevelArgs(functionArguments)) {
+            if (parser.isNestedCall(tok)) {
+                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                Program p = registry.getProgramByName(nc.name());
+                int d = 1 + ((p == null) ? 0 : p.calculateMaxDegree());
+                if (d > argsDepth) argsDepth = d;
+            }
+        }
+
+        return 1 + Math.max(body, argsDepth);
+    }
+
+
     private static Variable subVar(Map<Variable, Variable> map, Variable key) {
         return map.getOrDefault(key, key);
     }

@@ -4,6 +4,7 @@ import emulator.api.dto.*;
 import emulator.exception.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
+import emulator.logic.expansion.Expander;
 import emulator.logic.expansion.ProgramExpander;
 import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
@@ -11,6 +12,7 @@ import emulator.logic.instruction.quote.MapBackedQuotationRegistry;
 import emulator.logic.instruction.quote.QuotationRegistry;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
+import emulator.logic.program.ProgramCost;
 import emulator.logic.xml.*;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
@@ -33,8 +35,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final List<RunRecord> history = new ArrayList<>();
     private int runCounter = 0;
     private transient ProgramExpander programExpander = new ProgramExpander();
+    private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
     private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
+    private final Map<String, String> fnDisplayMap = new HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
 
@@ -43,30 +47,56 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public ProgramView programView() {
         requireLoaded();
         List<Program> only0 = List.of(current);
-        return buildProgramView(current, 0, only0);
+        int max0 = expander.calculateMaxDegree(current.getInstructions());
+        return buildProgramView(current, 0, only0, max0);
     }
 
     //This func returns a ProgramView of the currently loaded program at a specified degree
     @Override
     public ProgramView programView(int degree) {
         requireLoaded();
-        int max = current.calculateMaxDegree();
+        int max = expander.calculateMaxDegree(current.getInstructions());
         if (degree < 0 || degree > max) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
         }
 
+        Program base = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
         List<Program> byDegree = new ArrayList<>(degree + 1);
         byDegree.add(current);
 
         //Expand according to degree
         for (int d = 1; d <= degree; d++) {
-            Program prev = byDegree.get(d - 1);
-            Program next = programExpander.expandOnce(prev);
-            byDegree.add(next);
+            byDegree.add(programExpander.expandToDegree(current, d));
         }
 
+        if (degree > 0) byDegree.add(base);
+        return buildProgramView(base, degree, byDegree, max);
+    }
+
+    @Override
+    public ProgramView programView(String programName, int degree) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName);
+        if (target == null) {
+            // try exact and uppercase alias the registry stores
+            target = functionLibrary.get(programName.toUpperCase(ROOT));
+        }
+        if (target == null) {
+            throw new IllegalArgumentException("Unknown program: " + programName);
+        }
+        int max = expander.calculateMaxDegree(current.getInstructions());
+        if (degree < 0 || degree > max) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
+        }
+
+        // Build degree ladder for provenance (like your current programView(int))
+        List<Program> byDegree = new ArrayList<>(degree + 1);
+        byDegree.add(target);
+        for (int d = 1; d <= degree; d++) {
+            byDegree.add(programExpander.expandOnce(byDegree.get(d - 1)));
+        }
         Program base = byDegree.get(degree);
-        return buildProgramView(base, degree, byDegree);
+        return buildProgramView(base, degree, byDegree, max);
     }
 
     private ProgramXml parseXmlToProgram(String xml) throws Exception {
@@ -93,6 +123,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         XmlProgramReader reader = new XmlProgramReader();
         ProgramXml pxml = reader.read(xmlPath);
 
+        fnDisplayMap.clear();
+        if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
+            for (var fx : pxml.getFunctions().getFunctions()) {
+                String name = fx.getName();
+                String us = fx.getUserString();
+                if (!name.isBlank() && !us.isBlank()) {
+                    fnDisplayMap.put(name, us);
+                }
+            }
+        }
+
         listener.onProgress("Validating XML...", 0.60);
         Thread.sleep(150);
         xmlProgramValidator.validate(pxml);
@@ -116,10 +157,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //------programView Helpers------//
 
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
-    private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree) {
+    private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree, int maxDegree) {
         List<Instruction> real = base.getInstructions();
-        int maxDegree = byDegree.get(0).calculateMaxDegree();
-
+        int totalCycles = new ProgramCost().cyclesAtDegree(byDegree.get(0), degree);
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
 
@@ -139,7 +179,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             ));
         }
 
-        return new ProgramView(out, base.getName(), degree, maxDegree);
+        return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
+    }
+
+    @Override
+    public List<String> availablePrograms() {
+        return functionLibrary.keySet().stream().toList();
     }
 
     //This func builds maps per degree from Instruction identity
@@ -172,20 +217,66 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     // This func collects ordered arguments and sorts extra arguments
     private List<String> collectArgs(Instruction ins) {
-        List<String> args = new ArrayList<>();
+        List<String> out = new ArrayList<>();
+
         if (ins.getVariable() != null) {
-            args.add(ins.getVariable().getRepresentation());
+            out.add(ins.getVariable().getRepresentation());
         }
-        Map<String, String> extra = ins.getArguments();
-        if (extra != null && !extra.isEmpty()) {
+        Map<String, String> extra = new LinkedHashMap<>();
+        if (ins.getArguments() != null) {
+            extra.putAll(ins.getArguments());
+        }
+
+        String opcode = ins.getInstructionData().getName();
+        if ("QUOTE".equals(opcode) || "JUMP_EQUAL_FUNCTION".equals(opcode)) {
+            String fn = extra.get("functionName");
+            if (fn != null && !fn.isBlank()) {
+                String disp = displayOf(fn);
+                if (!disp.isBlank() && !disp.equals(fn)) {
+                    extra.put("userString", disp);
+                    extra.putIfAbsent("functionUserString", disp);
+                }
+                String fargs = extra.get("functionArguments");
+                if (fargs != null && !fargs.isBlank()) {
+                    extra.put("functionArguments", mapHeadFunctions(fargs));
+                }
+            }
+        }
+        if (!extra.isEmpty()) {
             var keys = new ArrayList<>(extra.keySet());
             Collections.sort(keys);
             for (String k : keys) {
                 String v = extra.get(k);
-                args.add(k + "=" + (v == null ? "" : v));
+                out.add(k + "=" + (v == null ? "" : v));
             }
         }
-        return args;
+        return out;
+    }
+
+    private String displayOf(String functionName) {
+        if (functionName.isBlank()) return "";
+        return fnDisplayMap.getOrDefault(functionName, functionName);
+    }
+
+    private String mapHeadFunctions(String s) {
+        if (s == null || s.isBlank()) return s;
+        StringBuilder out = new StringBuilder();
+        int n = s.length(), i = 0;
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c == '(') {
+                out.append(c);
+                i++;
+                int start = i;
+                while (i < n && s.charAt(i) != ',' && s.charAt(i) != ')') i++;
+                String head = s.substring(start, i).trim();
+                out.append(displayOf(head));
+            } else {
+                out.append(c);
+                i++;
+            }
+        }
+        return out.toString();
     }
 
     // This func builds provenance chain
@@ -367,5 +458,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.executor = new ProgramExecutorImpl(this.current);
         this.programExpander = new ProgramExpander();
         this.quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
+        this.expander = new Expander();
     }
 }

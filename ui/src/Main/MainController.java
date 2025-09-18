@@ -3,7 +3,6 @@ package Main;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
-import StatisticsTable.StatisticsTableController;
 import SummaryLine.SummaryLineController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
@@ -46,8 +45,10 @@ public class MainController {
     @FXML private Region RunButtons;
     @FXML private TextArea centerOutput;
 
+    private static final String MAIN_PSEUDO = "Main Program";
+
     private EmulatorEngine engine;
-    private List<String> inputNames = java.util.Collections.emptyList();
+    private List<String> inputNames = Collections.emptyList();
     private int currentDegree = 0;
     private Consumer<String> onHighlightChanged;
 
@@ -57,8 +58,10 @@ public class MainController {
         toolbarController.setOnExpand(this::onExpandOne);
         toolbarController.setOnCollapse(this::onCollapseOne);
         instructionsController.setOnRowSelected(this::onExpandedRowSelected);
+        toolbarController.setOnJumpToDegree(this::onJumpToDegree);
         toolbarController.bindDegree(0, 0);
         toolbarController.setHighlightEnabled(false);
+        toolbarController.setDegreeButtonEnabled(false);
 
         if (RunButtonsController != null && statisticsTableController != null) {
             RunButtonsController.setStatisticsTableController(statisticsTableController);
@@ -163,6 +166,7 @@ public class MainController {
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         currentDegree = 0;
         toolbarController.bindDegree(0, ev.maxDegree());
+        toolbarController.setDegreeButtonEnabled(true);
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setLastMaxDegree(ev.maxDegree());
@@ -176,7 +180,8 @@ public class MainController {
         Platform.runLater(() -> {
             try {
                 ProgramView pv0 = engine.programView(0);
-                List<String> varNames = engine.extractInputVars(pv0);
+                List<String> quotedFns = extractQuotedFunctionNames(pv0);
+                List<String> XVars = engine.extractInputVars(pv0);
                 List<String> labels = pv0.instructions().stream()
                         .map(InstructionView::label)
                         .filter(Objects::nonNull)
@@ -184,12 +189,23 @@ public class MainController {
                         .filter(s -> !s.isEmpty())
                         .distinct()
                         .toList();
+                VarScan scan = scanZsAndY(pv0);
 
-                this.inputNames = (varNames != null) ? varNames : Collections.emptyList();
+                this.inputNames = (XVars != null) ? XVars : Collections.emptyList();
+                Set<String> available = new HashSet<>(engine.availablePrograms());
+                quotedFns = quotedFns.stream().filter(available::contains).sorted(String.CASE_INSENSITIVE_ORDER).toList();
+                List<String> targets = new ArrayList<>();
+                targets.add(MAIN_PSEUDO);
+                targets.addAll(quotedFns);
 
                 List<String> choices = new ArrayList<>();
-                if (varNames != null) choices.addAll(varNames);
+                if (XVars != null) choices.addAll(XVars);
+                if (scan.hasY)  choices.add("y");
+                choices.addAll(scan.zs);
                 choices.addAll(labels);
+
+                toolbarController.setPrograms(targets);
+                toolbarController.setOnProgramSelected(this::onProgramPicked);
                 toolbarController.setHighlightOptions(choices);
                 toolbarController.setHighlightEnabled(true);
 
@@ -200,8 +216,8 @@ public class MainController {
                 });
 
                 if (inputsBoxController != null) {
-                    inputsBoxController.showNames(varNames);
-                    System.out.println("Main extracted inputs: " + varNames);
+                    inputsBoxController.showNames(XVars);
+                    System.out.println("Main extracted inputs: " + XVars);
                 }
             } catch (Exception ex) {
                 System.err.println("Inputs/highlight setup failed: " + ex.getMessage());
@@ -210,6 +226,55 @@ public class MainController {
         });
 
         render(0);
+    }
+
+    private static final java.util.regex.Pattern Z_TOKEN =
+            java.util.regex.Pattern.compile("\\bz(?:[1-9]\\d*)?\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern Y_TOKEN =
+            java.util.regex.Pattern.compile("\\by\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private static class VarScan {
+        final List<String> zs;
+        final boolean hasY;
+        VarScan(List<String> zs, boolean hasY) { this.zs = zs; this.hasY = hasY; }
+    }
+
+    private VarScan scanZsAndY(ProgramView pv) {
+        // preserve insertion order + uniqueness
+        java.util.Set<String> zs = new java.util.LinkedHashSet<>();
+        boolean hasY = false;
+
+        for (InstructionView iv : pv.instructions()) {
+            List<String> args = iv.args();
+            if (args == null) continue;
+            for (String a : args) {
+                if (a == null) continue;
+
+                // collect z and zN
+                var mz = Z_TOKEN.matcher(a);
+                while (mz.find()) zs.add(mz.group().toLowerCase());
+
+                // detect a plain 'y'
+                if (!hasY && Y_TOKEN.matcher(a).find()) hasY = true;
+            }
+        }
+
+        // sort z, z1, z2, z10… (bare z before numbered ones)
+        java.util.List<String> sortedZs = zs.stream()
+                .sorted((a, b) -> {
+                    int na = (a.equalsIgnoreCase("z")) ? 0 : numSuffix(a);
+                    int nb = (b.equalsIgnoreCase("z")) ? 0 : numSuffix(b);
+                    return Integer.compare(na, nb);
+                })
+                .toList();
+
+        return new VarScan(sortedZs, hasY);
+    }
+
+    private static int numSuffix(String s) {
+        // assumes s starts with 'z' or 'Z'
+        if (s.length() == 1) return 0;
+        try { return Integer.parseInt(s.substring(1)); } catch (Exception e) { return Integer.MAX_VALUE; }
     }
 
     private static List<String> extractInputNames(ProgramView pv) {
@@ -268,8 +333,68 @@ public class MainController {
             var pv = engine.programView(degree);
             instructionsController.update(pv);
             summaryLineController.update(pv);
+            refreshHighlightOptions(pv);
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
+        }
+    }
+
+    private void onProgramPicked(String name) {
+        if (name == null) return;
+        try {
+            if (MAIN_PSEUDO.equals(name)) {
+                int max = engine.programView(0).maxDegree();
+                currentDegree = Math.min(currentDegree, max);
+                toolbarController.bindDegree(currentDegree, max);
+                render(currentDegree);
+            } else {
+                // Show function view at the same degree (clamped to that function’s max)
+                int fMax = engine.programView(name, 0).maxDegree();
+                int deg = Math.min(currentDegree, fMax);
+                toolbarController.bindDegree(deg, fMax);
+                // re-render using the overload that targets a function:
+                var pv = engine.programView(name, deg);
+                instructionsController.update(pv);
+                summaryLineController.update(pv);
+                refreshHighlightOptions(pv);
+                // provenance panel is only meaningful vs original program at deg>0:
+                if (deg > 0) historyChainController.clear(); // or adapt if you keep provenance per function
+            }
+        } catch (Exception ex) {
+            // fall back to main if anything goes wrong
+            int max = engine.programView(0).maxDegree();
+            currentDegree = Math.min(currentDegree, max);
+            toolbarController.bindDegree(currentDegree, max);
+            render(currentDegree);
+        }
+    }
+
+    private void onJumpToDegree(Integer target) {
+        if (target == null || !isLoaded()) return;
+
+        int max = engine.programView(0).maxDegree();
+        // clamp (just in case)
+        int clamped = Math.max(0, Math.min(target, max));
+
+        currentDegree = clamped;
+        toolbarController.bindDegree(currentDegree, max);
+
+        if (RunButtonsController != null) {
+            RunButtonsController.setCurrentDegree(currentDegree);
+            RunButtonsController.setLastMaxDegree(max);
+        }
+
+        render(currentDegree);
+        // optional: refresh provenance panel if a row is selected
+        if (currentDegree > 0 && instructionsController != null) {
+            var sel = instructionsController.getTableView().getSelectionModel().getSelectedItem();
+            if (sel != null && sel.sourceIv != null) {
+                onExpandedRowSelected(sel.sourceIv);
+            } else {
+                historyChainController.clear();
+            }
+        } else {
+            historyChainController.clear();
         }
     }
 
@@ -320,6 +445,82 @@ public class MainController {
             sb.append(name).append(" = ").append(val);
         }
         return sb.toString();
+    }
+
+    private List<String> extractQuotedFunctionNames(ProgramView pv) {
+        Set<String> out = new LinkedHashSet<>();
+        for (var iv : pv.instructions()) {
+            String op = String.valueOf(iv.opcode());
+            if ("QUOTE".equals(op) || "JUMP_EQUAL_FUNCTION".equals(op)) {
+                String fn = getArg(iv.args(), "functionName");
+                if (fn != null && !fn.isBlank()) out.add(fn);
+                // also scan functionArguments for heads like "(Name,...)" and "(Name,(...))"
+                String fargs = getArg(iv.args(), "functionArguments");
+                out.addAll(extractHeadsFromCallString(fargs));
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    private Set<String> extractHeadsFromCallString(String s) {
+        Set<String> out = new LinkedHashSet<>();
+        if (s == null || s.isBlank()) return out;
+        int n = s.length(), i = 0;
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c == '(') {
+                i++;
+                int start = i;
+                while (i < n && s.charAt(i) != ',' && s.charAt(i) != ')') i++;
+                String head = s.substring(start, i).trim();
+                if (!head.isEmpty()) out.add(head);
+            } else i++;
+        }
+        return out;
+    }
+
+    private void refreshHighlightOptions(ProgramView pv) {
+        // x* from engine (still OK to use engine helper)
+        List<String> xs = engine.extractInputVars(pv);
+
+        // labels from this view
+        List<String> labels = pv.instructions().stream()
+                .map(InstructionView::label)
+                .filter(Objects::nonNull).map(String::trim)
+                .filter(s -> !s.isEmpty()).distinct().toList();
+
+        // z / zN and a single y from this view (expanded degree!)
+        VarScan scan = scanZsAndY(pv);
+
+        // assemble list in your order
+        List<String> choices = new ArrayList<>();
+        if (xs != null) choices.addAll(xs);
+        if (scan.hasY)  choices.add("y");
+        choices.addAll(scan.zs);
+        choices.addAll(labels);
+
+        // keep previous selection if still present
+        String prev = null; // add getters in toolbar if you want to preserve selection
+        // prev = toolbarController.getSelectedHighlight();
+
+        // de-dup while preserving order
+        choices = new ArrayList<>(new LinkedHashSet<>(choices));
+
+        toolbarController.setHighlightOptions(choices);
+        // if (prev != null && choices.contains(prev)) toolbarController.setSelectedHighlight(prev);
+    }
+
+
+    private String getArg(java.util.List<String> args, String key) {
+        if (args == null) return null;
+        for (String a : args) {
+            if (a == null) continue;
+            int eq = a.indexOf('=');
+            if (eq > 0 && a.substring(0, eq).equals(key)) {
+                return a.substring(eq + 1).trim();
+            }
+        }
+        return null;
     }
 
     public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }

@@ -84,4 +84,12 @@ public class ProgramImpl implements Program, Serializable {
         }
         return max;
     }
+
+    public int calculateCyclesAtDegree(int degree) {
+        return new ProgramCost().cyclesAtDegree(this, degree);
+    }
+
+    public int calculateCyclesFullyExpanded() {
+        return new ProgramCost().cyclesFullyExpanded(this);
+    }
 }

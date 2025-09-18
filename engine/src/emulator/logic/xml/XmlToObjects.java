@@ -20,12 +20,44 @@ public final class XmlToObjects {
 
     //This func converts a ProgramXml into a Program object
     public static Program toProgram(ProgramXml pxml, QuotationRegistry registry) {
+        Objects.requireNonNull(pxml, "pxml");
+        Objects.requireNonNull(registry, "registry");
+
+        FunctionsXml fblock = pxml.getFunctions();
+        List<FunctionXml> functions = (fblock == null || fblock.getFunctions() == null) ? List.of() : fblock.getFunctions();
+
+        Map<String, ProgramImpl> funcPrograms = new LinkedHashMap<>();
+        for (FunctionXml fxml : functions) {
+            String fname = fxml.getName();
+            if (fname == null || fname.isBlank()) continue;
+            ProgramImpl fprog = new ProgramImpl(fname);
+            funcPrograms.put(fname, fprog);
+            registry.putProgram(fname, fprog);
+        }
+
+        for (FunctionXml fxml : functions) {
+            ProgramImpl fprog = funcPrograms.get(fxml.getName());
+            if (fprog == null) continue;
+
+            int fidx = 0;
+            List<InstructionXml> finstr = (fxml.getInstructions() == null) ? List.of() : fxml.getInstructions().getInstructions();
+            for (InstructionXml ix : finstr) {
+                fidx++;
+                fprog.addInstruction(toInstruction(ix, fidx, fprog, registry));
+            }
+        }
+
         ProgramImpl program = new ProgramImpl(pxml.getName());
         int idx = 0;
-        for (InstructionXml ix : pxml.getInstructions().getInstructions()) {
+        List<InstructionXml> pinstr =
+                (pxml.getInstructions() == null) ? List.of() : pxml.getInstructions().getInstructions();
+
+        for (InstructionXml ix : pinstr) {
             idx++;
             program.addInstruction(toInstruction(ix, idx, program, registry));
         }
+
+        registry.putProgram(program.getName(), program);
         return program;
     }
 

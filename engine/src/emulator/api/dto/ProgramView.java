@@ -6,5 +6,6 @@ public record ProgramView(
         List<InstructionView> instructions,
         String programName,
         int degree,
-        int maxDegree
+        int maxDegree,
+        int totalCycles
 ) { }
