@@ -11,8 +11,8 @@ import java.util.regex.Pattern;
 public class XmlProgramValidator {
 
     private static final Pattern LABEL_FMT = Pattern.compile("^L\\d+$", Pattern.CASE_INSENSITIVE);
-    private static final Pattern VAR_FMT = Pattern.compile("^(?:[xz][1-9]\\d*|y)$");
-    private static final Pattern INT_FMT   = Pattern.compile("^-?\\d+$");
+    private static final Pattern VAR_FMT = Pattern.compile("^(?:[xz][1-9]\\d*|y)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern INT_FMT   = Pattern.compile("^-?\\d+$", Pattern.CASE_INSENSITIVE);
     private static final Pattern NO_SPACE  = Pattern.compile("^\\S+$");
 
     //This func normalizes a string
