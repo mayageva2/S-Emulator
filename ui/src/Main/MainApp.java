@@ -1,6 +1,7 @@
 package Main;
 
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
+import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -11,9 +12,13 @@ import javafx.stage.Stage;
 public class MainApp extends Application {
     @Override
     public void start(Stage stage) throws Exception {
-        Parent root = FXMLLoader.load(getClass().getResource("/Main/Main.fxml"));
-        Scene scene = new Scene(root);
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Main.fxml"));
+        Parent root = loader.load();
+        MainController main = loader.getController();
+        EmulatorEngine engine = new EmulatorEngineImpl();
+        main.setEngine(engine);
 
+        Scene scene = new Scene(root);
         stage.setTitle("S-Emulator");
         stage.setScene(scene);
         stage.setMaximized(true);
