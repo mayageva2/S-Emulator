@@ -35,6 +35,8 @@ public class MainController {
     @FXML private VBox historyChainBox;
     @FXML private VBox statisticsBox;
     @FXML private HBox sidePanels;
+    @FXML private HBox topSplit;
+    @FXML private HBox bottomSplit;
     @FXML private BorderPane varsBox;
     @FXML private BorderPane inputsBox;
 
@@ -71,14 +73,23 @@ public class MainController {
         Platform.runLater(() -> {
             // allow shrinking
             contentBox.setMinWidth(0);
-            contentBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+            sidePanels.setMinWidth(0);
             historyChainBox.setMinWidth(0);
-            historyChainBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+            statisticsBox.setMinWidth(0);
+            HBox.setHgrow(contentBox, Priority.ALWAYS);
+            HBox.setHgrow(sidePanels, Priority.ALWAYS);
+            HBox.setHgrow(historyChainBox, Priority.ALWAYS);
+            HBox.setHgrow(statisticsBox, Priority.ALWAYS);
 
             varsBox.setMinWidth(0);
             inputsBox.setMinWidth(0);
             varsBox.setMaxWidth(Double.MAX_VALUE);
             inputsBox.setMaxWidth(Double.MAX_VALUE);
+
+            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.6));
+            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.4));
+            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.6));
+            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.4));
 
             // Track width of the toolbar (kept in case you need it later)
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(

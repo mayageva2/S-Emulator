@@ -8,30 +8,23 @@
 <?import javafx.scene.text.Font?>
 <?import java.net.URL?>
 
-<BorderPane maxWidth="750.0" prefHeight="60.0" prefWidth="700.0" styleClass="program-toolbar" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+<?import javafx.scene.layout.Region?>
+<BorderPane maxWidth="Infinity" prefHeight="60.0" styleClass="program-toolbar" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
    <stylesheets>
       <URL value="@program-toolbar.css"/>
    </stylesheets>
    <center>
-      <HBox maxWidth="Infinity" prefHeight="50.0" prefWidth="700.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5;">
+      <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5; ">
          <children>
-            <ChoiceBox fx:id="selectProgramChoice" prefWidth="200" prefHeight="43.0" style="-fx-background-color: purple;"/>
-            <Button fx:id="CollapseButton" mnemonicParsing="false" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;" text="Collapse" textFill="WHITE">
-               <font>
-                  <Font size="14.0" />
-               </font>
-            </Button>
-            <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="120" prefHeight="43.0" style="-fx-background-color: transparent;  -fx-text-fill: #9a0cb2;  -fx-border-color: purple;">
-               <font>
-                  <Font size="14.0" />
-               </font>
-            </Button>
-            <Button fx:id="ExpandButton" mnemonicParsing="false" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;" text="Expand" textFill="WHITE">
-               <font>
-                  <Font size="14.0" />
-               </font>
-            </Button>
-            <ChoiceBox fx:id="HighlightChoices" prefHeight="43.0" prefWidth="200.0"  style="-fx-background-color: purple;" HBox.hgrow="NEVER"/>
+            <ChoiceBox fx:id="selectProgramChoice" prefWidth="300" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="150" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="200" prefHeight="43.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="150" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <ChoiceBox fx:id="HighlightChoices" prefWidth="300" prefHeight="43.0" style="-fx-background-color: purple;"/>
          </children>
          <opaqueInsets>
             <Insets />

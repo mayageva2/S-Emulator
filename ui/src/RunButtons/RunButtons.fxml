@@ -11,7 +11,7 @@
             fx:controller="RunButtons.RunButtonsController"
             xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
    <center>
-      <HBox fx:id="runButtonsHBox" alignment="CENTER_RIGHT" BorderPane.alignment="CENTER" maxWidth="Infinity">
+      <HBox fx:id="runButtonsHBox" alignment="CENTER_RIGHT" BorderPane.alignment="CENTER" maxWidth="Infinity" HBox.hgrow="ALWAYS">
          <children>
             <Button fx:id="btnRun"     onAction="#onRun"     prefHeight="40.0" prefWidth="50.0" style="-fx-background-color: purple;" text="▶" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
             <Region HBox.hgrow="ALWAYS"/>

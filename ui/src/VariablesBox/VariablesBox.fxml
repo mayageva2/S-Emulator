@@ -31,8 +31,8 @@
                 </content>
             </ScrollPane>
 
-            <VBox>
-                <fx:include fx:id="cyclesLine" source="../cyclesLine/CyclesLine.fxml"/>
+            <VBox fillWidth="false">
+                <fx:include fx:id="cyclesLine" source="../cyclesLine/CyclesLine.fxml" VBox.vgrow="NEVER" BorderPane.alignment="CENTER_LEFT"/>
             </VBox>
         </VBox>
     </center>

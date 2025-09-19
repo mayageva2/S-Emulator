@@ -1,6 +1,7 @@
 package Main;
 
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
+import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -11,18 +12,16 @@ import javafx.stage.Stage;
 public class MainApp extends Application {
     @Override
     public void start(Stage stage) throws Exception {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/main.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Main.fxml"));
         Parent root = loader.load();
-        var engine = new EmulatorEngineImpl();
+        MainController main = loader.getController();
+        EmulatorEngine engine = new EmulatorEngineImpl();
+        main.setEngine(engine);
 
-        MainController ctrl = loader.getController();
-        if (ctrl == null) {
-            throw new IllegalStateException("Controller is null. Check fx:controller in main.fxml (should be Main.MainController).");
-        }
-        ctrl.setEngine(engine);
-
-        stage.setScene(new Scene(root));
+        Scene scene = new Scene(root);
         stage.setTitle("S-Emulator");
+        stage.setScene(scene);
+        stage.setMaximized(true);
         stage.show();
     }
 

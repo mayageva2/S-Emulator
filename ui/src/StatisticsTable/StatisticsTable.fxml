@@ -5,29 +5,17 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.BorderPane?>
 
-<BorderPane fx:id="root"
-            maxWidth="Infinity"
-            xmlns="http://javafx.com/javafx/22.0.2"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="StatisticsTable.StatisticsTableController">
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="StatisticsTable.StatisticsTableController">
 
     <center>
-        <TableView fx:id="table"
-                   maxWidth="Infinity"
-                   minWidth="0.0"
-                   BorderPane.alignment="CENTER"
-                   style="-fx-background-color: white;">
+        <TableView fx:id="table" maxWidth="Infinity" minWidth="0.0" BorderPane.alignment="CENTER" style="-fx-background-color: white;">
             <columns>
-                <TableColumn fx:id="runCol"     text="Run#"    prefWidth="70"/>
+                <TableColumn fx:id="runCol"     text="Run#"    prefWidth="80"/>
                 <TableColumn fx:id="degreeCol"  text="Degree"  prefWidth="90"/>
-                <TableColumn fx:id="inputsCol"  text="Inputs"  prefWidth="250"/>
+                <TableColumn fx:id="inputsCol"  text="Inputs"  prefWidth="110"/>
                 <TableColumn fx:id="yCol"       text="y"       prefWidth="80"/>
                 <TableColumn fx:id="cyclesCol"  text="Cycles"  prefWidth="100"/>
             </columns>
         </TableView>
     </center>
-
-    <padding>
-        <Insets top="5" right="10" bottom="5" left="10"/>
-    </padding>
 </BorderPane>

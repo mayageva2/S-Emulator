@@ -27,11 +27,7 @@ public class VariablesBoxController {
     private final Map<String, Label> valueLabels = new ConcurrentHashMap<>();
 
     @FXML
-    private void initialize() {
-        if (cyclesLineController != null && variablesRoot != null) {
-            cyclesLineController.bindWidthTo(variablesRoot);
-        }
-    }
+    private void initialize() {}
 
     private Map<String, Long> buildVarsMapLikeConsole(RunResult result, Long[] inputs) {
         var xValues = new java.util.TreeMap<Integer, Long>();
