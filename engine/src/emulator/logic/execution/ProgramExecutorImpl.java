@@ -12,11 +12,18 @@ import java.util.*;
 public class ProgramExecutorImpl implements ProgramExecutor{
 
     private final ExecutionContext context = new ExecutionContextImpl();
+    private final QuoteEvaluator quoteEval;
     private final Program program;
     private int lastExecutionCycles = 0;
 
     public ProgramExecutorImpl(Program program) {
         this.program = Objects.requireNonNull(program, "program must not be null");
+        this.quoteEval = null;
+    }
+
+    public ProgramExecutorImpl(Program program, QuoteEvaluator quoteEval) {
+        this.program = Objects.requireNonNull(program, "program must not be null");
+        this.quoteEval = quoteEval;
     }
 
     //This func executes the loaded program with the given inputs

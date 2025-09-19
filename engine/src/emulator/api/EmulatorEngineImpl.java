@@ -4,6 +4,7 @@ import emulator.api.dto.*;
 import emulator.exception.*;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.expansion.Expander;
 import emulator.logic.expansion.ProgramExpander;
 import emulator.logic.instruction.Instruction;
@@ -141,7 +142,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         listener.onProgress("Building program...", 0.85);
         Thread.sleep(200);
         this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
-        this.executor = new ProgramExecutorImpl(this.current);
+        this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
         this.lastViewProgram = null;
         this.history.clear();
@@ -155,6 +156,22 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     //------programView Helpers------//
+
+    private QuoteEvaluator makeQuoteEvaluator() {
+        return (fn, fargs, env, degree) -> {
+            // שימוש ב-Composer + ProgramInvoker
+            emulator.logic.compose.Composer.ProgramInvoker inv = new emulator.logic.compose.Composer.ProgramInvoker() {
+                @Override public java.util.List<Long> run(String functionName, java.util.List<Long> inputs) {
+                    RunResult rr = EmulatorEngineImpl.this.run(functionName, degree, inputs.toArray(Long[]::new));
+                    return java.util.List.of(rr.y());
+                }
+                @Override public java.util.Map<String, Long> currentEnv() {
+                    return env;
+                }
+            };
+            return emulator.logic.compose.Composer.evaluateArgs(fn, fargs, inv);
+        };
+    }
 
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
     private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree, int maxDegree) {
@@ -180,6 +197,35 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
+    }
+
+    @Override
+    public RunResult run(String programName, int degree, Long... input) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName);
+        if (target == null) target = functionLibrary.get(programName.toUpperCase(ROOT));
+        if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+
+        int maxDegree = target.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + ". Allowed range is 0-" + maxDegree);
+        }
+
+        Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
+        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun, makeQuoteEvaluator()) : this.executor;
+        long y = exec.run(input);
+        int cycles = exec.getLastExecutionCycles();
+
+        var vars = exec.variableState().entrySet().stream()
+                .map(e -> new VariableView(
+                        e.getKey().getRepresentation(),
+                        VarType.valueOf(e.getKey().getType().name()),
+                        e.getKey().getNumber(),
+                        e.getValue()
+                ))
+                .toList();
+
+        return new RunResult(y, cycles, vars);
     }
 
     @Override
@@ -370,7 +416,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
-        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun) : this.executor;
+        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun, makeQuoteEvaluator()) : this.executor;
 
         this.lastViewProgram = (degree > 0) ? toRun : current;
         long y = exec.run(input);
