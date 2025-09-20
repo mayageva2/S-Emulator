@@ -86,10 +86,10 @@ public class MainController {
             varsBox.setMaxWidth(Double.MAX_VALUE);
             inputsBox.setMaxWidth(Double.MAX_VALUE);
 
-            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.6));
-            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.4));
-            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.6));
-            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.4));
+            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
+            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
+            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
+            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
 
             // Track width of the toolbar (kept in case you need it later)
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
