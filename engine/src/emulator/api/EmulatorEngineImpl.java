@@ -39,7 +39,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private transient ProgramExpander programExpander = new ProgramExpander();
     private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
-    private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
+    private final Map<String, Program> functionLibrary = new HashMap<>();
+    private final Map<String, Program> functionsOnly   = new HashMap<>();
     private final Map<String, String> fnDisplayMap = new HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
@@ -86,7 +87,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (target == null) {
             throw new IllegalArgumentException("Unknown program: " + programName);
         }
-        int max = expander.calculateMaxDegree(current.getInstructions());
+        int max = expander.calculateMaxDegree(target.getInstructions());
         if (degree < 0 || degree > max) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
         }
@@ -124,15 +125,15 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(300);
         XmlProgramReader reader = new XmlProgramReader();
         ProgramXml pxml = reader.read(xmlPath);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
+        functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
 
-        fnDisplayMap.clear();
-        if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
-            for (var fx : pxml.getFunctions().getFunctions()) {
-                String name = fx.getName();
-                String us = fx.getUserString();
-                if (!name.isBlank() && !us.isBlank()) {
-                    fnDisplayMap.put(name, us);
-                }
+        functionsOnly.clear();
+        for (var e : functionLibrary.entrySet()) {
+            Program p2 = e.getValue();
+            if (p2 != null && p2 != this.current) {
+                functionsOnly.put(e.getKey().toUpperCase(ROOT), p2);
             }
         }
 
@@ -158,34 +159,47 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     //------programView Helpers------//
 
-    private static final ThreadLocal<Deque<String>> CALL_STACK = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<Deque<Program>> CALL_STACK = ThreadLocal.withInitial(ArrayDeque::new);
 
     private QuoteEvaluator makeQuoteEvaluator() {
         return (fn, fargs, env, degree) -> {
-            String key = (fn == null ? "" : fn.toUpperCase(Locale.ROOT));
-            Deque<String> stack = CALL_STACK.get();
-
-            if (stack.contains(key)) {
-                String path = String.join(" -> ", stack) + " -> " + fn;
-                throw new IllegalStateException("Recursive composition detected: " + path);
-            }
-            stack.push(key);
-            try {
-                var inv = new Composer.ProgramInvoker() {
+            var invoker = new Composer.ProgramInvoker() {
                 @Override public List<Long> run(String functionName, List<Long> inputs) {
-                    RunResult rr = EmulatorEngineImpl.this.run(functionName, degree, inputs.toArray(Long[]::new));
-                    return List.of(rr.y());
+                    Program target = resolveQuotedTarget(functionName);
+                    if (target == null) {
+                        throw new IllegalArgumentException("Unknown function: " + functionName);
+                    }
+                    Deque<Program> stack = CALL_STACK.get();
+                    if (stack.contains(target)) {
+                        String path = stack.stream().map(Program::getName)
+                                .reduce((a,b) -> a + " -> " + b).orElse("<start>");
+                        throw new IllegalStateException("Recursive composition detected: " + path + " -> " + target.getName());
+                    }
+                    stack.push(target);
+                    try {
+                        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+                        var exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator()); // allow nested QUOTE
+                        long y = exec.run(inputs.toArray(Long[]::new));
+                        return List.of(y);
+                    } finally {
+                        stack.pop();
+                        if (stack.isEmpty()) CALL_STACK.remove();
+                    }
                 }
-                @Override public Map<String, Long> currentEnv() {
-                    return env;
-                }
+                @Override public Map<String, Long> currentEnv() { return env; }
             };
-            return Composer.evaluateArgs(fn, fargs, inv);
-            } finally {
-                stack.pop();
-                if (stack.isEmpty()) CALL_STACK.remove();
-            }
+            return Composer.evaluateArgs(fn, fargs, invoker);
         };
+    }
+
+    private Program resolveQuotedTarget(String name) {
+        if (name == null) return null;
+        Program p = functionsOnly.get(name.toUpperCase(ROOT)); // prefer declared <S-Function>
+        if (p != null) return p;
+        for (var e : functionLibrary.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(name)) return e.getValue(); // fallback (external)
+        }
+        return null;
     }
 
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
@@ -227,7 +241,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
-        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun, makeQuoteEvaluator()) : this.executor;
+        ProgramExecutor exec = (target == current && degree == 0) ? this.executor : new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 
