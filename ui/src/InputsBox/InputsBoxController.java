@@ -86,4 +86,8 @@ public class InputsBoxController {
 
         inputsList.getChildren().add(grid);
     }
+
+    public void clearInputs() {
+        fieldsByName.values().forEach(tf -> tf.setText(""));
+    }
 }

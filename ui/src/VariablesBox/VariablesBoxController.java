@@ -154,4 +154,9 @@ public class VariablesBoxController {
             Platform.runLater(() -> lbl.setStyle(null));
         }).start();
     }
+
+    public void clearForNewRun() {
+        clear();
+        setCycles(0);
+    }
 }

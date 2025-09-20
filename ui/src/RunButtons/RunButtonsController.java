@@ -13,12 +13,14 @@ import javafx.scene.control.*;
 
 import javafx.event.ActionEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 
 import java.util.*;
 import java.util.function.Function;
 
 public class RunButtonsController {
-    @FXML private Button btnRun, btnDebug, btnStop, btnResume, btnStepOver, btnStepBack;
+    @FXML private Button btnNewRun, btnRun, btnDebug, btnStop, btnResume, btnStepOver, btnStepBack;
     @FXML private HBox runButtonsHBox;
 
     private EmulatorEngine engine;
@@ -28,6 +30,9 @@ public class RunButtonsController {
     private InputsBoxController inputController;
     private StatisticsTable.StatisticsTableController statisticsController;
     private Function<String, String> inputsFormatter;
+    private String runBaseStyle = null;
+    private String runReadyStyle = null;
+    private Paint runBaseTextFill;
 
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
@@ -61,21 +66,25 @@ public class RunButtonsController {
     @FXML
     private void initialize() {
         // Optional: tooltips
-        if (btnRun != null) btnRun.setTooltip(new Tooltip("Run"));
+        if (btnNewRun != null) btnNewRun.setTooltip(new Tooltip("New Run: Clear"));
         if (btnDebug != null) btnDebug.setTooltip(new Tooltip("Debug"));
         if (btnStop != null) btnStop.setTooltip(new Tooltip("Stop"));
         if (btnResume != null) btnResume.setTooltip(new Tooltip("Resume"));
         if (btnStepBack != null) btnStepBack.setTooltip(new Tooltip("Step backward"));
         if (btnStepOver != null) btnStepOver.setTooltip(new Tooltip("Step over"));
+        if (btnRun != null) {
+            btnRun.setTooltip(new Tooltip("Run"));
+            runBaseTextFill = btnRun.getTextFill();
+        }
         refreshButtonsEnabled();
 
         final double MIN_GAP = 2;
         final double MAX_GAP = 15;
-        final int GAPS = 5;
+        final int GAPS = 6;
 
         var totalButtonsWidthBinding = Bindings.createDoubleBinding(
-                () -> get(btnRun) + get(btnDebug) + get(btnStop) + get(btnResume) + get(btnStepBack) + get(btnStepOver),
-                btnRun.widthProperty(), btnDebug.widthProperty(), btnStop.widthProperty(),
+                () -> get(btnNewRun) + get(btnRun) + get(btnDebug) + get(btnStop) + get(btnResume) + get(btnStepBack) + get(btnStepOver),
+                btnNewRun.widthProperty(), btnRun.widthProperty(), btnDebug.widthProperty(), btnStop.widthProperty(),
                 btnResume.widthProperty(), btnStepBack.widthProperty(), btnStepOver.widthProperty()
         );
 
@@ -94,7 +103,30 @@ public class RunButtonsController {
     private static double get(Control c) { return (c == null) ? 0 : c.getWidth(); }
 
     @FXML
+    private void onNewRun(javafx.event.ActionEvent e) {
+        if (inputController != null) inputController.clearInputs();
+        if (varsBoxController != null) {
+            try { varsBoxController.clearForNewRun(); }
+            catch (Exception ex) { varsBoxController.clear(); }
+        }
+        setReadyToRunVisual(true);
+    }
+
+    private void setReadyToRunVisual(boolean on) {
+        if (btnRun == null) return;
+        var cls = "run-ready";
+        if (runBaseTextFill == null) runBaseTextFill = btnRun.getTextFill();
+        btnRun.setTextFill(on ? Color.WHITE : runBaseTextFill);
+        if (on) {
+            if (!btnRun.getStyleClass().contains(cls)) btnRun.getStyleClass().add(cls);
+        } else {
+            btnRun.getStyleClass().remove(cls);
+        }
+    }
+
+    @FXML
     private void onRun(ActionEvent e) {
+        setReadyToRunVisual(false);
         if (engine == null || !engine.hasProgramLoaded()) {
             alertInfo("No program loaded", "Use 'Load program XML' first.");
             return;
@@ -111,7 +143,6 @@ public class RunButtonsController {
         int degree = Math.max(0, Math.min(currentDegree, max));
 
         try {
-            ProgramView pv = engine.programView(degree);
             Long[] inputs = inputController.collectAsLongsOrThrow();
             RunResult result = engine.run(degree, inputs);
 
@@ -175,6 +206,7 @@ public class RunButtonsController {
 
     private void refreshButtonsEnabled() {
         boolean loaded = (engine != null && engine.hasProgramLoaded());
+        if (btnNewRun != null) btnNewRun.setDisable(!loaded);
         if (btnRun != null) btnRun.setDisable(!loaded);
         if (btnDebug != null) btnDebug.setDisable(!loaded);
         if (btnStop != null) btnStop.setDisable(!loaded);
