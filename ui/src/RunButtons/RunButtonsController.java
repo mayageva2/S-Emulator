@@ -6,15 +6,23 @@ import cyclesLine.CyclesLineController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
 import javafx.event.ActionEvent;
+import javafx.scene.effect.BlurType;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Effect;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
+import javafx.util.Duration;
 
 import java.util.*;
 import java.util.function.Function;
@@ -30,9 +38,11 @@ public class RunButtonsController {
     private InputsBoxController inputController;
     private StatisticsTable.StatisticsTableController statisticsController;
     private Function<String, String> inputsFormatter;
-    private String runBaseStyle = null;
-    private String runReadyStyle = null;
-    private Paint runBaseTextFill;
+    private Paint  runBaseTextFill;
+    private Effect runBaseEffect;
+    private DropShadow runGlowEffect;
+    private Timeline runGlowPulse;
+    private PauseTransition runGlowStopTimer;
 
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
@@ -75,6 +85,20 @@ public class RunButtonsController {
         if (btnRun != null) {
             btnRun.setTooltip(new Tooltip("Run"));
             runBaseTextFill = btnRun.getTextFill();
+            runBaseEffect = btnRun.getEffect();
+            runGlowEffect = new DropShadow();
+            runGlowEffect.setBlurType(BlurType.GAUSSIAN);
+            runGlowEffect.setColor(Color.web("#cf94d4"));
+            runGlowEffect.setRadius(30);
+            runGlowEffect.setSpread(0.55);
+
+            runGlowPulse = new Timeline(
+                    new KeyFrame(Duration.ZERO,           new KeyValue(runGlowEffect.radiusProperty(), 14)),
+                    new KeyFrame(Duration.millis(700),    new KeyValue(runGlowEffect.radiusProperty(), 22)),
+                    new KeyFrame(Duration.millis(1400),   new KeyValue(runGlowEffect.radiusProperty(), 14))
+            );
+            runGlowPulse.setAutoReverse(true);
+            runGlowPulse.setCycleCount(Timeline.INDEFINITE);
         }
         refreshButtonsEnabled();
 
@@ -109,18 +133,22 @@ public class RunButtonsController {
             try { varsBoxController.clearForNewRun(); }
             catch (Exception ex) { varsBoxController.clear(); }
         }
-        setReadyToRunVisual(true);
+        blinkRunEmphasisTwoSeconds();
     }
 
     private void setReadyToRunVisual(boolean on) {
         if (btnRun == null) return;
         var cls = "run-ready";
-        if (runBaseTextFill == null) runBaseTextFill = btnRun.getTextFill();
-        btnRun.setTextFill(on ? Color.WHITE : runBaseTextFill);
         if (on) {
-            if (!btnRun.getStyleClass().contains(cls)) btnRun.getStyleClass().add(cls);
+            btnRun.setTextFill(Color.WHITE);
+            btnRun.setEffect(runGlowEffect);
+            if (runGlowPulse != null && runGlowPulse.getStatus() != Timeline.Status.RUNNING) {
+                runGlowPulse.playFromStart();
+            }
         } else {
-            btnRun.getStyleClass().remove(cls);
+            if (runGlowPulse != null) runGlowPulse.stop();
+            btnRun.setTextFill(runBaseTextFill);
+            btnRun.setEffect(runBaseEffect);
         }
     }
 
@@ -283,5 +311,13 @@ public class RunButtonsController {
             m += " (cause: " + cause.getMessage() + ")";
         }
         return m;
+    }
+
+    private void blinkRunEmphasisTwoSeconds() {
+        setReadyToRunVisual(true);
+        if (runGlowStopTimer != null) runGlowStopTimer.stop();
+        runGlowStopTimer = new PauseTransition(Duration.seconds(2));
+        runGlowStopTimer.setOnFinished(e -> setReadyToRunVisual(false));
+        runGlowStopTimer.playFromStart();
     }
 }
