@@ -2,6 +2,7 @@ package emulator.api;
 
 import emulator.api.dto.*;
 import emulator.exception.*;
+import emulator.logic.compose.Composer;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.execution.QuoteEvaluator;
@@ -157,19 +158,33 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     //------programView Helpers------//
 
+    private static final ThreadLocal<Deque<String>> CALL_STACK = ThreadLocal.withInitial(ArrayDeque::new);
+
     private QuoteEvaluator makeQuoteEvaluator() {
         return (fn, fargs, env, degree) -> {
-            // שימוש ב-Composer + ProgramInvoker
-            emulator.logic.compose.Composer.ProgramInvoker inv = new emulator.logic.compose.Composer.ProgramInvoker() {
-                @Override public java.util.List<Long> run(String functionName, java.util.List<Long> inputs) {
+            String key = (fn == null ? "" : fn.toUpperCase(Locale.ROOT));
+            Deque<String> stack = CALL_STACK.get();
+
+            if (stack.contains(key)) {
+                String path = String.join(" -> ", stack) + " -> " + fn;
+                throw new IllegalStateException("Recursive composition detected: " + path);
+            }
+            stack.push(key);
+            try {
+                var inv = new Composer.ProgramInvoker() {
+                @Override public List<Long> run(String functionName, List<Long> inputs) {
                     RunResult rr = EmulatorEngineImpl.this.run(functionName, degree, inputs.toArray(Long[]::new));
-                    return java.util.List.of(rr.y());
+                    return List.of(rr.y());
                 }
-                @Override public java.util.Map<String, Long> currentEnv() {
+                @Override public Map<String, Long> currentEnv() {
                     return env;
                 }
             };
-            return emulator.logic.compose.Composer.evaluateArgs(fn, fargs, inv);
+            return Composer.evaluateArgs(fn, fargs, inv);
+            } finally {
+                stack.pop();
+                if (stack.isEmpty()) CALL_STACK.remove();
+            }
         };
     }
 

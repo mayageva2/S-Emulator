@@ -38,12 +38,18 @@ public class FunctionCallParser {
     private ArgNode.Call parseCall() {
         expect('(');
         String fname = parseName();
-        expectCommaOrClose();
-        List<ArgNode> args = new ArrayList<>();
         skipWs();
-        if (peek() != ')') {
-            do { args.add(parseExpr()); skipWs(); } while (consumeIf(','));
+        if (consumeIf(')')) {
+            return new ArgNode.Call(fname, List.of());
         }
+
+        expect(',');
+        skipWs();
+        java.util.List<ArgNode> args = new java.util.ArrayList<>();
+        do {
+            args.add(parseExpr());
+            skipWs();
+        } while (consumeIf(','));
         expect(')');
         return new ArgNode.Call(fname, args);
     }
@@ -73,7 +79,6 @@ public class FunctionCallParser {
 
     private void expect(char ch){ if(i>=s.length()||s.charAt(i)!=ch) throw err("Expected '"+ch+"'"); i++; skipWs(); }
     private boolean consumeIf(char ch){ if(i<s.length()&&s.charAt(i)==ch){ i++; skipWs(); return true; } return false; }
-    private void expectCommaOrClose(){ skipWs(); if(peek()==','||peek()==')') return; throw err("Expected ',' or ')'"); }
     private char peek(){ return i < s.length() ? s.charAt(i) : '\0'; }
     private void skipWs(){ while(i<s.length() && Character.isWhitespace(s.charAt(i))) i++; }
     private IllegalArgumentException err(String m){ return new IllegalArgumentException(m+" at pos "+i+" in: "+s); }

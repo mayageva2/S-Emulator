@@ -161,13 +161,13 @@ public class InstructionsTableController {
             case "ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"assignedVariable");
             case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
             case "QUOTE": {
-                String V = args.get(0); // destination variable
-                String fn = getArg(args, "userString"); // prefer userString if defined
-                if (fn.isEmpty()) fn = getArg(args, "functionUserString");
-                if (fn.isEmpty()) fn = getArg(args, "functionName"); // fallback
-                String fargs = getArg(args, "functionArguments");
-                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
-                return V + " <- (" + inside + ")";
+                String dest = (!args.isEmpty() && !args.get(0).contains("=")) ? args.get(0) : "y";
+                String fn = nz(getArg(args, "userString")); // prefer userString if defined
+                if (fn.isEmpty()) fn = nz(getArg(args, "functionUserString"));
+                if (fn.isEmpty()) fn = nz(getArg(args, "functionName"));
+                String fargs = nz(getArg(args, "functionArguments"));
+                String inside = fargs.isEmpty() ? fn : fn + ", " + fargs;
+                return dest + " <- (" + inside + ")";
             }
             case "JUMP_EQUAL_FUNCTION": {
                 String V = args.get(0); // the variable being compared
@@ -183,6 +183,8 @@ public class InstructionsTableController {
             default: return iv.opcode() + " " + String.join(", ", args);
         }
     }
+
+    private static String nz(String s) { return s == null ? "" : s; }
 
     //This func extracts and returns the label value
     private String findLabel(List<String> args) {
