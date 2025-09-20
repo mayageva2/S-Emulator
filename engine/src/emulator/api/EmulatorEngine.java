@@ -13,6 +13,7 @@ public interface EmulatorEngine {
     ProgramView programView(String programName, int degree);
     RunResult run(Long... input);
     RunResult run(int degree, Long... input);
+    RunResult run(String programName, int degree, Long... inputs);
     List<RunRecord> history();
     List<String> availablePrograms();
     boolean hasProgramLoaded();

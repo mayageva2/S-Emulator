@@ -2,8 +2,10 @@ package emulator.api;
 
 import emulator.api.dto.*;
 import emulator.exception.*;
+import emulator.logic.compose.Composer;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.expansion.Expander;
 import emulator.logic.expansion.ProgramExpander;
 import emulator.logic.instruction.Instruction;
@@ -37,7 +39,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private transient ProgramExpander programExpander = new ProgramExpander();
     private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
-    private final Map<String, Program> functionLibrary = new java.util.HashMap<>();
+    private final Map<String, Program> functionLibrary = new HashMap<>();
+    private final Map<String, Program> functionsOnly   = new HashMap<>();
     private final Map<String, String> fnDisplayMap = new HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
@@ -84,7 +87,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (target == null) {
             throw new IllegalArgumentException("Unknown program: " + programName);
         }
-        int max = expander.calculateMaxDegree(current.getInstructions());
+        int max = expander.calculateMaxDegree(target.getInstructions());
         if (degree < 0 || degree > max) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
         }
@@ -122,15 +125,15 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(300);
         XmlProgramReader reader = new XmlProgramReader();
         ProgramXml pxml = reader.read(xmlPath);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
+        functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
 
-        fnDisplayMap.clear();
-        if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
-            for (var fx : pxml.getFunctions().getFunctions()) {
-                String name = fx.getName();
-                String us = fx.getUserString();
-                if (!name.isBlank() && !us.isBlank()) {
-                    fnDisplayMap.put(name, us);
-                }
+        functionsOnly.clear();
+        for (var e : functionLibrary.entrySet()) {
+            Program p2 = e.getValue();
+            if (p2 != null && p2 != this.current) {
+                functionsOnly.put(e.getKey().toUpperCase(ROOT), p2);
             }
         }
 
@@ -141,7 +144,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         listener.onProgress("Building program...", 0.85);
         Thread.sleep(200);
         this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
-        this.executor = new ProgramExecutorImpl(this.current);
+        this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
         this.lastViewProgram = null;
         this.history.clear();
@@ -155,6 +158,49 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     //------programView Helpers------//
+
+    private static final ThreadLocal<Deque<Program>> CALL_STACK = ThreadLocal.withInitial(ArrayDeque::new);
+
+    private QuoteEvaluator makeQuoteEvaluator() {
+        return (fn, fargs, env, degree) -> {
+            var invoker = new Composer.ProgramInvoker() {
+                @Override public List<Long> run(String functionName, List<Long> inputs) {
+                    Program target = resolveQuotedTarget(functionName);
+                    if (target == null) {
+                        throw new IllegalArgumentException("Unknown function: " + functionName);
+                    }
+                    Deque<Program> stack = CALL_STACK.get();
+                    if (stack.contains(target)) {
+                        String path = stack.stream().map(Program::getName)
+                                .reduce((a,b) -> a + " -> " + b).orElse("<start>");
+                        throw new IllegalStateException("Recursive composition detected: " + path + " -> " + target.getName());
+                    }
+                    stack.push(target);
+                    try {
+                        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+                        var exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator()); // allow nested QUOTE
+                        long y = exec.run(inputs.toArray(Long[]::new));
+                        return List.of(y);
+                    } finally {
+                        stack.pop();
+                        if (stack.isEmpty()) CALL_STACK.remove();
+                    }
+                }
+                @Override public Map<String, Long> currentEnv() { return env; }
+            };
+            return Composer.evaluateArgs(fn, fargs, invoker);
+        };
+    }
+
+    private Program resolveQuotedTarget(String name) {
+        if (name == null) return null;
+        Program p = functionsOnly.get(name.toUpperCase(ROOT)); // prefer declared <S-Function>
+        if (p != null) return p;
+        for (var e : functionLibrary.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(name)) return e.getValue(); // fallback (external)
+        }
+        return null;
+    }
 
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
     private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree, int maxDegree) {
@@ -180,6 +226,35 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
+    }
+
+    @Override
+    public RunResult run(String programName, int degree, Long... input) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName);
+        if (target == null) target = functionLibrary.get(programName.toUpperCase(ROOT));
+        if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+
+        int maxDegree = target.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + ". Allowed range is 0-" + maxDegree);
+        }
+
+        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+        ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
+        long y = exec.run(input);
+        int cycles = exec.getLastExecutionCycles();
+
+        var vars = exec.variableState().entrySet().stream()
+                .map(e -> new VariableView(
+                        e.getKey().getRepresentation(),
+                        VarType.valueOf(e.getKey().getType().name()),
+                        e.getKey().getNumber(),
+                        e.getValue()
+                ))
+                .toList();
+
+        return new RunResult(y, cycles, vars);
     }
 
     @Override
@@ -370,7 +445,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
-        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun) : this.executor;
+        var exec = (degree > 0) ? new ProgramExecutorImpl(toRun, makeQuoteEvaluator()) : this.executor;
 
         this.lastViewProgram = (degree > 0) ? toRun : current;
         long y = exec.run(input);

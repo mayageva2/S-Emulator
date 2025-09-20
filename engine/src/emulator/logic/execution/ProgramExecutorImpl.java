@@ -12,17 +12,26 @@ import java.util.*;
 public class ProgramExecutorImpl implements ProgramExecutor{
 
     private final ExecutionContext context = new ExecutionContextImpl();
+    private final QuoteEvaluator quoteEval;
     private final Program program;
     private int lastExecutionCycles = 0;
+    private Long[] lastInputs = new Long[0];
 
     public ProgramExecutorImpl(Program program) {
         this.program = Objects.requireNonNull(program, "program must not be null");
+        this.quoteEval = null;
+    }
+
+    public ProgramExecutorImpl(Program program, QuoteEvaluator quoteEval) {
+        this.program = Objects.requireNonNull(program, "program must not be null");
+        this.quoteEval = quoteEval;
     }
 
     //This func executes the loaded program with the given inputs
     @Override
     public long run(Long... input) {
         lastExecutionCycles = 0;
+        this.lastInputs = (input == null) ? new Long[0] : java.util.Arrays.copyOf(input, input.length);
 
         List<Instruction> instructions = program.getInstructions();
         validateNotEmpty(instructions);
@@ -84,15 +93,29 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     //This func executes a single instruction and returns the next instruction index
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
+
+        String opcodeName = ins.getInstructionData().getName();
+        if ("QUOTE".equalsIgnoreCase(opcodeName) && quoteEval != null) {
+            Map<String, String> a = (ins.getArguments() == null) ? Map.of() : ins.getArguments();
+            String fn = a.getOrDefault("functionName", a.getOrDefault("FUNCTIONNAME", ""));
+            String fargs = a.getOrDefault("functionArguments", a.getOrDefault("FUNCTIONARGUMENTS", ""));
+            if (fn != null && fn.equalsIgnoreCase(program.getName())) {
+                throw new IllegalStateException("QUOTE cannot call the current program: " + fn);
+            }
+            var env = buildCurrentEnvMapLowerCase();
+            var out = quoteEval.eval(fn, fargs, env, 0);
+            long y = out.isEmpty() ? 0L : out.get(0);
+            Variable targetVar = ins.getVariable();
+            context.updateVariable(targetVar != null ? targetVar : Variable.RESULT, y);
+            lastExecutionCycles += ins.cycles();
+            return currentIndex + 1;
+        }
+
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
 
-        if (isExit(next)) {
-            return instructions.size(); // exit loop
-        }
-        if (isEmpty(next))  {
-            return currentIndex + 1;
-        }
+        if (isExit(next)) {return instructions.size();} // exit loop
+        if (isEmpty(next))  {return currentIndex + 1;}
 
         Instruction target = program.instructionAt(next);
         return instructions.indexOf(target);
@@ -135,5 +158,16 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         if (l == FixedLabel.EMPTY) return true;
         String s = l.getLabelRepresentation();
         return s == null || s.trim().isEmpty();
+    }
+
+    private Map<String, Long> buildCurrentEnvMapLowerCase() {
+        Map<String, Long> env = new HashMap<>();
+        for (int i = 0; i < lastInputs.length; i++) {
+            env.put(("x" + (i + 1)).toLowerCase(Locale.ROOT), lastInputs[i]);
+        }
+        variableState().forEach((var, val) ->
+                env.put(var.getRepresentation().toLowerCase(Locale.ROOT), val)
+        );
+        return env;
     }
 }

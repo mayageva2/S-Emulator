@@ -206,7 +206,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
             return new ZeroVariableInstruction(subVar(varSub, zv.getVariable()), newLbl);
         }
         if (iq instanceof GoToLabelInstruction gl) {
-            return new GoToLabelInstruction(subLabel(labelSub, gl.getgtlLabel(), helper, lend), newLbl);
+            return new GoToLabelInstruction(newLbl, subLabel(labelSub, gl.getgtlLabel(), helper, lend));
         }
         if (iq instanceof JumpNotZeroInstruction jnz) {
             return new JumpNotZeroInstruction(
