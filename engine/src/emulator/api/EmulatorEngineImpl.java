@@ -240,8 +240,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + ". Allowed range is 0-" + maxDegree);
         }
 
-        Program toRun = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
-        ProgramExecutor exec = (target == current && degree == 0) ? this.executor : new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
+        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+        ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 

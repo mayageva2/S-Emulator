@@ -148,6 +148,7 @@ public class InstructionsTableController {
             }
             case "GOTO_LABEL": {
                 String tgt = findLabel(args);
+                if (tgt.isEmpty()) tgt = nz(iv.label());
                 return "GOTO " + tgt;
             }
             case "JUMP_EQUAL_CONSTANT": {
@@ -219,8 +220,11 @@ public class InstructionsTableController {
     private String getArg(List<String> args, String key) {
         for (String a : args) {
             int eq = a.indexOf('=');
-            if (eq > 0 && a.substring(0,eq).equals(key)) {
-                return a.substring(eq+1);
+            if (eq > 0) {
+                String left = a.substring(0, eq);
+                if (left.equalsIgnoreCase(key)) {
+                    return a.substring(eq + 1);
+                }
             }
         }
         return "";

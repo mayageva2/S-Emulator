@@ -105,8 +105,11 @@ public final class XmlToObjects {
                 yield new ConstantAssignmentInstruction(v, k, lbl);
             }
             case "GOTO_LABEL" -> {
-                Label target = parseLabel(req(args, "GOTOLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "GOTOLABEL");
-                yield new GoToLabelInstruction(lbl, target);
+                String arg = p.args().get("GOTOLABEL");
+                String targetText = (arg != null && !arg.isBlank()) ? arg.trim() : (p.lbl() == null ? "" : p.lbl().getLabelRepresentation());
+                Label target = parseLabel(targetText, opcode, index, LabelPolicy.REQUIRED, "target label");
+                Label my = (arg != null && !arg.isBlank()) ? p.lbl() : FixedLabel.EMPTY;
+                yield new GoToLabelInstruction(my, target);
             }
             case "JUMP_ZERO" -> {
                 Label target = parseLabel(req(args, "JZLABEL", opcode, index), opcode, index, LabelPolicy.REQUIRED, "JZLABEL");
