@@ -23,12 +23,11 @@ public class SelectedInstructionHistoryChainTableController {
     /** Call this when a row is clicked in the expanded table. */
     public void showForSelected(InstructionView selected, ProgramView pvOriginal) {
         if (selected == null) { clear(); return; }
-        List<InstructionView> chain = toChainRootToLeaf(selected, pvOriginal);
+        List<InstructionView> chain = new ArrayList<>(selected.createdFromViews());
         List<InstructionRow> items = toRows(chain);
 
         Platform.runLater(() -> {
             instructionsController.setItems(items);
-            instructionsController.scrollToEnd();
         });
     }
 
