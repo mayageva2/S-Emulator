@@ -151,6 +151,7 @@ public class MainController {
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
             RunButtonsController.setVarsBoxController(varsBoxController);
+            RunButtonsController.setInstructionsController(instructionsController);
 
             if (statisticsTableController != null) {
                 RunButtonsController.setStatisticsTableController(statisticsTableController);

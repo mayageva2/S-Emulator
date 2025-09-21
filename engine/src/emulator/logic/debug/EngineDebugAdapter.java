@@ -3,6 +3,8 @@ package emulator.logic.debug;
 import emulator.api.EmulatorEngine;
 import emulator.api.debug.DebugSession;
 import emulator.api.debug.DebugSnapshot;
+import emulator.api.dto.InstructionView;
+import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
 
 import java.lang.reflect.Method;
@@ -16,6 +18,10 @@ public class EngineDebugAdapter implements DebugSession {
     private List<DebugSnapshot> timeline = List.of();
     private int idx = -1;
 
+    private int degreeAtStart = 0;
+    @SuppressWarnings("unused")
+    private Long[] inputsAtStart = new Long[0];
+
     public EngineDebugAdapter(EmulatorEngine engine) {
         this.engine = Objects.requireNonNull(engine, "engine");
         tryBindDirectMode();
@@ -23,6 +29,8 @@ public class EngineDebugAdapter implements DebugSession {
 
     @Override
     public DebugSnapshot start(Long[] inputs, int degree) throws Exception {
+        this.degreeAtStart = degree;
+        this.inputsAtStart = inputs != null ? inputs.clone() : new Long[0];
         if (directAvailable) {
             // DIRECT
             invoke(mDebugStart, inputs, degree);
@@ -127,13 +135,56 @@ public class EngineDebugAdapter implements DebugSession {
         List<DebugSnapshot> out = new ArrayList<>();
         if (history instanceof Iterable<?> it) {
             for (Object rec : it) out.add(snapFromHistoryRecord(rec));
+            if (!out.isEmpty()) {
+                StringBuilder sb = new StringBuilder("history PCs: ");
+                for (int i = 0; i < Math.min(out.size(), 8); i++) {
+                    sb.append(out.get(i).currentInstructionIndex()).append(i < out.size()-1 ? "," : "");
+                }
+                System.out.println("[DEBUG] " + sb);
+            }
+        }
+        if (out.size() <= 1 || !timelineHasProgress(out)) {
+            List<DebugSnapshot> synth = synthesizeTimelineFromProgramView();
+            if (!synth.isEmpty()) { return synth; }
         }
         if (!out.isEmpty()) return out;
 
-        Map<String,String> finalVars = snapshotVarsFromRunResult(rr);
-        int finalPc     =  Math.max(0, inferLastPC(rr));
-        int finalCycles =  inferCycles(rr);
-        return List.of(new DebugSnapshot(finalPc, finalVars, finalCycles, true));
+        return List.of(new DebugSnapshot(0, Map.of(), 0, true));
+    }
+
+    private List<DebugSnapshot> synthesizeTimelineFromProgramView() {
+        try {
+            ProgramView pv = engine.programView(degreeAtStart);
+            if (pv == null || pv.instructions() == null || pv.instructions().isEmpty()) return List.of();
+
+            List<DebugSnapshot> out = new ArrayList<>();
+            int cycles = 0;
+            int pc = 0;
+
+            for (InstructionView iv : pv.instructions()) {
+                out.add(new DebugSnapshot(pc, Map.of(), cycles, false));
+                cycles += Math.max(0, iv.cycles());
+                pc++;
+            }
+            if (!out.isEmpty()) {
+                DebugSnapshot last = out.get(out.size() - 1);
+                out.set(out.size() - 1, new DebugSnapshot(last.currentInstructionIndex(), last.vars(), cycles, true));
+            }
+            return out;
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private boolean timelineHasProgress(List<DebugSnapshot> snaps) {
+        if (snaps == null || snaps.size() < 2) return false;
+        int prevPc = snaps.get(0).currentInstructionIndex();
+        int prevCycles = snaps.get(0).cycles();
+        for (int i = 1; i < snaps.size(); i++) {
+            var s = snaps.get(i);
+            if (s.currentInstructionIndex() != prevPc || s.cycles() != prevCycles) return true;
+        }
+        return false;
     }
 
     @SuppressWarnings("unchecked")

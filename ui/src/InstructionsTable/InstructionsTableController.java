@@ -43,14 +43,12 @@ public class InstructionsTableController {
         table.setRowFactory(tv -> new TableRow<InstructionRow>() {
             @Override protected void updateItem(InstructionRow row, boolean empty) {
                 super.updateItem(row, empty);
-                getStyleClass().remove("current-instruction");
-                setStyle("");
                 setStyle("");
 
                 if (empty || row == null) return;
-
                 if (getIndex() == highlightedIndex) {
-                    getStyleClass().add("current-instruction");
+                    setStyle("-fx-background-color: #fff3cd;");
+                    return;
                 }
                 if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
                     setStyle("-fx-background-color: #fff3cd;");
