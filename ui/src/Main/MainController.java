@@ -86,10 +86,10 @@ public class MainController {
             varsBox.setMaxWidth(Double.MAX_VALUE);
             inputsBox.setMaxWidth(Double.MAX_VALUE);
 
-            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.6));
-            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.4));
-            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.6));
-            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.4));
+            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
+            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
+            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
+            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
 
             // Track width of the toolbar (kept in case you need it later)
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
@@ -442,20 +442,27 @@ public class MainController {
 
     private String formatInputsByPosition(String csv) {
         if (csv == null || csv.isBlank()) return "";
-        String[] vals = csv.split(",");
+        String[] vals = Arrays.stream(csv.split(",")).map(String::trim).toArray(String[]::new);
+        List<String> names = (inputsBoxController != null) ? inputsBoxController.getInputNames() : Collections.emptyList();
+
+        if (names.isEmpty()) {  return String.join(", ", vals); }
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < vals.length; i++) {
-            String val = vals[i].trim();
-            String name;
-            if (inputNames != null && i < inputNames.size() && inputNames.get(i) != null && !inputNames.get(i).isBlank()) {
-                name = inputNames.get(i);
-            } else {
-                name = "x" + (i + 1);
-            }
-            if (i > 0) sb.append('\n');
-            sb.append(name).append(" = ").append(val);
+        for (String name : names) {
+            int idx = parseXIndex(name);
+            if (idx < 1) continue;
+            String value = (idx - 1 < vals.length && !vals[idx - 1].isBlank()) ? vals[idx - 1] : "0";
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(name).append(" = ").append(value);
         }
         return sb.toString();
+    }
+
+    private static int parseXIndex(String name) {
+        if (name == null) return -1;
+        String s = name.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!s.startsWith("x")) return -1;
+        try { return Integer.parseInt(s.substring(1)); }
+        catch (Exception e) { return -1; }
     }
 
     private List<String> extractQuotedFunctionNames(ProgramView pv) {
@@ -465,7 +472,6 @@ public class MainController {
             if ("QUOTE".equals(op) || "JUMP_EQUAL_FUNCTION".equals(op)) {
                 String fn = getArg(iv.args(), "functionName");
                 if (fn != null && !fn.isBlank()) out.add(fn);
-                // also scan functionArguments for heads like "(Name,...)" and "(Name,(...))"
                 String fargs = getArg(iv.args(), "functionArguments");
                 out.addAll(extractHeadsFromCallString(fargs));
             }

@@ -5,9 +5,13 @@ import emulator.api.dto.RunResult;
 import emulator.api.dto.VarType;
 import emulator.api.dto.VariableView;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -21,13 +25,26 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class VariablesBoxController {
 
-    @FXML private VBox varsContainer;
-    @FXML private Region variablesRoot;
+    @FXML private TableView<VarRow> varsTable;
+    @FXML private TableColumn<VarRow, String> colName;
+    @FXML private TableColumn<VarRow, String> colValue;
     @FXML private CyclesLineController cyclesLineController;
     private final Map<String, Label> valueLabels = new ConcurrentHashMap<>();
+    private final ObservableList<VarRow> rows = FXCollections.observableArrayList();
+    private final Map<String, VarRow> byName = new ConcurrentHashMap<>();
 
     @FXML
-    private void initialize() {}
+    private void initialize() {
+        varsTable.setItems(rows);
+        varsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+        colName.setCellValueFactory(data -> data.getValue().nameProperty());
+        colValue.setCellValueFactory(data -> data.getValue().valueProperty());
+        var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
+        if (css != null) {
+            varsTable.getStylesheets().add(css.toExternalForm());
+            varsTable.getStyleClass().add("instructions");
+        }
+    }
 
     private Map<String, Long> buildVarsMapLikeConsole(RunResult result, Long[] inputs) {
         var xValues = new java.util.TreeMap<Integer, Long>();
@@ -82,28 +99,30 @@ public class VariablesBoxController {
 
     public void renderAll(Map<String, ?> variables) {
         Platform.runLater(() -> {
-            varsContainer.getChildren().clear();
-            valueLabels.clear();
-            if (variables == null || variables.isEmpty()) {
-                varsContainer.getChildren().add(faintLabel("— no variables —"));
-                return;
-            }
-            for (var e : variables.entrySet()) {
-                addOrUpdate(e.getKey(), e.getValue());
-            }
+            rows.clear();
+            byName.clear();
+            if (variables == null || variables.isEmpty()) return;
+
+            variables.forEach((k, v) -> {
+                VarRow r = new VarRow(k, valueToString(v));
+                rows.add(r);
+                byName.put(k, r);
+            });
         });
     }
 
     public void addOrUpdate(String name, Object value) {
         Platform.runLater(() -> {
-            Label val = valueLabels.get(name);
-            if (val == null) {
-                varsContainer.getChildren().add(makeRow(name, value));
+            VarRow r = byName.get(name);
+            String newText = valueToString(value);
+            if (r == null) {
+                r = new VarRow(name, newText);
+                rows.add(r);
+                byName.put(name, r);
             } else {
-                String newText = valueToString(value);
-                if (!Objects.equals(val.getText(), newText)) {
-                    val.setText(newText);
-                    flash(val);
+                int idx = rows.indexOf(r);
+                if (idx >= 0) {
+                    rows.set(idx, r);
                 }
             }
         });
@@ -117,8 +136,8 @@ public class VariablesBoxController {
 
     public void clear() {
         Platform.runLater(() -> {
-            varsContainer.getChildren().clear();
-            valueLabels.clear();
+            rows.clear();
+            byName.clear();
         });
     }
 
@@ -153,5 +172,10 @@ public class VariablesBoxController {
             try { Thread.sleep(300); } catch (InterruptedException ignored) {}
             Platform.runLater(() -> lbl.setStyle(null));
         }).start();
+    }
+
+    public void clearForNewRun() {
+        clear();
+        setCycles(0);
     }
 }

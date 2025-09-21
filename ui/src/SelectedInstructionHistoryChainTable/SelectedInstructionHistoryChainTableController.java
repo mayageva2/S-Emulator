@@ -33,7 +33,7 @@ public class SelectedInstructionHistoryChainTableController {
 
     public void clear() { instructionsController.clear(); }
 
-    // ---------- helpers (same logic as before) ----------
+    // ---------- helpers ----------
     private List<InstructionView> toChainRootToLeaf(InstructionView selected, ProgramView pvOriginal) {
         List<InstructionView> fromViews = selected.createdFromViews();
         if (fromViews != null && !fromViews.isEmpty()) {
