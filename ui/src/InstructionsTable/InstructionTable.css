@@ -17,3 +17,7 @@
 
 .table-view.instructions .table-row-cell:selected { -fx-background-color: #e6c8ef; }
 .table-view.instructions .table-cell { -fx-alignment: CENTER; }
+
+.table-row-cell.current-instruction {
+    -fx-background-color: #fff3cd;
+}

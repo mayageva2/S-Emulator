@@ -26,6 +26,7 @@ public class InstructionsTableController {
 
     private Consumer<InstructionView> onRowSelected;
     private String highlightTerm = null;
+    private int highlightedIndex = -1;
     @FXML
     private void initialize() {
         indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index));
@@ -42,12 +43,17 @@ public class InstructionsTableController {
         table.setRowFactory(tv -> new TableRow<InstructionRow>() {
             @Override protected void updateItem(InstructionRow row, boolean empty) {
                 super.updateItem(row, empty);
-                if (empty || row == null || isBlank(highlightTerm)) {
-                    setStyle("");
-                } else if (matches(row, highlightTerm)) {
-                    setStyle("-fx-background-color: #fff3cd;"); // soft yellow
-                } else {
-                    setStyle("");
+                getStyleClass().remove("current-instruction");
+                setStyle("");
+                setStyle("");
+
+                if (empty || row == null) return;
+
+                if (getIndex() == highlightedIndex) {
+                    getStyleClass().add("current-instruction");
+                }
+                if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
+                    setStyle("-fx-background-color: #fff3cd;");
                 }
             }
         });
@@ -228,5 +234,21 @@ public class InstructionsTableController {
             }
         }
         return "";
+    }
+
+    public void highlightRow(int rowIndex0Based) {
+        highlightedIndex = Math.max(-1, rowIndex0Based);
+        table.getSelectionModel().clearSelection();
+        if (highlightedIndex >= 0 && highlightedIndex < table.getItems().size()) {
+            table.scrollTo(highlightedIndex);
+            table.getSelectionModel().select(highlightedIndex);
+        }
+        table.refresh();
+    }
+
+    public void clearHighlight() {
+        highlightedIndex = -1;
+        table.getSelectionModel().clearSelection();
+        table.refresh();
     }
 }

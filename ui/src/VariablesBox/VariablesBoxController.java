@@ -17,10 +17,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class VariablesBoxController {
@@ -177,5 +174,17 @@ public class VariablesBoxController {
     public void clearForNewRun() {
         clear();
         setCycles(0);
+    }
+
+    public void highlightVariables(Set<String> names) {
+        if (names == null || names.isEmpty()) return;
+        Platform.runLater(() -> {
+            for (int i = 0; i < rows.size(); i++) {
+                VarRow r = rows.get(i);
+                if (names.contains(r.nameProperty().get())) {
+                    rows.set(i, r);
+                }
+            }
+        });
     }
 }
