@@ -20,16 +20,21 @@
 
     <center>
         <VBox maxWidth="Infinity" spacing="6.0" BorderPane.alignment="CENTER_LEFT">
-            <ScrollPane prefHeight="150.0" fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0"
-                        style="-fx-background-color: transparent; -fx-border-color: purple;">
-                <content>
-                    <VBox fx:id="varsContainer" spacing="6.0" maxWidth="Infinity">
-                        <padding>
-                            <Insets top="10" right="10" bottom="10" left="10"/>
-                        </padding>
-                    </VBox>
-                </content>
-            </ScrollPane>
+            <TableView fx:id="varsTable"
+                       VBox.vgrow="ALWAYS"
+                       minWidth="0.0"
+                       maxWidth="Infinity"
+                       prefHeight="150.0"
+                       style="-fx-border-color: purple;"
+                       stylesheets="@../InstructionsTable/InstructionTable.css">
+            <columns>
+                <TableColumn fx:id="colName" text="Variable" prefWidth="150"/>
+                <TableColumn fx:id="colValue" text="Value" />
+            </columns>
+                <placeholder>
+                    <Label text="no variables" opacity="0.6"/>
+                </placeholder>
+            </TableView>
 
             <VBox fillWidth="false">
                 <fx:include fx:id="cyclesLine" source="../cyclesLine/CyclesLine.fxml" VBox.vgrow="NEVER" BorderPane.alignment="CENTER_LEFT"/>
