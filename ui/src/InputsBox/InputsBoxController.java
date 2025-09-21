@@ -30,17 +30,38 @@ public class InputsBoxController {
     }
 
     public Long[] collectAsLongsOrThrow() {
-        Long[] out = new Long[inputNames.size()];
-        for (int i = 0; i < inputNames.size(); i++) {
-            String name = inputNames.get(i);
-            String raw = Optional.ofNullable(fieldsByName.get(name).getText()).orElse("").trim();
-            long v = raw.isEmpty() ? 0L : Long.parseLong(raw); // may throw NumberFormatException
-            if (v < 0) throw new IllegalArgumentException("Negative numbers are not allowed: " + v);
-            out[i] = v;
+        int maxIdx = 0;
+        for (String name : inputNames) {
+            int idx = parseXIndex(name);
+            if (idx > maxIdx) maxIdx = idx;
+        }
+        if (maxIdx == 0) {
+            return new Long[0];
+        }
+
+        Long[] out = new Long[maxIdx];
+        Arrays.fill(out, 0L);
+        for (String name : inputNames) {
+            int idx = parseXIndex(name);
+            if (idx <= 0) continue;
+            String raw = java.util.Optional.ofNullable(fieldsByName.get(name).getText()).orElse("").trim();
+            long v = raw.isEmpty() ? 0L : Long.parseLong(raw);
+            out[idx - 1] = v;
         }
         return out;
     }
 
+    private static int parseXIndex(String name) {
+        if (name == null) return 0;
+        String s = name.trim().toLowerCase(Locale.ROOT);
+        if (!s.startsWith("x")) return 0;
+        try {
+            int idx = Integer.parseInt(s.substring(1));
+            return idx > 0 ? idx : 0;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
 
     private void buildRows(List<String> names) {
         inputsList.getChildren().clear();
@@ -89,5 +110,9 @@ public class InputsBoxController {
 
     public void clearInputs() {
         fieldsByName.values().forEach(tf -> tf.setText(""));
+    }
+
+    public List<String> getInputNames() {
+        return new ArrayList<>(inputNames);
     }
 }
