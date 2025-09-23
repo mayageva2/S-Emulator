@@ -100,11 +100,22 @@ public class VariablesBoxController {
             byName.clear();
             if (variables == null || variables.isEmpty()) return;
 
-            variables.forEach((k, v) -> {
+            List<String> keys = new ArrayList<>(variables.keySet());
+            keys.sort((a,b) -> {
+                int ra = rank(a), rb = rank(b);
+                if (ra != rb) return Integer.compare(ra, rb);
+                if (ra == 1 || ra == 2) {
+                    return Integer.compare(numSuffix(a), numSuffix(b));
+                }
+                return a.compareToIgnoreCase(b);
+            });
+
+            for (String k : keys) {
+                Object v = variables.get(k);
                 VarRow r = new VarRow(k, valueToString(v));
                 rows.add(r);
                 byName.put(k, r);
-            });
+            }
         });
     }
 
@@ -117,12 +128,24 @@ public class VariablesBoxController {
                 rows.add(r);
                 byName.put(name, r);
             } else {
-                int idx = rows.indexOf(r);
-                if (idx >= 0) {
-                    rows.set(idx, r);
-                }
+                r.valueProperty().set(newText);
             }
         });
+    }
+
+    private int rank(String k) {
+        String s = (k == null) ? "" : k.trim().toLowerCase(Locale.ROOT);
+        if (s.equals("y")) return 0;
+        if (s.startsWith("x")) return 1;
+        if (s.startsWith("z")) return 2;
+        return 3;
+    }
+
+    private int numSuffix(String k) {
+        String s = (k == null) ? "" : k.trim().toLowerCase(Locale.ROOT);
+        int i = 0; while (i < s.length() && !Character.isDigit(s.charAt(i))) i++;
+        if (i >= s.length()) return Integer.MAX_VALUE;
+        try { return Integer.parseInt(s.substring(i)); } catch (Exception e) { return Integer.MAX_VALUE; }
     }
 
     public void setCycles(int cycles) {

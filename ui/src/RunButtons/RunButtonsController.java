@@ -4,6 +4,7 @@ import InputsBox.InputsBoxController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
 import emulator.api.debug.DebugSnapshot;
+import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
 import emulator.api.debug.DebugSession;
@@ -240,25 +241,15 @@ public class RunButtonsController {
 
     private void applySnapshot(DebugSnapshot snap) {
         if (snap == null) return;
+
+        int row = toDisplayRowFromInstructionIndex(snap.currentInstructionIndex());
         if (instructionsController != null) {
-            instructionsController.highlightRow(snap.currentInstructionIndex());
+            instructionsController.highlightRow(row);
         }
         if (varsBoxController != null) {
             Map<String, String> vars = (snap.vars() == null) ? Map.of() : snap.vars();
-            Set<String> changed = new HashSet<>();
-            for (var e : vars.entrySet()) {
-                String prev = lastVarsSnapshot.get(e.getKey());
-                if (!Objects.equals(prev, e.getValue())) changed.add(e.getKey());
-            }
             varsBoxController.renderAll(vars);
-            try {
-                varsBoxController.highlightVariables(changed);
-            } catch (NoSuchMethodError | Exception ignore) {
-            }
             varsBoxController.setCycles(Math.max(0, snap.cycles()));
-
-            lastVarsSnapshot.clear();
-            lastVarsSnapshot.putAll(vars);
         }
         if (snap.finished()) {
             debugState = DebugState.STOPPED;
@@ -267,6 +258,23 @@ public class RunButtonsController {
             debugState = DebugState.PAUSED;
         }
         refreshButtonsEnabled();
+    }
+
+    private int toDisplayRowFromInstructionIndex(int instrIndex) {
+        try {
+            ProgramView pv = engine.programView(currentDegree);
+            if (pv != null && pv.instructions() != null) {
+                var list = pv.instructions();
+                for (int i = 0; i < list.size(); i++) {
+                    InstructionView iv = list.get(i);
+                    if (iv != null && iv.index() == instrIndex) {
+                        return i + 1;
+                    }
+                }
+                return Math.max(1, Math.min(instrIndex, list.size()));
+            }
+        } catch (Exception ignore) {}
+        return Math.max(1, instrIndex);
     }
 
     private void onDebugFinishedUI() {
