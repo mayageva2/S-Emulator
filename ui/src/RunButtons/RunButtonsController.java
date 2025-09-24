@@ -48,6 +48,7 @@ public class RunButtonsController {
     private DropShadow runGlowEffect;
     private Timeline runGlowPulse;
     private PauseTransition runGlowStopTimer;
+    private Map<String, String> lastRunVarsSnapshot = Map.of();
 
     // -- Debug --//
     private DebugSession debugSession;
@@ -76,6 +77,10 @@ public class RunButtonsController {
 
     public void setProvenanceRenderer(Function<ProgramView, String> renderer) {
         if (renderer != null) this.provenanceRenderer = renderer;
+    }
+
+    public Map<String, String> getLastRunVarsSnapshot() {
+        return lastRunVarsSnapshot;
     }
 
     public void setStatisticsTableController(StatisticsTable.StatisticsTableController c) {
@@ -216,6 +221,10 @@ public class RunButtonsController {
 
             if (varsBoxController != null) {
                 varsBoxController.renderFromRun(result, inputs);
+                Map<String, Long> snap = varsBoxController.buildVarsMap(result, inputs);
+                Map<String, String> asStrings = new LinkedHashMap<>();
+                snap.forEach((k,v) -> asStrings.put(k, String.valueOf(v)));
+                lastRunVarsSnapshot = asStrings;
             }
 
             updateStatisticsFromEngineHistory();

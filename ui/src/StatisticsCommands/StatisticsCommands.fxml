@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+
+
+<?import javafx.scene.layout.Region?>
+<?import java.net.URL?>
+<BorderPane maxWidth="Infinity" styleClass="statistics-commands" fx:controller="StatisticsCommands.StatisticsCommandsController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+   <stylesheets>
+      <URL value="@statistics-commands.css"/>
+   </stylesheets>
+   <center>
+      <HBox spacing="10.0" BorderPane.alignment="CENTER">
+         <children>
+            <Button fx:id="showButton" mnemonicParsing="false" prefHeight="30.0" prefWidth="260" text="SHOW STATUS" />
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button  fx:id="rerunButton" mnemonicParsing="false" prefHeight="30.0" prefWidth="260" text="RE-RUN" />
+         </children>
+      </HBox>
+   </center>
+</BorderPane>

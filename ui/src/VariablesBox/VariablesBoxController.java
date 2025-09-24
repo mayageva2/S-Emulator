@@ -68,7 +68,7 @@ public class VariablesBoxController {
         }
     }
 
-    private Map<String, Long> buildVarsMap(RunResult result, Long[] inputs) {
+    public Map<String, Long> buildVarsMap(RunResult result, Long[] inputs) {
         var xValues = new java.util.TreeMap<Integer, Long>();
         var zValues = new java.util.TreeMap<Integer, Long>();
         var yVar = classifyVariables(result, xValues, zValues);
@@ -98,9 +98,7 @@ public class VariablesBoxController {
     }
 
     //This func classifies RESULT variables
-    private VariableView classifyVariables(RunResult result,
-                                           Map<Integer, Long> xOut,
-                                           Map<Integer, Long> zOut) {
+    private VariableView classifyVariables(RunResult result, Map<Integer, Long> xOut, Map<Integer, Long> zOut) {
         List<VariableView> vars = (result == null || result.vars() == null) ? List.of() : result.vars();
         VariableView yVar = null;
 

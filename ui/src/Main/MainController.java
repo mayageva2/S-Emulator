@@ -30,6 +30,7 @@ public class MainController {
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBox.InputsBoxController inputsBoxController;
     @FXML private StatisticsTable.StatisticsTableController statisticsTableController;
+    @FXML private StatisticsCommands.StatisticsCommandsController statisticsCommandsController;
 
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
@@ -158,6 +159,13 @@ public class MainController {
                 RunButtonsController.setStatisticsTableController(statisticsTableController);
                 RunButtonsController.setInputsFormatter(this::formatInputsByPosition);
             }
+        }
+
+        if (statisticsCommandsController != null && RunButtonsController != null) {
+            statisticsCommandsController.setStatusSupplier(() -> {
+                Map<String, String> m = RunButtonsController.getLastRunVarsSnapshot();
+                return (m == null) ? java.util.Collections.emptyMap() : m;
+            });
         }
 
         Platform.runLater(() -> {
