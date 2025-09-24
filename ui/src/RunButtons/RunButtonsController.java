@@ -2,10 +2,13 @@ package RunButtons;
 
 import InputsBox.InputsBoxController;
 import VariablesBox.VariablesBoxController;
-import cyclesLine.CyclesLineController;
 import emulator.api.EmulatorEngine;
+import emulator.api.debug.DebugSnapshot;
+import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
+import emulator.api.debug.DebugSession;
+import emulator.logic.debug.EngineDebugAdapter;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
@@ -37,6 +40,8 @@ public class RunButtonsController {
     private VariablesBoxController varsBoxController;
     private InputsBoxController inputController;
     private StatisticsTable.StatisticsTableController statisticsController;
+    private InstructionsTable.InstructionsTableController instructionsController;
+    private ProgramToolBar.ProgramToolbarController toolbarController;
     private Function<String, String> inputsFormatter;
     private Paint  runBaseTextFill;
     private Effect runBaseEffect;
@@ -44,6 +49,14 @@ public class RunButtonsController {
     private Timeline runGlowPulse;
     private PauseTransition runGlowStopTimer;
 
+    // -- Debug --//
+    private DebugSession debugSession;
+    private enum DebugState { IDLE, RUNNING, PAUSED, STOPPED }
+    private DebugState debugState = DebugState.IDLE;
+    private Map<String, String> lastVarsSnapshot = new HashMap<>();
+    private Long[] inputsAtDebugStart = new Long[0];
+    private final List<Control> degreeControls = new ArrayList<>();
+    private final List<TitledPane> degreePanes = new ArrayList<>();
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
     private Function<ProgramView, String> provenanceRenderer = pv -> pv != null ? pv.toString() : "";
@@ -51,6 +64,10 @@ public class RunButtonsController {
     public void setEngine(EmulatorEngine engine) {
         this.engine = Objects.requireNonNull(engine, "engine");
         refreshButtonsEnabled();
+    }
+
+    public void setInstructionsController(InstructionsTable.InstructionsTableController c) {
+        this.instructionsController = c;
     }
 
     public void setBasicRenderer(Function<ProgramView, String> renderer) {
@@ -71,6 +88,29 @@ public class RunButtonsController {
 
     public void setLastMaxDegree(int maxDegree) {
         this.lastMaxDegree = Math.max(0, maxDegree);
+    }
+
+    public void registerDegreeControl(Control c) {
+        if (c != null) {
+            degreeControls.add(c);
+            refreshButtonsEnabled();
+        }
+    }
+
+    public void registerDegreePane(TitledPane p) {
+        if (p != null) {
+            degreePanes.add(p);
+            refreshButtonsEnabled();
+        }
+    }
+
+    public void setProgramToolbarController(ProgramToolBar.ProgramToolbarController c) {
+        this.toolbarController = c;
+        refreshButtonsEnabled();
+    }
+
+    private boolean isInDebug() {
+        return debugState == DebugState.RUNNING || debugState == DebugState.PAUSED;
     }
 
     @FXML
@@ -193,7 +233,14 @@ public class RunButtonsController {
         this.varsBoxController = c;
     }
 
-    public void setInputsBoxController(InputsBox.InputsBoxController c) { this.inputController = c; }
+    public void setInputsBoxController(InputsBox.InputsBoxController c) {
+        this.inputController = c;
+        boolean inDebug = (debugState == DebugState.RUNNING || debugState == DebugState.PAUSED);
+        if (inputController != null) {
+            if (inDebug) inputController.lockInputs();
+            else inputController.unlockInputs();
+        }
+    }
 
     private void updateStatisticsFromEngineHistory() {
         if (statisticsController == null || engine == null) return;
@@ -204,26 +251,138 @@ public class RunButtonsController {
 
     @FXML
     private void onDebug(ActionEvent e) {
-        // TODO: hook to your engine's debug-start API if available
-        alertInfo("Not implemented", "Debug start is not yet implemented in the UI.");
+        if (engine == null || !engine.hasProgramLoaded()) {
+            alertInfo("No program loaded", "Load a program first.");
+            return;
+        }
+        try {
+            Long[] inputs = (inputController != null) ? inputController.collectAsLongsOrThrow() : new Long[0];
+            inputsAtDebugStart = Arrays.copyOf(inputs, inputs.length);
+            int degree = currentDegree;
+            debugSession = new EngineDebugAdapter(engine);
+            DebugSnapshot first = debugSession.start(inputs, degree);
+            if (inputController != null) inputController.lockInputs();
+            debugState = DebugState.PAUSED;
+            applySnapshot(first);
+        } catch (UnsupportedOperationException uoe) {
+            alertInfo("Debug not wired", "Connect EngineDebugAdapter to your EmulatorEngine stepping API.");
+            debugState = DebugState.IDLE;
+            if (inputController != null) inputController.unlockInputs();
+        } catch (Exception ex) {
+            alertError("Debug start failed", friendlyMsg(ex));
+            debugState = DebugState.IDLE;
+            if (inputController != null) inputController.unlockInputs();
+        } finally {
+            refreshButtonsEnabled();
+        }
     }
+
+    private void applySnapshot(DebugSnapshot snap) {
+        if (snap == null) return;
+
+        if (varsBoxController != null) {
+            varsBoxController.clearHighlight();
+        }
+        int row = toDisplayRowFromInstructionIndex(snap.currentInstructionIndex());
+        if (instructionsController != null) {
+            instructionsController.highlightRow(row);
+        }
+        if (varsBoxController != null) {
+            Map<String, String> vars = (snap.vars() == null) ? Map.of() : snap.vars();
+            Set<String> changed = new HashSet<>();
+            for (var e : vars.entrySet()) {
+                String k = e.getKey();
+                String newV = e.getValue();
+                String oldV = lastVarsSnapshot.get(k);
+                if (oldV != null && !Objects.equals(oldV, newV)) {
+                    changed.add(k);
+                }
+            }
+            varsBoxController.renderAll(vars);
+            varsBoxController.highlightVariables(changed);
+            varsBoxController.setCycles(Math.max(0, snap.cycles()));
+            lastVarsSnapshot = new HashMap<>(vars);
+        }
+        if (snap.finished()) {
+            debugState = DebugState.STOPPED;
+            onDebugFinishedUI();
+            if (inputController != null) inputController.unlockInputs();
+        } else {
+            debugState = DebugState.PAUSED;
+        }
+        refreshButtonsEnabled();
+    }
+
+    private int toDisplayRowFromInstructionIndex(int instrIndex) {
+        try {
+            ProgramView pv = engine.programView(currentDegree);
+            if (pv != null && pv.instructions() != null) {
+                var list = pv.instructions();
+                for (int i = 0; i < list.size(); i++) {
+                    InstructionView iv = list.get(i);
+                    if (iv != null && iv.index() == instrIndex) {
+                        return i + 1;
+                    }
+                }
+                return Math.max(1, Math.min(instrIndex, list.size()));
+            }
+        } catch (Exception ignore) {}
+        return Math.max(1, instrIndex);
+    }
+
+    private void onDebugFinishedUI() {
+        if (instructionsController != null) {
+            try { instructionsController.clearHighlight(); } catch (Exception ignore) {}
+        }
+    }
+
 
     @FXML
     private void onStop(ActionEvent e) {
-        // TODO: hook to your engine's stop API if available
-        alertInfo("Not implemented", "Stop is not yet implemented in the UI.");
+        try {
+            if (debugSession != null) debugSession.stop();
+        } catch (UnsupportedOperationException ex) {
+        } catch (Exception ex) {
+            alertError("Stop failed", friendlyMsg(ex));
+        } finally {
+            debugState = DebugState.STOPPED;
+            onDebugFinishedUI();
+            if (inputController != null) inputController.unlockInputs();
+            if (varsBoxController != null) varsBoxController.clearHighlight();
+            refreshButtonsEnabled();
+        }
     }
 
     @FXML
     private void onResume(ActionEvent e) {
-        // TODO: hook to your engine's resume API if available
-        alertInfo("Not implemented", "Resume is not yet implemented in the UI.");
+        if (debugSession == null) return;
+        try {
+            debugState = DebugState.RUNNING;
+            refreshButtonsEnabled();
+            DebugSnapshot snap = debugSession.resume();
+            applySnapshot(snap); // יגדיר PAUSED/STOPPED בהתאם ל-finished
+        } catch (UnsupportedOperationException ex) {
+            alertInfo("Resume not wired", "Implement resume() in EngineDebugAdapter.");
+            debugState = DebugState.PAUSED;
+            refreshButtonsEnabled();
+        } catch (Exception ex) {
+            alertError("Resume failed", friendlyMsg(ex));
+            debugState = DebugState.PAUSED;
+            refreshButtonsEnabled();
+        }
     }
 
     @FXML
     private void onStepOver(ActionEvent e) {
-        // TODO: hook to your engine's step-over API if available
-        alertInfo("Not implemented", "Step over is not yet implemented in the UI.");
+        if (debugSession == null) return;
+        try {
+            DebugSnapshot snap = debugSession.stepOver();
+            applySnapshot(snap);
+        } catch (UnsupportedOperationException ex) {
+            alertInfo("Step Over not wired", "Implement stepOver() in EngineDebugAdapter.");
+        } catch (Exception ex) {
+            alertError("Step Over failed", friendlyMsg(ex));
+        }
     }
 
     @FXML
@@ -234,13 +393,24 @@ public class RunButtonsController {
 
     private void refreshButtonsEnabled() {
         boolean loaded = (engine != null && engine.hasProgramLoaded());
-        if (btnNewRun != null) btnNewRun.setDisable(!loaded);
-        if (btnRun != null) btnRun.setDisable(!loaded);
-        if (btnDebug != null) btnDebug.setDisable(!loaded);
-        if (btnStop != null) btnStop.setDisable(!loaded);
-        if (btnResume != null) btnResume.setDisable(!loaded);
-        if (btnStepOver != null) btnStepOver.setDisable(!loaded);
-        if (btnStepBack != null) btnStepBack.setDisable(!loaded);
+        boolean inDebug = (debugState == DebugState.RUNNING || debugState == DebugState.PAUSED);
+        boolean paused = (debugState == DebugState.PAUSED);
+
+        if (btnNewRun != null) btnNewRun.setDisable(!loaded || inDebug);
+        if (btnRun != null) btnRun.setDisable(!loaded || inDebug);
+        if (btnDebug != null) btnDebug.setDisable(!loaded || inDebug);
+        if (btnStop != null) btnStop.setDisable(!inDebug);
+        if (btnResume != null) btnResume.setDisable(!paused);
+        if (btnStepOver != null) btnStepOver.setDisable(!paused);
+        if (btnStepBack != null) btnStepBack.setDisable(true);
+        if (inputController != null) {
+            if (inDebug) inputController.lockInputs();
+            else inputController.unlockInputs();
+        }
+
+        if (toolbarController != null) {
+            toolbarController.setDegreeUiLocked(inDebug);
+        }
     }
 
     private Optional<Integer> promptExpansionDegree(int min, int max) {
@@ -319,5 +489,45 @@ public class RunButtonsController {
         runGlowStopTimer = new PauseTransition(Duration.seconds(2));
         runGlowStopTimer.setOnFinished(e -> setReadyToRunVisual(false));
         runGlowStopTimer.playFromStart();
+    }
+
+    private void restartDebugAtDegree(int newDegree) {
+        if (engine == null || !engine.hasProgramLoaded()) return;
+
+        try {
+            if (debugSession != null) {
+                try { debugSession.stop(); } catch (Exception ignore) {}
+            }
+            if (instructionsController != null) {
+                try { instructionsController.clearHighlight(); } catch (Exception ignore) {}
+            }
+            if (varsBoxController != null) {
+                try { varsBoxController.clearHighlight(); } catch (Exception ignore) {}
+            }
+
+            debugSession = new EngineDebugAdapter(engine);
+            DebugSnapshot first = debugSession.start(inputsAtDebugStart, newDegree);
+            if (inputController != null) inputController.lockInputs();
+
+            currentDegree = Math.max(0, newDegree);
+            debugState = DebugState.PAUSED;
+            lastVarsSnapshot.clear();
+            applySnapshot(first);
+
+        } catch (Exception ex) {
+            alertError("Debug restart failed", friendlyMsg(ex));
+            debugState = DebugState.IDLE;
+            if (inputController != null) inputController.unlockInputs();
+            refreshButtonsEnabled();
+        }
+    }
+
+    public void onDegreeChangedWhileDebug(int newDegree) {
+        boolean inDebug = (debugState == DebugState.RUNNING || debugState == DebugState.PAUSED);
+        if (!inDebug) {
+            this.currentDegree = Math.max(0, newDegree);
+            return;
+        }
+        restartDebugAtDegree(Math.max(0, newDegree));
     }
 }

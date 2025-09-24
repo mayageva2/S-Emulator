@@ -26,11 +26,12 @@ public class ProgramToolbarController {
     private Runnable onSelectProgram, onCollapseClick, onExpandClick;
     private int currentDegree = 0;
     private int maxDegree = 0;
+    private boolean degreeUiLocked = false;
 
     @FXML
     private void initialize() {
         CollapseButton.setOnAction(e -> { if (onCollapseClick != null) onCollapseClick.run(); });
-        ExpandButton.setOnAction(e -> { if (onExpandClick   != null) onExpandClick.run(); });
+        ExpandButton.setOnAction(e -> { if (onExpandClick != null) onExpandClick.run(); });
 
         if (selectProgramChoice != null) {
             selectProgramChoice.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
@@ -61,6 +62,11 @@ public class ProgramToolbarController {
         updateButtons();
     }
 
+    public void setDegreeUiLocked(boolean locked) {
+        this.degreeUiLocked = locked;
+        updateButtons(); // re-apply disabled state consistently
+    }
+
     public void setOnExpand(Runnable r)   { this.onExpandClick = r; }
     public void setOnCollapse(Runnable r) { this.onCollapseClick = r; }
     public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }
@@ -70,8 +76,12 @@ public class ProgramToolbarController {
     public void setCurrent(int c) { this.currentDegree = c; bindDegree(c, maxDegree); }
 
     private void updateButtons() {
-        CollapseButton.setDisable(currentDegree <= 0);
-        ExpandButton.setDisable(currentDegree >= maxDegree);
+        boolean canCollapse = !degreeUiLocked && currentDegree > 0;
+        boolean canExpand = !degreeUiLocked && currentDegree < maxDegree;
+        boolean canJump = !degreeUiLocked && maxDegree >= 0;
+        CollapseButton.setDisable(!canCollapse);
+        ExpandButton.setDisable(!canExpand);
+        CurrentOrMaxDegreeButton.setDisable(!canJump);
     }
 
     public void setHighlightOptions(List<String> options) {
@@ -104,6 +114,7 @@ public class ProgramToolbarController {
     }
 
     private void openDegreeDialog() {
+        if (degreeUiLocked) return;
         Dialog<Integer> dialog = new Dialog<>();
         dialog.setTitle("Go to Degree");
         dialog.setHeaderText("Enter a degree between 0 and " + maxDegree);

@@ -5,22 +5,20 @@ import emulator.api.dto.RunResult;
 import emulator.api.dto.VarType;
 import emulator.api.dto.VariableView;
 import javafx.application.Platform;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.ObservableSet;
+import javafx.css.PseudoClass;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class VariablesBoxController {
@@ -29,9 +27,11 @@ public class VariablesBoxController {
     @FXML private TableColumn<VarRow, String> colName;
     @FXML private TableColumn<VarRow, String> colValue;
     @FXML private CyclesLineController cyclesLineController;
-    private final Map<String, Label> valueLabels = new ConcurrentHashMap<>();
+
     private final ObservableList<VarRow> rows = FXCollections.observableArrayList();
     private final Map<String, VarRow> byName = new ConcurrentHashMap<>();
+    private final ObservableSet<String> changedNow = FXCollections.observableSet();
+    private static final String CHANGED_CSS_CLASS = "current-instruction";
 
     @FXML
     private void initialize() {
@@ -39,6 +39,28 @@ public class VariablesBoxController {
         varsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         colName.setCellValueFactory(data -> data.getValue().nameProperty());
         colValue.setCellValueFactory(data -> data.getValue().valueProperty());
+
+        colValue.setCellFactory(col -> new TableCell<VarRow, String>() {
+            @Override protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                    getStyleClass().remove(CHANGED_CSS_CLASS);
+                    return;
+                }
+                setText(item);
+                VarRow rowItem = (getTableRow() == null) ? null : getTableRow().getItem();
+                String varName = (rowItem == null) ? null : rowItem.nameProperty().get();
+                boolean isChanged = varName != null && changedNow.contains(varName);
+                if (isChanged) {
+                    if (!getStyleClass().contains(CHANGED_CSS_CLASS)) {
+                        getStyleClass().add(CHANGED_CSS_CLASS);
+                    }
+                } else {
+                    getStyleClass().remove(CHANGED_CSS_CLASS);
+                }
+            }
+        });
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
             varsTable.getStylesheets().add(css.toExternalForm());
@@ -46,7 +68,7 @@ public class VariablesBoxController {
         }
     }
 
-    private Map<String, Long> buildVarsMapLikeConsole(RunResult result, Long[] inputs) {
+    private Map<String, Long> buildVarsMap(RunResult result, Long[] inputs) {
         var xValues = new java.util.TreeMap<Integer, Long>();
         var zValues = new java.util.TreeMap<Integer, Long>();
         var yVar = classifyVariables(result, xValues, zValues);
@@ -59,7 +81,7 @@ public class VariablesBoxController {
     }
 
     public void renderFromRun(RunResult result, Long[] inputs) {
-        Map<String, Long> vars = buildVarsMapLikeConsole(result, inputs);
+        Map<String, Long> vars = buildVarsMap(result, inputs);
         renderAll(vars);
         if (cyclesLineController != null) {
             cyclesLineController.renderFromRun(result, inputs);
@@ -103,11 +125,22 @@ public class VariablesBoxController {
             byName.clear();
             if (variables == null || variables.isEmpty()) return;
 
-            variables.forEach((k, v) -> {
+            List<String> keys = new ArrayList<>(variables.keySet());
+            keys.sort((a,b) -> {
+                int ra = rank(a), rb = rank(b);
+                if (ra != rb) return Integer.compare(ra, rb);
+                if (ra == 1 || ra == 2) {
+                    return Integer.compare(numSuffix(a), numSuffix(b));
+                }
+                return a.compareToIgnoreCase(b);
+            });
+
+            for (String k : keys) {
+                Object v = variables.get(k);
                 VarRow r = new VarRow(k, valueToString(v));
                 rows.add(r);
                 byName.put(k, r);
-            });
+            }
         });
     }
 
@@ -120,12 +153,24 @@ public class VariablesBoxController {
                 rows.add(r);
                 byName.put(name, r);
             } else {
-                int idx = rows.indexOf(r);
-                if (idx >= 0) {
-                    rows.set(idx, r);
-                }
+                r.valueProperty().set(newText);
             }
         });
+    }
+
+    private int rank(String k) {
+        String s = (k == null) ? "" : k.trim().toLowerCase(Locale.ROOT);
+        if (s.equals("y")) return 0;
+        if (s.startsWith("x")) return 1;
+        if (s.startsWith("z")) return 2;
+        return 3;
+    }
+
+    private int numSuffix(String k) {
+        String s = (k == null) ? "" : k.trim().toLowerCase(Locale.ROOT);
+        int i = 0; while (i < s.length() && !Character.isDigit(s.charAt(i))) i++;
+        if (i >= s.length()) return Integer.MAX_VALUE;
+        try { return Integer.parseInt(s.substring(i)); } catch (Exception e) { return Integer.MAX_VALUE; }
     }
 
     public void setCycles(int cycles) {
@@ -138,44 +183,33 @@ public class VariablesBoxController {
         Platform.runLater(() -> {
             rows.clear();
             byName.clear();
+            changedNow.clear();
         });
-    }
-
-    private HBox makeRow(String name, Object value) {
-        Label nameLbl = new Label(name + " = ");
-        nameLbl.getStyleClass().add("var-name");
-
-        Label valueLbl = new Label(valueToString(value));
-        valueLbl.getStyleClass().add("var-value");
-        valueLabels.put(name, valueLbl);
-
-        HBox row = new HBox(6, nameLbl, valueLbl);
-        row.setPadding(new Insets(2, 10, 2, 10));
-        HBox.setHgrow(valueLbl, Priority.ALWAYS);
-        return row;
     }
 
     private String valueToString(Object v) {
         return (v == null) ? "—" : String.valueOf(v);
     }
 
-    private Label faintLabel(String text) {
-        Label l = new Label(text);
-        l.setOpacity(0.6);
-        l.setPadding(new Insets(6,10,6,10));
-        return l;
-    }
-
-    private void flash(Label lbl) {
-        lbl.setStyle("-fx-background-color: rgba(255,255,0,0.25); -fx-background-radius: 4;");
-        new Thread(() -> {
-            try { Thread.sleep(300); } catch (InterruptedException ignored) {}
-            Platform.runLater(() -> lbl.setStyle(null));
-        }).start();
-    }
-
     public void clearForNewRun() {
         clear();
         setCycles(0);
+    }
+
+    public void highlightVariables(Set<String> names) {
+        if (names == null) names = Set.of();
+        final Set<String> copy = new HashSet<>(names);
+        Platform.runLater(() -> {
+            changedNow.clear();
+            changedNow.addAll(copy);
+            varsTable.refresh();
+        });
+    }
+
+    public void clearHighlight() {
+        Platform.runLater(() -> {
+            changedNow.clear();
+            varsTable.refresh();
+        });
     }
 }

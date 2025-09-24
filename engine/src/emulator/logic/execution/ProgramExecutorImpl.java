@@ -16,6 +16,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private final Program program;
     private int lastExecutionCycles = 0;
     private Long[] lastInputs = new Long[0];
+    private StepListener stepListener;
 
     public ProgramExecutorImpl(Program program) {
         this.program = Objects.requireNonNull(program, "program must not be null");
@@ -26,6 +27,8 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         this.program = Objects.requireNonNull(program, "program must not be null");
         this.quoteEval = quoteEval;
     }
+
+    @Override public void setStepListener(StepListener l) { this.stepListener = l; }
 
     //This func executes the loaded program with the given inputs
     @Override
@@ -46,6 +49,17 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     }
 
     // ---- helpers ----
+
+    private Map<String,String> snapshotVarsForDebug() {
+        Map<String,String> out = new LinkedHashMap<>();
+        for (var e : variableState().entrySet()) {
+            String name = (e.getKey() == null) ? "" : e.getKey().getRepresentation();
+            if (name != null && !name.isBlank()) {
+                out.put(name, String.valueOf(e.getValue()));
+            }
+        }
+        return out;
+    }
 
     //This func ensures the instruction list is not empty
     private void validateNotEmpty(List<Instruction> instructions) {
@@ -93,8 +107,8 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     //This func executes a single instruction and returns the next instruction index
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
-
         String opcodeName = ins.getInstructionData().getName();
+
         if ("QUOTE".equalsIgnoreCase(opcodeName) && quoteEval != null) {
             Map<String, String> a = (ins.getArguments() == null) ? Map.of() : ins.getArguments();
             String fn = a.getOrDefault("functionName", a.getOrDefault("FUNCTIONNAME", ""));
@@ -108,17 +122,33 @@ public class ProgramExecutorImpl implements ProgramExecutor{
             Variable targetVar = ins.getVariable();
             context.updateVariable(targetVar != null ? targetVar : Variable.RESULT, y);
             lastExecutionCycles += ins.cycles();
-            return currentIndex + 1;
+
+            int nextIndex = currentIndex + 1;
+            boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
+            if (stepListener != null) {
+                stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
+            }
+            return nextIndex;
         }
 
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
 
-        if (isExit(next)) {return instructions.size();} // exit loop
-        if (isEmpty(next))  {return currentIndex + 1;}
+        int nextIndex;
+        if (isExit(next)) {
+            nextIndex = instructions.size();
+        } else if (isEmpty(next))  {
+            nextIndex = currentIndex + 1;
+        } else {
+            Instruction target = program.instructionAt(next);
+            nextIndex = instructions.indexOf(target);
+        }
 
-        Instruction target = program.instructionAt(next);
-        return instructions.indexOf(target);
+        boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
+        if (stepListener != null) {
+            stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
+        }
+        return nextIndex;
     }
 
     //This func returns the variable's state
