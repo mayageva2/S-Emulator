@@ -1,10 +1,14 @@
 package InputsBox;
 
 import emulator.api.dto.ProgramView;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
+import javafx.scene.input.InputEvent;
 import javafx.scene.layout.*;
 
 import java.util.*;
@@ -15,9 +19,22 @@ public class InputsBoxController {
 
     private final List<String> inputNames = new ArrayList<>();
     private final Map<String, TextField> fieldsByName = new LinkedHashMap<>();
+    private final BooleanProperty locked = new SimpleBooleanProperty(false);
 
     @FXML
     private void initialize() {}
+
+    public void lockInputs()   { locked.set(true);  applyLockToFields(); }
+    public void unlockInputs() { locked.set(false); applyLockToFields(); }
+
+    private void applyLockToFields() {
+        boolean isLocked = locked.get();
+        for (TextField tf : fieldsByName.values()) {
+            tf.setEditable(!isLocked);
+            tf.setDisable(false);
+            tf.setFocusTraversable(true);
+        }
+    }
 
     public void showForProgram(ProgramView pv) {
         showNames(Collections.emptyList()); // fallback – real names come from MainController
@@ -97,7 +114,7 @@ public class InputsBoxController {
 
             Label nameLbl = new Label(names.get(row) + " =");
             TextField tf = new TextField();
-
+            attachGuards(tf);
             fieldsByName.put(name, tf);
 
             grid.add(nameLbl, 0, row);
@@ -106,6 +123,20 @@ public class InputsBoxController {
         }
 
         inputsList.getChildren().add(grid);
+        applyLockToFields();
+    }
+
+    private void attachGuards(TextField tf) {
+        // This formatter allows edits only when locked=false
+        tf.setTextFormatter(new javafx.scene.control.TextFormatter<String>(change -> {
+            return locked.get() ? null : change;
+        }));
+    }
+
+    private void makeEditable(TextField tf) {
+        tf.setDisable(false);
+        tf.setEditable(true);
+        tf.setTextFormatter(null);
     }
 
     public void clearInputs() {

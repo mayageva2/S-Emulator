@@ -206,7 +206,14 @@ public class RunButtonsController {
         this.varsBoxController = c;
     }
 
-    public void setInputsBoxController(InputsBox.InputsBoxController c) { this.inputController = c; }
+    public void setInputsBoxController(InputsBox.InputsBoxController c) {
+        this.inputController = c;
+        boolean inDebug = (debugState == DebugState.RUNNING || debugState == DebugState.PAUSED);
+        if (inputController != null) {
+            if (inDebug) inputController.lockInputs();
+            else inputController.unlockInputs();
+        }
+    }
 
     private void updateStatisticsFromEngineHistory() {
         if (statisticsController == null || engine == null) return;
@@ -226,14 +233,17 @@ public class RunButtonsController {
             int degree = currentDegree;
             debugSession = new EngineDebugAdapter(engine);
             DebugSnapshot first = debugSession.start(inputs, degree);
+            if (inputController != null) inputController.lockInputs();
             debugState = DebugState.PAUSED;
             applySnapshot(first);
         } catch (UnsupportedOperationException uoe) {
             alertInfo("Debug not wired", "Connect EngineDebugAdapter to your EmulatorEngine stepping API.");
             debugState = DebugState.IDLE;
+            if (inputController != null) inputController.unlockInputs();
         } catch (Exception ex) {
             alertError("Debug start failed", friendlyMsg(ex));
             debugState = DebugState.IDLE;
+            if (inputController != null) inputController.unlockInputs();
         } finally {
             refreshButtonsEnabled();
         }
@@ -254,6 +264,7 @@ public class RunButtonsController {
         if (snap.finished()) {
             debugState = DebugState.STOPPED;
             onDebugFinishedUI();
+            if (inputController != null) inputController.unlockInputs();
         } else {
             debugState = DebugState.PAUSED;
         }
@@ -294,6 +305,7 @@ public class RunButtonsController {
         } finally {
             debugState = DebugState.STOPPED;
             onDebugFinishedUI();
+            if (inputController != null) inputController.unlockInputs();
             refreshButtonsEnabled();
         }
     }
@@ -347,6 +359,10 @@ public class RunButtonsController {
         if (btnResume   != null) btnResume.setDisable(!paused);
         if (btnStepOver != null) btnStepOver.setDisable(!paused);
         if (btnStepBack != null) btnStepBack.setDisable(true);
+        if (inputController != null) {
+            if (inDebug) inputController.lockInputs();
+            else inputController.unlockInputs();
+        }
 
     }
 
