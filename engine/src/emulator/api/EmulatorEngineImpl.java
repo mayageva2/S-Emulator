@@ -1,5 +1,6 @@
 package emulator.api;
 
+import emulator.api.debug.DebugRecord;
 import emulator.api.dto.*;
 import emulator.exception.*;
 import emulator.logic.compose.Composer;
@@ -44,6 +45,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final Map<String, String> fnDisplayMap = new HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
+    private final List<DebugRecord> debugTrace = new ArrayList<>();
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -108,6 +110,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         try (StringReader reader = new StringReader(xml)) {
             return (ProgramXml) um.unmarshal(reader);
         }
+    }
+
+    public List<DebugRecord> debugTrace() {
+        return Collections.unmodifiableList(debugTrace);
     }
 
     public LoadResult loadProgram(Path xmlPath, ProgressListener cb) throws Exception {
@@ -179,6 +185,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     try {
                         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
                         var exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator()); // allow nested QUOTE
+                        debugTrace.clear();
+                        exec.setStepListener((pcAfter, cycles, vars, finished) -> {
+                            Map<String,String> vv = (vars == null) ? Map.of() : Map.copyOf(vars);
+                            debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
+                        });
                         long y = exec.run(inputs.toArray(Long[]::new));
                         return List.of(y);
                     } finally {
@@ -242,6 +253,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
         ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
+        debugTrace.clear();
+        exec.setStepListener((pcAfter, cycles, vars, finished) -> {
+            Map<String,String> vv = (vars == null) ? Map.of() : Map.copyOf(vars);
+            debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
+        });
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 
@@ -448,6 +464,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         var exec = (degree > 0) ? new ProgramExecutorImpl(toRun, makeQuoteEvaluator()) : this.executor;
 
         this.lastViewProgram = (degree > 0) ? toRun : current;
+        debugTrace.clear();
+        exec.setStepListener((pcAfter, cycles, vars, finished) -> {
+            Map<String,String> vv = (vars == null) ? Map.of() : Map.copyOf(vars);
+            debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
+        });
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
 

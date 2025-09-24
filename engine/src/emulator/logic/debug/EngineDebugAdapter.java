@@ -202,25 +202,29 @@ public class EngineDebugAdapter implements DebugSession {
                 timeline.get(idx);
     }
 
+    @SuppressWarnings("unchecked")
     private List<DebugSnapshot> buildTimelineFromHistoryOrFallback(RunResult rr) {
-        Object history = engine.history();
-        List<DebugSnapshot> out = new ArrayList<>();
-        if (history instanceof Iterable<?> it) {
-            for (Object rec : it) out.add(snapFromHistoryRecord(rec));
-            if (!out.isEmpty()) {
-                StringBuilder sb = new StringBuilder("history PCs: ");
-                for (int i = 0; i < Math.min(out.size(), 8); i++) {
-                    sb.append(out.get(i).currentInstructionIndex()).append(i < out.size()-1 ? "," : "");
+        try {
+            var m = engine.getClass().getMethod("debugTrace");
+            Object v = m.invoke(engine);
+            if (v instanceof List<?> list && !list.isEmpty()) {
+                List<DebugSnapshot> out = new ArrayList<>(list.size());
+                for (Object rec : list) {
+                    int pcAfter = (int)  rec.getClass().getMethod("pcAfter").invoke(rec);
+                    int cycles  = (int)  rec.getClass().getMethod("cycles").invoke(rec);
+                    @SuppressWarnings("unchecked")
+                    Map<String,String> vars = (Map<String,String>) rec.getClass().getMethod("vars").invoke(rec);
+                    boolean finished = (boolean) rec.getClass().getMethod("finished").invoke(rec);
+                    out.add(new DebugSnapshot(pcAfter, vars == null ? Map.of() : vars, cycles, finished));
                 }
-                System.out.println("[DEBUG] " + sb);
+                return out;
             }
+        } catch (NoSuchMethodException ignore) {
+        } catch (Exception ignore) {
         }
-        if (out.size() <= 1 || !timelineHasProgress(out)) {
-            List<DebugSnapshot> synth = synthesizeTimelineFromProgramView(rr);
-            if (!synth.isEmpty()) { return synth; }
-        }
-        if (!out.isEmpty()) return out;
 
+        var synth = synthesizeTimelineFromProgramView(rr);
+        if (!synth.isEmpty()) return synth;
         return List.of(new DebugSnapshot(0, Map.of(), 0, true));
     }
 
@@ -263,12 +267,20 @@ public class EngineDebugAdapter implements DebugSession {
     @SuppressWarnings("unchecked")
     private DebugSnapshot snapFromHistoryRecord(Object rec) {
         try {
-            int pc = tryInvokeInt(rec, "getInstructionIndex", "pc", "getPc", "instructionIndex");
+            int pc = tryInvokeInt(rec,
+                    "getInstructionIndex", "instructionIndex",
+                    "getPcAfter", "pcAfter",
+                    "getPc", "pc"
+            );
             int cycles = tryInvokeInt(rec, "getCycles", "cycles");
-            Map<String,String> vars = (Map<String,String>) tryInvoke(rec, Map.class, "getVars", "vars", "getVariables", "variablesSnapshot");
+            Map<String,String> vars = (Map<String,String>) tryInvoke(rec, Map.class,
+                    "getVars", "vars", "getVariables", "variablesSnapshot"
+            );
             if (vars == null || vars.isEmpty()) {
                 try {
-                    RunResult rr = (RunResult) tryInvoke(rec, RunResult.class, "getRunResult", "result", "getResult");
+                    RunResult rr = (RunResult) tryInvoke(rec, RunResult.class,
+                            "getRunResult", "result", "getResult"
+                    );
                     if (rr != null) vars = toVarsMap(rr, this.inputsAtStart);
                 } catch (Exception ignore) {}
             }
@@ -414,8 +426,14 @@ public class EngineDebugAdapter implements DebugSession {
         return masked;
     }
 
-    private DebugSnapshot buildSnapshotWithState(int pc, Map<String,String> ignoredDelta, int cycles, boolean fin) {
+    private DebugSnapshot buildSnapshotWithState(int pc, Map<String,String> vars, int cycles, boolean fin) {
         Map<String,String> masked = buildMaskedVars();
+        if (vars != null) {
+            for (var e : vars.entrySet()) {
+                String k = e.getKey(), v = e.getValue();
+                if (k != null && v != null) masked.put(k, v);
+            }
+        }
         this.lastKnownVars.clear();
         this.lastKnownVars.putAll(masked);
         return new DebugSnapshot(pc, masked, cycles, fin);
