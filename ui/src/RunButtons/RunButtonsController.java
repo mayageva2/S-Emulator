@@ -41,6 +41,7 @@ public class RunButtonsController {
     private InputsBoxController inputController;
     private StatisticsTable.StatisticsTableController statisticsController;
     private InstructionsTable.InstructionsTableController instructionsController;
+    private ProgramToolBar.ProgramToolbarController toolbarController;
     private Function<String, String> inputsFormatter;
     private Paint  runBaseTextFill;
     private Effect runBaseEffect;
@@ -53,6 +54,9 @@ public class RunButtonsController {
     private enum DebugState { IDLE, RUNNING, PAUSED, STOPPED }
     private DebugState debugState = DebugState.IDLE;
     private Map<String, String> lastVarsSnapshot = new HashMap<>();
+    private Long[] inputsAtDebugStart = new Long[0];
+    private final List<Control> degreeControls = new ArrayList<>();
+    private final List<TitledPane> degreePanes = new ArrayList<>();
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
     private Function<ProgramView, String> provenanceRenderer = pv -> pv != null ? pv.toString() : "";
@@ -84,6 +88,29 @@ public class RunButtonsController {
 
     public void setLastMaxDegree(int maxDegree) {
         this.lastMaxDegree = Math.max(0, maxDegree);
+    }
+
+    public void registerDegreeControl(Control c) {
+        if (c != null) {
+            degreeControls.add(c);
+            refreshButtonsEnabled();
+        }
+    }
+
+    public void registerDegreePane(TitledPane p) {
+        if (p != null) {
+            degreePanes.add(p);
+            refreshButtonsEnabled();
+        }
+    }
+
+    public void setProgramToolbarController(ProgramToolBar.ProgramToolbarController c) {
+        this.toolbarController = c;
+        refreshButtonsEnabled();
+    }
+
+    private boolean isInDebug() {
+        return debugState == DebugState.RUNNING || debugState == DebugState.PAUSED;
     }
 
     @FXML
@@ -230,6 +257,7 @@ public class RunButtonsController {
         }
         try {
             Long[] inputs = (inputController != null) ? inputController.collectAsLongsOrThrow() : new Long[0];
+            inputsAtDebugStart = Arrays.copyOf(inputs, inputs.length);
             int degree = currentDegree;
             debugSession = new EngineDebugAdapter(engine);
             DebugSnapshot first = debugSession.start(inputs, degree);
@@ -366,12 +394,13 @@ public class RunButtonsController {
     private void refreshButtonsEnabled() {
         boolean loaded = (engine != null && engine.hasProgramLoaded());
         boolean inDebug = (debugState == DebugState.RUNNING || debugState == DebugState.PAUSED);
-        boolean paused  = (debugState == DebugState.PAUSED);
+        boolean paused = (debugState == DebugState.PAUSED);
+
         if (btnNewRun != null) btnNewRun.setDisable(!loaded || inDebug);
         if (btnRun != null) btnRun.setDisable(!loaded || inDebug);
         if (btnDebug != null) btnDebug.setDisable(!loaded || inDebug);
-        if (btnStop     != null) btnStop.setDisable(!inDebug);
-        if (btnResume   != null) btnResume.setDisable(!paused);
+        if (btnStop != null) btnStop.setDisable(!inDebug);
+        if (btnResume != null) btnResume.setDisable(!paused);
         if (btnStepOver != null) btnStepOver.setDisable(!paused);
         if (btnStepBack != null) btnStepBack.setDisable(true);
         if (inputController != null) {
@@ -379,6 +408,9 @@ public class RunButtonsController {
             else inputController.unlockInputs();
         }
 
+        if (toolbarController != null) {
+            toolbarController.setDegreeUiLocked(inDebug);
+        }
     }
 
     private Optional<Integer> promptExpansionDegree(int min, int max) {
@@ -457,5 +489,45 @@ public class RunButtonsController {
         runGlowStopTimer = new PauseTransition(Duration.seconds(2));
         runGlowStopTimer.setOnFinished(e -> setReadyToRunVisual(false));
         runGlowStopTimer.playFromStart();
+    }
+
+    private void restartDebugAtDegree(int newDegree) {
+        if (engine == null || !engine.hasProgramLoaded()) return;
+
+        try {
+            if (debugSession != null) {
+                try { debugSession.stop(); } catch (Exception ignore) {}
+            }
+            if (instructionsController != null) {
+                try { instructionsController.clearHighlight(); } catch (Exception ignore) {}
+            }
+            if (varsBoxController != null) {
+                try { varsBoxController.clearHighlight(); } catch (Exception ignore) {}
+            }
+
+            debugSession = new EngineDebugAdapter(engine);
+            DebugSnapshot first = debugSession.start(inputsAtDebugStart, newDegree);
+            if (inputController != null) inputController.lockInputs();
+
+            currentDegree = Math.max(0, newDegree);
+            debugState = DebugState.PAUSED;
+            lastVarsSnapshot.clear();
+            applySnapshot(first);
+
+        } catch (Exception ex) {
+            alertError("Debug restart failed", friendlyMsg(ex));
+            debugState = DebugState.IDLE;
+            if (inputController != null) inputController.unlockInputs();
+            refreshButtonsEnabled();
+        }
+    }
+
+    public void onDegreeChangedWhileDebug(int newDegree) {
+        boolean inDebug = (debugState == DebugState.RUNNING || debugState == DebugState.PAUSED);
+        if (!inDebug) {
+            this.currentDegree = Math.max(0, newDegree);
+            return;
+        }
+        restartDebugAtDegree(Math.max(0, newDegree));
     }
 }
