@@ -252,14 +252,28 @@ public class RunButtonsController {
     private void applySnapshot(DebugSnapshot snap) {
         if (snap == null) return;
 
+        if (varsBoxController != null) {
+            varsBoxController.clearHighlight();
+        }
         int row = toDisplayRowFromInstructionIndex(snap.currentInstructionIndex());
         if (instructionsController != null) {
             instructionsController.highlightRow(row);
         }
         if (varsBoxController != null) {
             Map<String, String> vars = (snap.vars() == null) ? Map.of() : snap.vars();
+            Set<String> changed = new HashSet<>();
+            for (var e : vars.entrySet()) {
+                String k = e.getKey();
+                String newV = e.getValue();
+                String oldV = lastVarsSnapshot.get(k);
+                if (oldV != null && !Objects.equals(oldV, newV)) {
+                    changed.add(k);
+                }
+            }
             varsBoxController.renderAll(vars);
+            varsBoxController.highlightVariables(changed);
             varsBoxController.setCycles(Math.max(0, snap.cycles()));
+            lastVarsSnapshot = new HashMap<>(vars);
         }
         if (snap.finished()) {
             debugState = DebugState.STOPPED;
@@ -306,6 +320,7 @@ public class RunButtonsController {
             debugState = DebugState.STOPPED;
             onDebugFinishedUI();
             if (inputController != null) inputController.unlockInputs();
+            if (varsBoxController != null) varsBoxController.clearHighlight();
             refreshButtonsEnabled();
         }
     }

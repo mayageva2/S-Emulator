@@ -21,3 +21,10 @@
 .table-row-cell.current-instruction {
     -fx-background-color: #fff3cd;
 }
+
+.table-view.instructions .table-cell.current-instruction {
+    -fx-background-color: #fff3cd;
+    -fx-background-insets: 0, 1, 2;
+    -fx-background-radius: 6;
+    -fx-font-weight: bold;
+}
