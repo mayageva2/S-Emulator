@@ -161,10 +161,28 @@ public class MainController {
             }
         }
 
-        if (statisticsCommandsController != null && RunButtonsController != null) {
+        if (statisticsCommandsController != null) {
             statisticsCommandsController.setStatusSupplier(() -> {
-                Map<String, String> m = RunButtonsController.getLastRunVarsSnapshot();
-                return (m == null) ? java.util.Collections.emptyMap() : m;
+                if (statisticsTableController != null && RunButtonsController != null) {
+                    var idxOpt = statisticsTableController.getSelectedHistoryIndex();
+                    if (idxOpt.isPresent()) {
+                        Map<String, String> m = RunButtonsController.getVarsSnapshotForIndex(idxOpt.getAsInt());
+                        if (m != null && !m.isEmpty()) return m;
+                    }
+                }
+                if (RunButtonsController != null) {
+                    Map<String, String> last = RunButtonsController.getLastRunVarsSnapshot();
+                    if (last != null && !last.isEmpty()) return last;
+                }
+                if (engine != null) {
+                    Map<String, Long> lm = engine.lastRunVars();
+                    if (lm != null && !lm.isEmpty()) {
+                        Map<String, String> asStrings = new LinkedHashMap<>();
+                        lm.forEach((k,v) -> asStrings.put(k, String.valueOf(v)));
+                        return asStrings;
+                    }
+                }
+                return Collections.emptyMap();
             });
         }
 

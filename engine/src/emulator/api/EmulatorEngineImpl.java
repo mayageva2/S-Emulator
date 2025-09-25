@@ -46,6 +46,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
     private final XmlProgramValidator xmlProgramValidator = new XmlProgramValidator();
     private final List<DebugRecord> debugTrace = new ArrayList<>();
+    private Map<String, Long> lastRunVars = Map.of();
+    private List<Long> lastRunInputs = List.of();
+    private int lastRunDegree = 0;
+    private String lastRunProgramName = null;
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -104,6 +108,30 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return buildProgramView(base, degree, byDegree, max);
     }
 
+    @Override
+    public Map<String, Long> lastRunVars() {
+        return (lastRunVars == null)
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(lastRunVars));
+    }
+
+    @Override
+    public List<Long> lastRunInputs() {
+        return (lastRunInputs == null)
+                ? java.util.List.of()
+                : java.util.List.copyOf(lastRunInputs);
+    }
+
+    @Override
+    public int lastRunDegree() {
+        return lastRunDegree;
+    }
+
+    @Override
+    public String lastRunProgramName() {
+        return lastRunProgramName;
+    }
+
     private ProgramXml parseXmlToProgram(String xml) throws Exception {
         JAXBContext ctx = JAXBContext.newInstance(ProgramXml.class);
         Unmarshaller um = ctx.createUnmarshaller();
@@ -155,6 +183,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastViewProgram = null;
         this.history.clear();
         this.runCounter = 0;
+        this.lastRunVars = Map.of();
+        this.lastRunInputs = List.of();
+        this.lastRunDegree = 0;
+        this.lastRunProgramName = null;
 
         return new LoadResult(
                 current.getName(),
@@ -269,6 +301,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         e.getValue()
                 ))
                 .toList();
+        this.lastRunVars = exec.variableState().entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        e -> e.getKey().getRepresentation(),
+                        java.util.Map.Entry::getValue,
+                        (a,b) -> b,
+                        java.util.LinkedHashMap::new
+                ));
+        this.lastRunInputs = java.util.Arrays.stream(input == null ? new Long[0] : input)
+                .map(v -> v == null ? 0L : v)
+                .toList();
+        this.lastRunDegree = degree;
+        this.lastRunProgramName = target.getName();
 
         return new RunResult(y, cycles, vars);
     }
@@ -481,6 +525,19 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         e.getValue()
                 ))
                 .toList();
+
+        this.lastRunVars = exec.variableState().entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        e -> e.getKey().getRepresentation(),
+                        java.util.Map.Entry::getValue,
+                        (a,b) -> b,
+                        java.util.LinkedHashMap::new
+                ));
+        this.lastRunInputs = java.util.Arrays.stream(input == null ? new Long[0] : input)
+                .map(v -> v == null ? 0L : v)
+                .toList();
+        this.lastRunDegree = degree;
+        this.lastRunProgramName = current.getName();
 
         history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
         return new RunResult(y, cycles, vars);

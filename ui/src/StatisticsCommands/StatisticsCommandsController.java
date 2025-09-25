@@ -1,5 +1,6 @@
 package StatisticsCommands;
 
+import emulator.api.dto.RunRecord;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;

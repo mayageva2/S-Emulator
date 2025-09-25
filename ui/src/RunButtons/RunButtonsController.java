@@ -49,6 +49,7 @@ public class RunButtonsController {
     private Timeline runGlowPulse;
     private PauseTransition runGlowStopTimer;
     private Map<String, String> lastRunVarsSnapshot = Map.of();
+    private final Map<Integer, Map<String, String>> varsSnapshotsByIndex = new HashMap<>();
 
     // -- Debug --//
     private DebugSession debugSession;
@@ -77,6 +78,10 @@ public class RunButtonsController {
 
     public void setProvenanceRenderer(Function<ProgramView, String> renderer) {
         if (renderer != null) this.provenanceRenderer = renderer;
+    }
+
+    public Map<String, String> getVarsSnapshotForIndex(int historyIndex) {
+        return varsSnapshotsByIndex.getOrDefault(historyIndex, Map.of());
     }
 
     public Map<String, String> getLastRunVarsSnapshot() {
@@ -138,7 +143,7 @@ public class RunButtonsController {
             runGlowEffect.setSpread(0.55);
 
             runGlowPulse = new Timeline(
-                    new KeyFrame(Duration.ZERO,           new KeyValue(runGlowEffect.radiusProperty(), 14)),
+                    new KeyFrame(Duration.ZERO,              new KeyValue(runGlowEffect.radiusProperty(), 14)),
                     new KeyFrame(Duration.millis(700),    new KeyValue(runGlowEffect.radiusProperty(), 22)),
                     new KeyFrame(Duration.millis(1400),   new KeyValue(runGlowEffect.radiusProperty(), 14))
             );
@@ -228,6 +233,14 @@ public class RunButtonsController {
             }
 
             updateStatisticsFromEngineHistory();
+
+            try {
+                var hist = engine.history();
+                if (hist != null && !hist.isEmpty()) {
+                    int idx = hist.size() - 1;
+                    varsSnapshotsByIndex.put(idx, lastRunVarsSnapshot);
+                }
+            } catch (Exception ignore) {}
 
         } catch (Exception ex) {
             alertError("Run failed", friendlyMsg(ex));
