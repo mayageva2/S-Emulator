@@ -151,27 +151,6 @@ public class RunButtonsController {
             runGlowPulse.setCycleCount(Timeline.INDEFINITE);
         }
         refreshButtonsEnabled();
-
-        final double MIN_GAP = 2;
-        final double MAX_GAP = 15;
-        final int GAPS = 6;
-
-        var totalButtonsWidthBinding = Bindings.createDoubleBinding(
-                () -> get(btnNewRun) + get(btnRun) + get(btnDebug) + get(btnStop) + get(btnResume) + get(btnStepBack) + get(btnStepOver),
-                btnNewRun.widthProperty(), btnRun.widthProperty(), btnDebug.widthProperty(), btnStop.widthProperty(),
-                btnResume.widthProperty(), btnStepBack.widthProperty(), btnStepOver.widthProperty()
-        );
-
-        runButtonsHBox.spacingProperty().bind(Bindings.createDoubleBinding(() -> {
-            double contentW   = runButtonsHBox.getWidth();
-            double buttonsW   = totalButtonsWidthBinding.get();
-            double paddingW   = runButtonsHBox.getPadding() == null ? 0
-                    : runButtonsHBox.getPadding().getLeft() + runButtonsHBox.getPadding().getRight();
-            double availForGaps = Math.max(0, contentW - buttonsW - paddingW);
-            double gap = (GAPS > 0) ? availForGaps / GAPS : 0;
-            if (Double.isNaN(gap) || Double.isInfinite(gap)) gap = MIN_GAP;
-            return Math.max(MIN_GAP, Math.min(MAX_GAP, gap));
-        }, runButtonsHBox.widthProperty(), totalButtonsWidthBinding));
     }
 
     private static double get(Control c) { return (c == null) ? 0 : c.getWidth(); }

@@ -20,7 +20,7 @@
    </top>
 
    <center>
-      <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" minWidth="0.0" style="-fx-background-color: transparent; -fx-border-color: purple;">
+      <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" minWidth="0.0"  style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
          <content>
             <VBox spacing="0" fillWidth="true" minWidth="0.0">
                <padding><Insets top="6" right="10" bottom="10" left="10"/></padding>

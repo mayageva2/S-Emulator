@@ -90,10 +90,10 @@ public class MainController {
             varsBox.setMaxWidth(Double.MAX_VALUE);
             inputsBox.setMaxWidth(Double.MAX_VALUE);
 
-            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
-            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
-            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
-            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
+            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.6));
+            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.4));
+            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.6));
+            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.4));
 
             // Track width of the toolbar (kept in case you need it later)
             DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
@@ -117,17 +117,6 @@ public class MainController {
                 historyChain.prefWidthProperty().bind(historyChainBox.widthProperty());
                 historyChain.maxWidthProperty().bind(historyChainBox.widthProperty());
                 historyChainBox.prefWidthProperty().bind(contentBox.widthProperty());
-            }
-
-            // Keep right column aligned with RunButtons width (preserves your separation)
-            if (RunButtons != null && sidePanels != null) {
-                sidePanels.setMinWidth(0);
-                sidePanels.maxWidthProperty().bind(RunButtons.widthProperty());
-            }
-            if (RunButtons != null && statisticsBox != null) {
-                statisticsBox.setMinWidth(0);
-                statisticsBox.maxWidthProperty().bind(RunButtons.widthProperty());
-                statisticsBox.prefWidthProperty().bind(sidePanels.widthProperty());
             }
 
             // Let both columns participate in resizing

@@ -7,7 +7,7 @@
 
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"  fx:controller="InstructionsTable.InstructionsTableController">
    <center>
-      <TableView fx:id="table" maxWidth="Infinity" minWidth="0.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
+      <TableView fx:id="table" maxWidth="Infinity" minWidth="0.0" minHeight="0.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER" >
         <columns>
             <TableColumn fx:id="indexCol" text="Index" prefWidth="70"/>
             <TableColumn fx:id="typeCol" text="Basic / Synthetic" prefWidth="90"/>

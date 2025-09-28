@@ -12,11 +12,11 @@
       <URL value="@statistics-commands.css"/>
    </stylesheets>
    <center>
-      <HBox spacing="10.0" BorderPane.alignment="CENTER">
+      <HBox spacing="10.0" BorderPane.alignment="CENTER" fillHeight="true">
          <children>
-            <Button fx:id="showButton" mnemonicParsing="false" prefHeight="30.0" prefWidth="260" text="SHOW STATUS" />
+            <Button fx:id="showButton" text="SHOW STATUS" maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="30.0" />
             <Region HBox.hgrow="ALWAYS"/>
-            <Button  fx:id="rerunButton" mnemonicParsing="false" prefHeight="30.0" prefWidth="260" text="RE-RUN" />
+            <Button fx:id="rerunButton" text="RE-RUN" maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="30.0" />
          </children>
       </HBox>
    </center>

@@ -12,18 +12,18 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="cyclesLine.CyclesLineController">
    <center>
-      <HBox alignment="TOP_LEFT" prefWidth="220" maxWidth="220">
+      <HBox alignment="TOP_LEFT" maxWidth="Infinity" fillHeight="true" spacing="0">
 
-         <Label text="Total Cycles:" textFill="WHITE" textOverrun="CLIP" maxWidth="Infinity">
+      <Label text="Total Cycles:" textFill="WHITE" textOverrun="CLIP" maxWidth="Infinity">
             <font><Font size="16.0"/></font>
             <padding><Insets left="13.0" right="13.0" top="6.0" bottom="6.0"/></padding>
             <BorderPane.margin><Insets bottom="4.0"/></BorderPane.margin>
             <style>-fx-background-color: purple;</style>
          </Label>
 
-         <ScrollPane prefHeight="30.0" fitToWidth="true" fitToHeight="true"
-                     hbarPolicy="NEVER" vbarPolicy="NEVER" VBox.vgrow="ALWAYS"
-                     style="-fx-background-color: transparent; -fx-border-color: purple;">
+         <ScrollPane fitToWidth="true" fitToHeight="true"
+                     hbarPolicy="NEVER" vbarPolicy="NEVER"
+                     style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
             <content>
                <StackPane>
                   <children>
