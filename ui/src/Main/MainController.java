@@ -3,6 +3,7 @@ package Main;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
+import StatisticsCommands.RerunSpec;
 import SummaryLine.SummaryLineController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
@@ -148,6 +149,7 @@ public class MainController {
         this.engine = Objects.requireNonNull(engine, "engine");
         headerController.setEngine(engine);
         summaryLineController.setEngine(engine);
+        wireStatisticsCommands();
 
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
@@ -191,6 +193,92 @@ public class MainController {
                 RunButtonsController.setInputsBoxController(inputsBoxController);
             }
         });
+    }
+
+    private void wireStatisticsCommands() {
+        if (statisticsCommandsController == null) return;
+
+        statisticsCommandsController.setStatusSupplier(() -> engine.lastRunVars()
+                .entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey, e -> String.valueOf(e.getValue()),
+                        (a,b)->b, java.util.LinkedHashMap::new)));
+
+        statisticsCommandsController.setRerunSupplier(() -> {
+            String prog = engine.lastRunProgramName();
+            if (prog == null || prog.isBlank()) return null;
+            int deg = engine.lastRunDegree();
+            var inputs = engine.lastRunInputs(); // List<Long>
+            return new RerunSpec(prog, deg, inputs);
+        });
+
+        statisticsCommandsController.setRerunPreparer(spec -> {
+            int degree = safeDegreeForProgram(spec.programName(), spec.degree());
+            var pv = engine.programView(spec.programName(), degree);
+            showProgramView(pv);
+            resetForNewRunUI();
+            prefillInputs(spec.inputs());
+        });
+    }
+
+    private int safeDegreeForProgram(String programName, int requested) {
+        try {
+            var pv0 = engine.programView(programName, 0);
+            int max = pv0.maxDegree();
+            return Math.max(0, Math.min(requested, max));
+        } catch (Exception e) {
+            var pv0 = engine.programView(0);
+            int max = pv0.maxDegree();
+            return Math.max(0, Math.min(requested, max));
+        }
+    }
+
+    private void resetForNewRunUI() {
+        try {
+            if (toolbarController != null) {
+                try { toolbarController.reset(); } catch (Throwable ignore) {}
+                toolbarController.setHighlightEnabled(true);
+            }
+            if (instructionsController != null) {
+                try { instructionsController.clearHighlight(); } catch (Throwable ignore) {}
+                try { instructionsController.clearSelection(); } catch (Throwable ignore) {}
+            }
+            if (historyChainController != null) {
+                try { historyChainController.clear(); } catch (Throwable ignore) {}
+            }
+            if (varsBoxController != null) {
+                try { varsBoxController.clear(); } catch (Throwable ignore) {}
+            }
+            if (centerOutput != null) {
+                centerOutput.clear();
+            }
+            if (statisticsTableController != null) {
+                try { statisticsTableController.clearSelection(); } catch (Throwable ignore) {}
+            }
+            if (RunButtonsController != null) {
+                try { RunButtonsController.resetForNewRun(); } catch (Throwable ignore) {}
+            }
+            if (summaryLineController != null) {
+                try { summaryLineController.clear(); } catch (Throwable ignore) {}
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void showProgramView(ProgramView pv) {
+        if (instructionsController != null) {
+            instructionsController.setProgramView(pv);
+        }
+        if (summaryLineController != null) {
+            summaryLineController.bindTo(pv);
+        }
+    }
+    private void prefillInputs(List<Long> inputs) {
+        try {
+            var inputCtl = headerController.getInputController();
+            if (inputCtl != null) {
+                inputCtl.setInputs(inputs);
+            }
+        } catch (Exception ignored) {}
     }
 
     private boolean isLoaded() {

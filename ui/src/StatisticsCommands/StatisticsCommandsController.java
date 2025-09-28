@@ -1,6 +1,5 @@
 package StatisticsCommands;
 
-import emulator.api.dto.RunRecord;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;
@@ -13,20 +12,28 @@ import javafx.stage.Stage;
 
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 public class StatisticsCommandsController {
     @FXML private Button showButton, rerunButton;
 
     private Supplier<Map<String, String>> statusSupplier;
+    private Supplier<RerunSpec> rerunSupplier;
+    private Consumer<RerunSpec> rerunPreparer;
 
     public void setStatusSupplier(Supplier<Map<String, String>> supplier) {
         this.statusSupplier = supplier;
     }
+    public void setRerunSupplier(Supplier<RerunSpec> supplier) { this.rerunSupplier = supplier; }
+    public void setRerunPreparer(Consumer<RerunSpec> preparer) { this.rerunPreparer = preparer; }
 
     @FXML
     private void initialize() {
         if (showButton != null) {
             showButton.setOnAction(e -> onShowStatus());
+        }
+        if (rerunButton != null) {
+            rerunButton.setOnAction(e -> onReRun());
         }
     }
 
@@ -40,6 +47,29 @@ public class StatisticsCommandsController {
         }
         showVarsPopup(vars);
     }
+
+    private void onReRun() {
+        if (rerunSupplier == null || rerunPreparer == null) {
+            new Alert(Alert.AlertType.ERROR, "Re-run is not configured yet.").showAndWait();
+            return;
+        }
+        RerunSpec spec = rerunSupplier.get();
+        if (spec == null || spec.programName() == null || spec.programName().isBlank()) {
+            new Alert(Alert.AlertType.INFORMATION, "No previous run to re-run.").showAndWait();
+            return;
+        }
+        rerunPreparer.accept(spec);
+
+        Alert a = new Alert(Alert.AlertType.INFORMATION,
+                "Prepared a new run for program '" + spec.programName() +
+                        "' at degree " + spec.degree() +
+                        " with " + spec.inputs().size() + " inputs.\n" +
+                        "Now choose Run or Debug when you’re ready.");
+        a.setHeaderText("RE-RUN READY");
+        a.showAndWait();
+    }
+
+    // ... (showVarsPopup, rank, numSuffix כבעבר)
 
     private void showVarsPopup(Map<String, String> vars) {
         TableView<Map.Entry<String,String>> table = new TableView<>();

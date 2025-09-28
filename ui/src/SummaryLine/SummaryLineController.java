@@ -65,4 +65,12 @@ public class SummaryLineController {
         };
         if (Platform.isFxApplicationThread()) r.run(); else Platform.runLater(r);
     }
+
+    public void clear() {
+        setCounts(0, 0, 0);
+    }
+
+    public void bindTo(ProgramView pv) {
+        update(pv);
+    }
 }

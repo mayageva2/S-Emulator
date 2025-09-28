@@ -133,4 +133,12 @@ public class StatisticsTableController {
             });
         }
     }
+
+    public void clearSelection() {
+        try {
+            if (table != null) {
+                table.getSelectionModel().clearSelection();
+            }
+        } catch (Throwable ignore) {}
+    }
 }

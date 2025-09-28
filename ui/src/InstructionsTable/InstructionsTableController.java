@@ -249,4 +249,15 @@ public class InstructionsTableController {
         table.getSelectionModel().clearSelection();
         table.refresh();
     }
+
+    public void setProgramView(ProgramView pv) {
+        update(pv);
+        try {
+            if (table != null) {
+                table.getSelectionModel().clearSelection();
+                table.scrollTo(0);
+            }
+            clearHighlight();
+        } catch (Throwable ignore) {}
+    }
 }

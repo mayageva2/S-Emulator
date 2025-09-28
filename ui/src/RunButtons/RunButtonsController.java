@@ -552,4 +552,25 @@ public class RunButtonsController {
         }
         restartDebugAtDegree(Math.max(0, newDegree));
     }
+
+    public void resetForNewRun() {
+        try {
+            debugState = DebugState.IDLE;
+            lastVarsSnapshot.clear();
+            if (inputController != null) inputController.unlockInputs();
+
+            if (instructionsController != null) {
+                try { instructionsController.clearHighlight(); } catch (Throwable ignore) {}
+                try { instructionsController.clear(); } catch (Throwable ignore) {}
+            }
+            if (varsBoxController != null) {
+                try { varsBoxController.clear(); } catch (Throwable ignore) {}
+            }
+
+            blinkRunEmphasisTwoSeconds();
+        } catch (Throwable ignore) {
+        } finally {
+            refreshButtonsEnabled();
+        }
+    }
 }
