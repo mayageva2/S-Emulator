@@ -194,4 +194,31 @@ public class ProgramToolbarController {
             return false;
         }
     }
+
+    public void reset() {
+        try {
+            this.onJumpToDegree   = null;
+            this.onHighlightChanged = null;
+            this.onProgramSelected  = null;
+            this.onExpandClick    = null;
+            this.onCollapseClick  = null;
+            this.currentDegree = 0;
+            this.maxDegree = 0;
+            this.degreeUiLocked = false;
+            if (CurrentOrMaxDegreeButton != null) {
+                CurrentOrMaxDegreeButton.setText("Degree: 0/0");
+                CurrentOrMaxDegreeButton.setDisable(false);
+            }
+            if (HighlightChoices != null) {
+                HighlightChoices.setItems(FXCollections.observableArrayList("None"));
+                HighlightChoices.getSelectionModel().selectFirst();
+                HighlightChoices.setDisable(true);
+            }
+            if (selectProgramChoice != null) {
+                selectProgramChoice.setItems(FXCollections.observableArrayList());
+                selectProgramChoice.setDisable(true);
+            }
+            updateButtons();
+        } catch (Throwable ignore) {}
+    }
 }

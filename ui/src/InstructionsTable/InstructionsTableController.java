@@ -260,4 +260,14 @@ public class InstructionsTableController {
             clearHighlight();
         } catch (Throwable ignore) {}
     }
+
+    public void clearSelection() {
+        try {
+            if (table != null) {
+                table.getSelectionModel().clearSelection();
+            }
+            highlightedIndex = -1;
+            table.refresh();
+        } catch (Throwable ignore) {}
+    }
 }

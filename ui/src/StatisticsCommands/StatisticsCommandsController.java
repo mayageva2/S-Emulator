@@ -49,24 +49,10 @@ public class StatisticsCommandsController {
     }
 
     private void onReRun() {
-        if (rerunSupplier == null || rerunPreparer == null) {
-            new Alert(Alert.AlertType.ERROR, "Re-run is not configured yet.").showAndWait();
-            return;
-        }
+        if (rerunSupplier == null || rerunPreparer == null) { return; }
         RerunSpec spec = rerunSupplier.get();
-        if (spec == null || spec.programName() == null || spec.programName().isBlank()) {
-            new Alert(Alert.AlertType.INFORMATION, "No previous run to re-run.").showAndWait();
-            return;
-        }
+        if (spec == null || spec.programName() == null || spec.programName().isBlank()) { return; }
         rerunPreparer.accept(spec);
-
-        Alert a = new Alert(Alert.AlertType.INFORMATION,
-                "Prepared a new run for program '" + spec.programName() +
-                        "' at degree " + spec.degree() +
-                        " with " + spec.inputs().size() + " inputs.\n" +
-                        "Now choose Run or Debug when you’re ready.");
-        a.setHeaderText("RE-RUN READY");
-        a.showAndWait();
     }
 
     // ... (showVarsPopup, rank, numSuffix כבעבר)

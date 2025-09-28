@@ -52,6 +52,16 @@ public class CyclesLineController {
         return (sz != null) ? sz : 0L;
     }
 
+    public void reset() {
+        Platform.runLater(() -> {
+            if (cyclesValue != null) cyclesValue.setText("0");
+            if (root != null) {
+                root.setVisible(true);
+                root.setManaged(true);
+            }
+        });
+    }
+
     private Long tryNumberGetter(Object obj, String name) {
         try {
             Method m = obj.getClass().getMethod(name);
