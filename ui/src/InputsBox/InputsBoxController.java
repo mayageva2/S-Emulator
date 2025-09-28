@@ -146,4 +146,24 @@ public class InputsBoxController {
     public List<String> getInputNames() {
         return new ArrayList<>(inputNames);
     }
+
+    public void setInputs(java.util.List<Long> inputs) {
+        if (inputs == null) inputs = java.util.List.of();
+
+        for (var entry : fieldsByName.entrySet()) {
+            String name = entry.getKey();
+            javafx.scene.control.TextField tf = entry.getValue();
+            if (tf == null) continue;
+
+            int idx = parseXIndex(name);
+            String val = "";
+            if (idx > 0) {
+                int arrIdx = idx - 1;
+                if (arrIdx < inputs.size() && inputs.get(arrIdx) != null) {
+                    val = String.valueOf(inputs.get(arrIdx));
+                }
+            }
+            tf.setText(val);
+        }
+    }
 }

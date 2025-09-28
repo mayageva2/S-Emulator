@@ -32,6 +32,7 @@ public class HeaderAndLoadButtonController {
     private String lastProgramName;
 
     public record LoadedEvent(Path xmlPath, String programName, int maxDegree) {}
+    private InputsBox.InputsBoxController inputController;
     private Consumer<LoadedEvent> onLoaded;
 
     @FXML
@@ -41,6 +42,8 @@ public class HeaderAndLoadButtonController {
         assert loadButton   != null : "loadButton not injected";
     }
 
+    public void setInputController(InputsBox.InputsBoxController c) { this.inputController = c; }
+    public InputsBox.InputsBoxController getInputController() { return this.inputController; }
     public void setEngine(EmulatorEngine engine) { this.engine = Objects.requireNonNull(engine, "engine"); }
     public void setOnLoaded(Consumer<LoadedEvent> onLoaded) { this.onLoaded = onLoaded; }
     public Path getLastXmlPath() { return lastXmlPath; }

@@ -1,0 +1,5 @@
+.statistics-commands .button {
+    -fx-background-color: purple;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+}

@@ -6,6 +6,7 @@ versions/
 !**/src/main/**/out/
 !**/src/test/**/out/
 ui/src/META-INF/
+ui/META-INF/
 
 ### Eclipse ###
 .apt_generated

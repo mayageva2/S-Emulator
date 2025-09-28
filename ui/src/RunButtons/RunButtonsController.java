@@ -48,6 +48,8 @@ public class RunButtonsController {
     private DropShadow runGlowEffect;
     private Timeline runGlowPulse;
     private PauseTransition runGlowStopTimer;
+    private Map<String, String> lastRunVarsSnapshot = Map.of();
+    private final Map<Integer, Map<String, String>> varsSnapshotsByIndex = new HashMap<>();
 
     // -- Debug --//
     private DebugSession debugSession;
@@ -76,6 +78,14 @@ public class RunButtonsController {
 
     public void setProvenanceRenderer(Function<ProgramView, String> renderer) {
         if (renderer != null) this.provenanceRenderer = renderer;
+    }
+
+    public Map<String, String> getVarsSnapshotForIndex(int historyIndex) {
+        return varsSnapshotsByIndex.getOrDefault(historyIndex, Map.of());
+    }
+
+    public Map<String, String> getLastRunVarsSnapshot() {
+        return lastRunVarsSnapshot;
     }
 
     public void setStatisticsTableController(StatisticsTable.StatisticsTableController c) {
@@ -133,7 +143,7 @@ public class RunButtonsController {
             runGlowEffect.setSpread(0.55);
 
             runGlowPulse = new Timeline(
-                    new KeyFrame(Duration.ZERO,           new KeyValue(runGlowEffect.radiusProperty(), 14)),
+                    new KeyFrame(Duration.ZERO,              new KeyValue(runGlowEffect.radiusProperty(), 14)),
                     new KeyFrame(Duration.millis(700),    new KeyValue(runGlowEffect.radiusProperty(), 22)),
                     new KeyFrame(Duration.millis(1400),   new KeyValue(runGlowEffect.radiusProperty(), 14))
             );
@@ -216,9 +226,21 @@ public class RunButtonsController {
 
             if (varsBoxController != null) {
                 varsBoxController.renderFromRun(result, inputs);
+                Map<String, Long> snap = varsBoxController.buildVarsMap(result, inputs);
+                Map<String, String> asStrings = new LinkedHashMap<>();
+                snap.forEach((k,v) -> asStrings.put(k, String.valueOf(v)));
+                lastRunVarsSnapshot = asStrings;
             }
 
             updateStatisticsFromEngineHistory();
+
+            try {
+                var hist = engine.history();
+                if (hist != null && !hist.isEmpty()) {
+                    int idx = hist.size() - 1;
+                    varsSnapshotsByIndex.put(idx, lastRunVarsSnapshot);
+                }
+            } catch (Exception ignore) {}
 
         } catch (Exception ex) {
             alertError("Run failed", friendlyMsg(ex));
@@ -529,5 +551,26 @@ public class RunButtonsController {
             return;
         }
         restartDebugAtDegree(Math.max(0, newDegree));
+    }
+
+    public void resetForNewRun() {
+        try {
+            debugState = DebugState.IDLE;
+            lastVarsSnapshot.clear();
+            if (inputController != null) inputController.unlockInputs();
+
+            if (instructionsController != null) {
+                try { instructionsController.clearHighlight(); } catch (Throwable ignore) {}
+                try { instructionsController.clear(); } catch (Throwable ignore) {}
+            }
+            if (varsBoxController != null) {
+                try { varsBoxController.clear(); } catch (Throwable ignore) {}
+            }
+
+            blinkRunEmphasisTwoSeconds();
+        } catch (Throwable ignore) {
+        } finally {
+            refreshButtonsEnabled();
+        }
     }
 }

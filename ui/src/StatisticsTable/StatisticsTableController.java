@@ -5,14 +5,12 @@ import javafx.beans.property.ReadOnlyIntegerWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 import javafx.beans.property.ReadOnlyLongWrapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 // Adjust the import to your real RunRecord package
@@ -44,6 +42,8 @@ public class StatisticsTableController {
     @FXML private TableColumn<HistoryRow, Number> yCol;
     @FXML private TableColumn<HistoryRow, Number> cyclesCol;
 
+    private List<RunRecord> currentHistory = List.of();
+
     @FXML
     private void initialize() {
         // Value factories
@@ -63,6 +63,8 @@ public class StatisticsTableController {
 
         // Make Inputs the flexible column; keep the others tight.
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        for (var col : table.getColumns()) col.setSortable(false);
+        table.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
 
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
@@ -73,6 +75,7 @@ public class StatisticsTableController {
 
     /** Fill the table from your engine history using your existing formatter. */
     public void setHistory(List<RunRecord> history, Function<String, String> formatInputsByPosition) {
+        currentHistory = (history == null) ? List.of() : new ArrayList<>(history);
         if (history == null || history.isEmpty()) {
             table.getItems().clear();
             return;
@@ -94,6 +97,7 @@ public class StatisticsTableController {
 
     /** Convenience if you already precomputed pretty inputs (keeps your old flow). */
     public void setHistory(List<RunRecord> history, List<String> prettyInputs) {
+        currentHistory = (history == null) ? List.of() : new ArrayList<>(history);
         if (history == null || history.isEmpty()) {
             table.getItems().clear();
             return;
@@ -105,6 +109,12 @@ public class StatisticsTableController {
             rows.add(new HistoryRow(r.runNumber(), r.degree(), pretty, r.y(), r.cycles()));
         }
         table.getItems().setAll(rows);
+    }
+
+    public OptionalInt getSelectedHistoryIndex() {
+        int row = table.getSelectionModel().getSelectedIndex();
+        if (row < 0 || row >= currentHistory.size()) return OptionalInt.empty();
+        return OptionalInt.of(row);
     }
 
     // ---- helpers ----
@@ -122,5 +132,13 @@ public class StatisticsTableController {
                 return cell;
             });
         }
+    }
+
+    public void clearSelection() {
+        try {
+            if (table != null) {
+                table.getSelectionModel().clearSelection();
+            }
+        } catch (Throwable ignore) {}
     }
 }

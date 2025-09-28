@@ -6,6 +6,7 @@ import emulator.exception.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 public interface EmulatorEngine {
     ProgramView programView();
@@ -14,6 +15,10 @@ public interface EmulatorEngine {
     RunResult run(Long... input);
     RunResult run(int degree, Long... input);
     RunResult run(String programName, int degree, Long... inputs);
+    Map<String, Long> lastRunVars();
+    List<Long> lastRunInputs();
+    int lastRunDegree();
+    String lastRunProgramName();
     List<RunRecord> history();
     List<String> availablePrograms();
     boolean hasProgramLoaded();

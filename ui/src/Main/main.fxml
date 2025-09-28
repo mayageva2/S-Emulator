@@ -48,6 +48,7 @@
                 <VBox fx:id="statisticsBox" fillWidth="true" maxWidth="Infinity" spacing="20" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <padding><Insets left="20"/></padding>
                     <fx:include fx:id="statisticsTable" source="../StatisticsTable/StatisticsTable.fxml" VBox.vgrow="ALWAYS"/>
+                    <fx:include fx:id="statisticsCommands" source="../StatisticsCommands/StatisticsCommands.fxml" VBox.vgrow="ALWAYS"/>
                 </VBox>
             </HBox>
 

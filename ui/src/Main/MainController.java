@@ -3,11 +3,13 @@ package Main;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
+import StatisticsCommands.RerunSpec;
 import SummaryLine.SummaryLineController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
+import emulator.api.dto.RunRecord;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.DoubleBinding;
@@ -18,6 +20,7 @@ import javafx.scene.layout.*;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class MainController {
@@ -30,6 +33,7 @@ public class MainController {
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBox.InputsBoxController inputsBoxController;
     @FXML private StatisticsTable.StatisticsTableController statisticsTableController;
+    @FXML private StatisticsCommands.StatisticsCommandsController statisticsCommandsController;
 
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
@@ -147,6 +151,7 @@ public class MainController {
         this.engine = Objects.requireNonNull(engine, "engine");
         headerController.setEngine(engine);
         summaryLineController.setEngine(engine);
+        wireStatisticsCommands();
 
         if (RunButtonsController != null) {
             RunButtonsController.setEngine(engine);
@@ -160,11 +165,174 @@ public class MainController {
             }
         }
 
+        if (statisticsCommandsController != null) {
+            statisticsCommandsController.setStatusSupplier(() -> {
+                if (statisticsTableController != null && RunButtonsController != null) {
+                    var idxOpt = statisticsTableController.getSelectedHistoryIndex();
+                    if (idxOpt.isPresent()) {
+                        Map<String, String> m = RunButtonsController.getVarsSnapshotForIndex(idxOpt.getAsInt());
+                        if (m != null && !m.isEmpty()) return m;
+                    }
+                }
+                if (RunButtonsController != null) {
+                    Map<String, String> last = RunButtonsController.getLastRunVarsSnapshot();
+                    if (last != null && !last.isEmpty()) return last;
+                }
+                if (engine != null) {
+                    Map<String, Long> lm = engine.lastRunVars();
+                    if (lm != null && !lm.isEmpty()) {
+                        Map<String, String> asStrings = new LinkedHashMap<>();
+                        lm.forEach((k,v) -> asStrings.put(k, String.valueOf(v)));
+                        return asStrings;
+                    }
+                }
+                return Collections.emptyMap();
+            });
+        }
+
         Platform.runLater(() -> {
             if (RunButtonsController != null && inputsBoxController != null) {
                 RunButtonsController.setInputsBoxController(inputsBoxController);
             }
+            if (headerController != null && inputsBoxController != null) {
+                headerController.setInputController(inputsBoxController);
+            }
         });
+    }
+
+    private void wireStatisticsCommands() {
+        if (statisticsCommandsController == null) return;
+
+        statisticsCommandsController.setStatusSupplier(() -> engine.lastRunVars()
+                .entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, e -> String.valueOf(e.getValue()),
+                        (a, b) -> b, LinkedHashMap::new)));
+
+        statisticsCommandsController.setRerunSupplier(() -> {
+            String programName;
+            try { programName = engine.programView(0).programName(); }
+            catch (Exception e) { programName = engine.lastRunProgramName(); }
+            if (programName == null || programName.isBlank()) programName = "Main Program";
+            try {
+                if (statisticsTableController != null) {
+                    var idxOpt = statisticsTableController.getSelectedHistoryIndex();
+                    if (idxOpt.isPresent()) {
+                        int idx = idxOpt.getAsInt();
+                        var hist = engine.history();
+                        if (idx >= 0 && idx < hist.size()) {
+                            var r = hist.get(idx);
+                            int deg = r.degree();
+                            List<Long> inputs = (hasInputsList(r) ? getInputsList(r) : parseCsvAsLongs(r.inputsCsv()));
+                            return new RerunSpec(programName, deg, inputs);
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+
+            String prog = engine.lastRunProgramName();
+            if (prog == null || prog.isBlank()) prog = programName;
+            int deg = engine.lastRunDegree();
+            var inputs = engine.lastRunInputs();
+            return new RerunSpec(prog, deg, inputs);
+        });
+
+        statisticsCommandsController.setRerunPreparer(spec -> {
+            int degree = safeDegreeForProgram(spec.programName(), spec.degree());
+            var pv = engine.programView(spec.programName(), degree);
+            resetForNewRunUI();
+            Platform.runLater(() -> {
+                showProgramView(pv);
+                try {
+                    int fMax = engine.programView(spec.programName(), 0).maxDegree();
+                    currentDegree = degree;
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(degree, fMax);
+                        String mainName = engine.programView(0).programName();
+                        if (spec.programName().equalsIgnoreCase(mainName)) {
+                            toolbarController.setSelectedProgram(MAIN_PSEUDO);
+                        } else {
+                            toolbarController.setSelectedProgram(spec.programName());
+                        }
+
+                        toolbarController.setHighlightEnabled(true);
+                    }
+                    if (RunButtonsController != null) {
+                        RunButtonsController.setCurrentDegree(degree);
+                        RunButtonsController.setLastMaxDegree(fMax);
+                    }
+                } catch (Exception ignore) {
+                }
+            });
+
+            Platform.runLater(() -> {
+                try {
+                    if (inputsBoxController != null) {
+                        inputsBoxController.setInputs(spec.inputs());
+                    } else if (headerController != null && headerController.getInputController() != null) {
+                        headerController.getInputController().setInputs(spec.inputs());
+                    }
+                } catch (Exception ignored) {
+                }
+            });
+        });
+    }
+
+    private int safeDegreeForProgram(String programName, int requested) {
+        try {
+            var pv0 = engine.programView(programName, 0);
+            int max = pv0.maxDegree();
+            return Math.max(0, Math.min(requested, max));
+        } catch (Exception e) {
+            var pv0 = engine.programView(0);
+            int max = pv0.maxDegree();
+            return Math.max(0, Math.min(requested, max));
+        }
+    }
+
+    private void resetForNewRunUI() {
+        try {
+            if (instructionsController != null) {
+                try { instructionsController.clearHighlight(); } catch (Throwable ignore) {}
+                try { instructionsController.clearSelection(); } catch (Throwable ignore) {}
+            }
+            if (historyChainController != null) {
+                try { historyChainController.clear(); } catch (Throwable ignore) {}
+            }
+            if (varsBoxController != null) {
+                try { varsBoxController.clearForNewRun(); } catch (Throwable ignore) {}
+            }
+            if (centerOutput != null) {
+                centerOutput.clear();
+            }
+            if (statisticsTableController != null) {
+                try { statisticsTableController.clearSelection(); } catch (Throwable ignore) {}
+            }
+            if (RunButtonsController != null) {
+                try { RunButtonsController.resetForNewRun(); } catch (Throwable ignore) {}
+            }
+            if (summaryLineController != null) {
+                try { summaryLineController.clear(); } catch (Throwable ignore) {}
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void showProgramView(ProgramView pv) {
+        if (instructionsController != null) {
+            instructionsController.setProgramView(pv);
+        }
+        if (summaryLineController != null) {
+            summaryLineController.bindTo(pv);
+        }
+    }
+    private void prefillInputs(List<Long> inputs) {
+        try {
+            var inputCtl = headerController.getInputController();
+            if (inputCtl != null) {
+                inputCtl.setInputs(inputs);
+            }
+        } catch (Exception ignored) {}
     }
 
     private boolean isLoaded() {
@@ -241,10 +409,8 @@ public class MainController {
         render(0);
     }
 
-    private static final java.util.regex.Pattern Z_TOKEN =
-            java.util.regex.Pattern.compile("\\bz(?:[1-9]\\d*)?\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
-    private static final java.util.regex.Pattern Y_TOKEN =
-            java.util.regex.Pattern.compile("\\by\\b", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final Pattern Z_TOKEN = Pattern.compile("\\bz(?:[1-9]\\d*)?\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern Y_TOKEN = Pattern.compile("\\by\\b", Pattern.CASE_INSENSITIVE);
 
     private static class VarScan {
         final List<String> zs;
@@ -254,7 +420,7 @@ public class MainController {
 
     private VarScan scanZsAndY(ProgramView pv) {
         // preserve insertion order + uniqueness
-        java.util.Set<String> zs = new java.util.LinkedHashSet<>();
+        Set<String> zs = new LinkedHashSet<>();
         boolean hasY = false;
 
         for (InstructionView iv : pv.instructions()) {
@@ -273,7 +439,7 @@ public class MainController {
         }
 
         // sort z, z1, z2, z10… (bare z before numbered ones)
-        java.util.List<String> sortedZs = zs.stream()
+        List<String> sortedZs = zs.stream()
                 .sorted((a, b) -> {
                     int na = (a.equalsIgnoreCase("z")) ? 0 : numSuffix(a);
                     int nb = (b.equalsIgnoreCase("z")) ? 0 : numSuffix(b);
@@ -283,6 +449,30 @@ public class MainController {
 
         return new VarScan(sortedZs, hasY);
     }
+
+    private static List<Long> parseCsvAsLongs(String csv) {
+        if (csv == null || csv.isBlank()) return List.of();
+        String[] toks = csv.split(",");
+        List<Long> out = new ArrayList<>(toks.length);
+        for (String t : toks) {
+            String s = t == null ? "" : t.trim();
+            if (s.isEmpty()) out.add(0L);
+            else try { out.add(Long.parseLong(s)); } catch (NumberFormatException nfe) { out.add(0L); }
+        }
+        return out;
+    }
+
+    private static boolean hasInputsList(RunRecord r) {
+        try { r.getClass().getMethod("inputs"); return true; } catch (NoSuchMethodException e) { return false; }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Long> getInputsList(RunRecord r) {
+        try { return (List<Long>) r.getClass().getMethod("inputs").invoke(r); }
+        catch (Exception e) { return List.of(); }
+    }
+
+
 
     private static int numSuffix(String s) {
         // assumes s starts with 'z' or 'Z'
@@ -296,8 +486,8 @@ public class MainController {
                 try {
                     var m = pv.getClass().getMethod(mname);
                     Object obj = m.invoke(pv);
-                    if (obj instanceof java.util.List<?> list && !list.isEmpty()) {
-                        java.util.List<String> out = new java.util.ArrayList<>(list.size());
+                    if (obj instanceof List<?> list && !list.isEmpty()) {
+                        List<String> out = new ArrayList<>(list.size());
                         for (Object o : list) out.add(String.valueOf(o));
                         return out;
                     }
@@ -306,7 +496,7 @@ public class MainController {
         } catch (ReflectiveOperationException ex) {
             System.err.println("MainController.extractInputNames failed: " + ex);
         }
-        return java.util.Collections.emptyList();
+        return Collections.emptyList();
     }
 
     private void onExpandOne() {
@@ -331,7 +521,7 @@ public class MainController {
         }
     }
 
-    private void onExpandedRowSelected(emulator.api.dto.InstructionView selected) {
+    private void onExpandedRowSelected(InstructionView selected) {
         try {
             if (currentDegree <= 0 || selected == null) { historyChainController.clear(); return; }
             ProgramView pvOriginal = engine.programView(0);
