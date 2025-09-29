@@ -5,24 +5,31 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.text.Font?>
+<?import java.net.URL?>
 
 <?import javafx.scene.layout.Region?>
-<BorderPane maxHeight="Infinity" maxWidth="Infinity" prefHeight="50.0"
+<BorderPane maxWidth="Infinity" prefHeight="50.0"
             fx:controller="RunButtons.RunButtonsController"
             xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+
    <center>
-      <HBox fx:id="runButtonsHBox" alignment="CENTER_RIGHT" BorderPane.alignment="CENTER" maxWidth="Infinity" HBox.hgrow="ALWAYS" spacing="10" >
-         <Region HBox.hgrow="ALWAYS"/>
+      <HBox fx:id="runButtonsHBox" alignment="CENTER_RIGHT" spacing="0" HBox.hgrow="ALWAYS" maxWidth="Infinity">
+         <padding><Insets right="8"/></padding>
          <children>
-            <Button fx:id="btnNewRun"   onAction="#onNewRun"   prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="⟳" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Button fx:id="btnRun"      onAction="#onRun"      prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="▶" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Button fx:id="btnDebug"    onAction="#onDebug"    prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="🐞" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Button fx:id="btnStop"     onAction="#onStop"     prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="⏹" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Button fx:id="btnResume"   onAction="#onResume"   prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="⏸" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Button fx:id="btnStepBack" onAction="#onStepBack" prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="⏮" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Button fx:id="btnStepOver" onAction="#onStepOver" prefHeight="40.0" prefWidth="50.0" minWidth="50.0" style="-fx-background-color: purple;" text="⏭" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Button fx:id="btnNewRun"   onAction="#onNewRun"   prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⟳" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="btnRun"      onAction="#onRun"      prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="▶" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="btnDebug"    onAction="#onDebug"    prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="🐞" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="btnStop"     onAction="#onStop"     prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏹" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="btnResume"   onAction="#onResume"   prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏸" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="btnStepBack" onAction="#onStepBack" prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏮" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="btnStepOver" onAction="#onStepOver" prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏭" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
          </children>
-         <padding><Insets left="25" /></padding>
       </HBox>
    </center>
 </BorderPane>

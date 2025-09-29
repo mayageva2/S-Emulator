@@ -125,7 +125,6 @@ public class RunButtonsController {
 
     @FXML
     private void initialize() {
-        // Optional: tooltips
         if (btnNewRun != null) btnNewRun.setTooltip(new Tooltip("New Run: Clear"));
         if (btnDebug != null) btnDebug.setTooltip(new Tooltip("Debug"));
         if (btnStop != null) btnStop.setTooltip(new Tooltip("Stop"));
@@ -149,6 +148,11 @@ public class RunButtonsController {
             );
             runGlowPulse.setAutoReverse(true);
             runGlowPulse.setCycleCount(Timeline.INDEFINITE);
+        }
+        if (runButtonsHBox != null) {
+            runButtonsHBox.setSpacing(10);
+            runButtonsHBox.setFillHeight(false);
+            runButtonsHBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
         }
         refreshButtonsEnabled();
     }

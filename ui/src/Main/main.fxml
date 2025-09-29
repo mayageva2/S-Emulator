@@ -19,24 +19,14 @@
     </top>
 
     <center>
-        <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 10 10 10">
+        <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 12 10 12">
 
-            <GridPane hgap="10" alignment="BASELINE_LEFT">
-                <columnConstraints>
-                    <ColumnConstraints hgrow="ALWAYS"/>
-                    <ColumnConstraints hgrow="NEVER" minWidth="420" prefWidth="420"/>
-                </columnConstraints>
+            <HBox spacing="20" maxWidth="Infinity">
+                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" HBox.hgrow="ALWAYS"/>
+                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" HBox.hgrow="ALWAYS"/>
+            </HBox>
 
-                <fx:include fx:id="toolbar"
-                            source="../ProgramToolBar/programToolbar.fxml"
-                            GridPane.columnIndex="0" GridPane.hgrow="ALWAYS"/>
-
-                <HBox GridPane.columnIndex="1" alignment="BASELINE_RIGHT" fillHeight="true">
-                    <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml"/>
-                </HBox>
-            </GridPane>
-
-            <HBox fx:id="topSplit" alignment="CENTER_LEFT" spacing="10">
+            <HBox fx:id="topSplit" alignment="CENTER_LEFT" spacing="15">
                 <ScrollPane fitToWidth="true" fitToHeight="true"
                             hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED"
                             style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
@@ -56,7 +46,6 @@
                             style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
                     <content>
                         <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10" HBox.hgrow="ALWAYS">
-                            <!-- הוסר padding שמאלי כדי ליישר טורים -->
                             <fx:include fx:id="varsBox"   source="../VariablesBox/VariablesBox.fxml"
                                         HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS"/>
                             <fx:include fx:id="inputsBox" source="../InputsBox/InputsBox.fxml"

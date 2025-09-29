@@ -21,7 +21,7 @@
             <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="150" prefHeight="43.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
             <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <ChoiceBox fx:id="HighlightChoices" prefWidth="250" prefHeight="43.0" style="-fx-background-color: purple;"/>
-            <Region HBox.hgrow="ALWAYS"/>
+          <!--  <Region HBox.hgrow="ALWAYS"/>-->
          </children>
          <opaqueInsets>
             <Insets />
