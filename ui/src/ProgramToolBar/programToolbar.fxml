@@ -9,18 +9,18 @@
 <?import java.net.URL?>
 
 <?import javafx.scene.layout.Region?>
-<BorderPane maxWidth="Infinity" prefHeight="60.0" styleClass="program-toolbar" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
+<BorderPane maxWidth="Infinity" styleClass="program-toolbar" fx:controller="ProgramToolBar.ProgramToolbarController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
    <stylesheets>
       <URL value="@program-toolbar.css"/>
    </stylesheets>
    <center>
-      <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT">
+      <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" spacing="10.0" BorderPane.alignment="CENTER_LEFT">
          <children>
-            <ChoiceBox fx:id="selectProgramChoice" prefWidth="250" prefHeight="43.0" style="-fx-background-color: purple;"/>
-            <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
-            <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="150" prefHeight="43.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
-            <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
-            <ChoiceBox fx:id="HighlightChoices" prefWidth="257" prefHeight="43.0" style="-fx-background-color: purple;"/>
+            <ChoiceBox fx:id="selectProgramChoice" prefWidth="250" prefHeight="40.0" style="-fx-background-color: purple;"/>
+            <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="100" prefHeight="40.0" style="-fx-background-color: purple;"/>
+            <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="150" prefHeight="40.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
+            <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="100" prefHeight="40.0" style="-fx-background-color: purple;"/>
+            <ChoiceBox fx:id="HighlightChoices" maxWidth="Infinity" prefWidth="257" prefHeight="40.0" HBox.hgrow="ALWAYS" style="-fx-background-color: purple;"/>
          </children>
          <opaqueInsets>
             <Insets />
@@ -29,7 +29,7 @@
             <Insets />
          </BorderPane.margin>
          <padding>
-            <Insets left="5.0" top="7.0" />
+            <Insets left="5.0" top="0.0" />
          </padding>
       </HBox>
    </center>
