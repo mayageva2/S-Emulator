@@ -4,12 +4,18 @@
     -fx-background-color: purple;
     -fx-text-fill: white;
     -fx-font-size: 14px;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-max-height: 40;
 }
 
 .program-toolbar .choice-box {
     -fx-background-color: purple;
     -fx-mark-color: white; /* dropdown arrow */
     -fx-font-size: 16px;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-max-height: 40;
 }
 
 .program-toolbar .choice-box > .label {

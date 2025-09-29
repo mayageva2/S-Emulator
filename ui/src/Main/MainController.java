@@ -38,9 +38,9 @@ public class MainController {
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private VBox statisticsBox;
+    @FXML private VBox leftCol;
+    @FXML private VBox rightCol;
     @FXML private HBox sidePanels;
-    @FXML private HBox topSplit;
-    @FXML private HBox bottomSplit;
     @FXML private BorderPane varsBox;
     @FXML private BorderPane inputsBox;
 
@@ -90,45 +90,25 @@ public class MainController {
             varsBox.setMaxWidth(Double.MAX_VALUE);
             inputsBox.setMaxWidth(Double.MAX_VALUE);
 
-            contentBox.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
-            sidePanels.prefWidthProperty().bind(topSplit.widthProperty().multiply(0.50));
-            historyChainBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
-            statisticsBox.prefWidthProperty().bind(bottomSplit.widthProperty().multiply(0.50));
-
-            // Track width of the toolbar (kept in case you need it later)
-            DoubleBinding toolbarContentW = Bindings.createDoubleBinding(
-                    () -> toolbar.getBoundsInParent().getWidth(),
-                    toolbar.boundsInParentProperty()
-            );
-
             // Children widths follow their parent containers
             if (instructions != null) {
                 instructions.setMinWidth(0);
-                instructions.prefWidthProperty().bind(contentBox.widthProperty());
-                instructions.maxWidthProperty().bind(contentBox.widthProperty());
+                instructions.prefWidthProperty().bind(leftCol.widthProperty());
+                instructions.maxWidthProperty().bind(leftCol.widthProperty());
             }
             if (summaryLine != null) {
                 summaryLine.setMinWidth(0);
-                summaryLine.prefWidthProperty().bind(contentBox.widthProperty());
-                summaryLine.maxWidthProperty().bind(contentBox.widthProperty());
+                summaryLine.prefWidthProperty().bind(leftCol.widthProperty());
+                summaryLine.maxWidthProperty().bind(leftCol.widthProperty());
             }
             if (historyChain != null) {
                 historyChain.setMinWidth(0);
-                historyChain.prefWidthProperty().bind(historyChainBox.widthProperty());
-                historyChain.maxWidthProperty().bind(historyChainBox.widthProperty());
-                historyChainBox.prefWidthProperty().bind(contentBox.widthProperty());
+                historyChain.prefWidthProperty().bind(leftCol.widthProperty());
+                historyChain.maxWidthProperty().bind(leftCol.widthProperty());
             }
 
-            // Keep right column aligned with RunButtons width (preserves your separation)
-            if (RunButtons != null && sidePanels != null) {
-                sidePanels.setMinWidth(0);
-                sidePanels.maxWidthProperty().bind(RunButtons.widthProperty());
-            }
-            if (RunButtons != null && statisticsBox != null) {
-                statisticsBox.setMinWidth(0);
-                statisticsBox.maxWidthProperty().bind(RunButtons.widthProperty());
-                statisticsBox.prefWidthProperty().bind(sidePanels.widthProperty());
-            }
+            sidePanels.prefWidthProperty().bind(rightCol.widthProperty());
+            statisticsBox.prefWidthProperty().bind(rightCol.widthProperty());
 
             // Let both columns participate in resizing
             HBox.setHgrow(contentBox, Priority.ALWAYS);

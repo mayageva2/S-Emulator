@@ -19,27 +19,32 @@
     </top>
 
     <center>
-        <VBox maxWidth="Infinity" spacing="6.0" BorderPane.alignment="CENTER_LEFT">
-            <TableView fx:id="varsTable"
-                       VBox.vgrow="ALWAYS"
-                       minWidth="0.0"
-                       maxWidth="Infinity"
-                       prefHeight="150.0"
-                       style="-fx-border-color: purple;"
-                       stylesheets="@../InstructionsTable/InstructionTable.css">
-            <columns>
-                <TableColumn fx:id="colName" text="Variable" prefWidth="150"/>
-                <TableColumn fx:id="colValue" text="Value" />
-            </columns>
-                <placeholder>
-                    <Label text="no variables" opacity="0.6"/>
-                </placeholder>
-            </TableView>
+        <ScrollPane fitToWidth="true" fitToHeight="true" vbarPolicy="AS_NEEDED" hbarPolicy="NEVER"
+                    style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
+            <content>
+                <VBox maxWidth="Infinity" spacing="6.0" BorderPane.alignment="CENTER_LEFT">
+                    <TableView fx:id="varsTable"
+                           VBox.vgrow="ALWAYS"
+                           minWidth="0.0" minHeight="0.0"
+                           maxWidth="Infinity"
+                           prefHeight="300.0"
+                           style="-fx-border-color: purple;"
+                           stylesheets="@../InstructionsTable/InstructionTable.css">
+                        <columns>
+                            <TableColumn fx:id="colName" text="Variable" prefWidth="150"/>
+                            <TableColumn fx:id="colValue" text="Value" />
+                        </columns>
+                        <placeholder>
+                            <Label text="no variables" opacity="0.6"/>
+                        </placeholder>
+                    </TableView>
 
-            <VBox fillWidth="false">
-                <fx:include fx:id="cyclesLine" source="../cyclesLine/CyclesLine.fxml" VBox.vgrow="NEVER" BorderPane.alignment="CENTER_LEFT"/>
-            </VBox>
-        </VBox>
+                    <VBox fillWidth="false">
+                        <fx:include fx:id="cyclesLine" source="../cyclesLine/CyclesLine.fxml" VBox.vgrow="NEVER" BorderPane.alignment="CENTER_LEFT"/>
+                    </VBox>
+                </VBox>
+            </content>
+        </ScrollPane>
     </center>
     <padding>
         <Insets left="0" top="5" right="0"/>

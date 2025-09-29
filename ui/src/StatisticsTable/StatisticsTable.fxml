@@ -6,9 +6,8 @@
 <?import javafx.scene.layout.BorderPane?>
 
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="StatisticsTable.StatisticsTableController">
-
     <center>
-        <TableView fx:id="table" maxWidth="Infinity" minWidth="0.0" BorderPane.alignment="CENTER" style="-fx-background-color: white;">
+        <TableView fx:id="table" maxWidth="Infinity" minWidth="0.0" minHeight="0.0" BorderPane.alignment="CENTER" style="-fx-background-color: white;">
             <columns>
                 <TableColumn fx:id="runCol"     text="Run#"    prefWidth="80"/>
                 <TableColumn fx:id="degreeCol"  text="Degree"  prefWidth="90"/>

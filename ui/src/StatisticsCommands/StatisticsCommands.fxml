@@ -7,16 +7,17 @@
 
 <?import javafx.scene.layout.Region?>
 <?import java.net.URL?>
+<?import javafx.geometry.Insets?>
 <BorderPane maxWidth="Infinity" styleClass="statistics-commands" fx:controller="StatisticsCommands.StatisticsCommandsController" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1">
    <stylesheets>
       <URL value="@statistics-commands.css"/>
    </stylesheets>
    <center>
-      <HBox spacing="10.0" BorderPane.alignment="CENTER">
+      <HBox spacing="10.0" BorderPane.alignment="CENTER" fillHeight="true">
          <children>
-            <Button fx:id="showButton" mnemonicParsing="false" prefHeight="30.0" prefWidth="260" text="SHOW STATUS" />
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button  fx:id="rerunButton" mnemonicParsing="false" prefHeight="30.0" prefWidth="260" text="RE-RUN" />
+            <Button fx:id="showButton" text="SHOW STATUS" maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="30.0" prefWidth="300"/>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <Button fx:id="rerunButton" text="RE-RUN" maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="30.0" prefWidth="300"/>
          </children>
       </HBox>
    </center>
