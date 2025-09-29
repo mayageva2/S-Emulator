@@ -175,6 +175,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(150);
         xmlProgramValidator.validate(pxml);
 
+        fnDisplayMap.clear();
+        if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
+            for (var fxml : pxml.getFunctions().getFunctions()) {
+                String internal = (fxml.getName() == null) ? "" : fxml.getName().trim();
+                String user = (fxml.getUserString() == null) ? "" : fxml.getUserString().trim();
+                if (!internal.isEmpty() && !user.isEmpty()) {
+                    fnDisplayMap.put(internal, user);
+                    fnDisplayMap.put(internal.toUpperCase(ROOT), user);
+                }
+            }
+        }
+
         listener.onProgress("Building program...", 0.85);
         Thread.sleep(200);
         this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
@@ -268,7 +280,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             ));
         }
 
-        return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
+        return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles);
     }
 
     @Override

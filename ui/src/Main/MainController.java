@@ -11,8 +11,6 @@ import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.RunRecord;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.binding.DoubleBinding;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.TextArea;
@@ -52,6 +50,7 @@ public class MainController {
     @FXML private TextArea centerOutput;
 
     private static final String MAIN_PSEUDO = "Main Program";
+    private final Map<String,String> programDisplayToInternal = new LinkedHashMap<>();
 
     private EmulatorEngine engine;
     private List<String> inputNames = Collections.emptyList();
@@ -125,6 +124,10 @@ public class MainController {
             varsBox.prefWidthProperty().bind(half);
             inputsBox.prefWidthProperty().bind(half);
         });
+
+        if (instructionsController != null) {
+            instructionsController.setFunctionNameResolver(this::displayForProgram);
+        }
     }
 
     public void setEngine(EmulatorEngine engine) {
@@ -233,7 +236,7 @@ public class MainController {
                         if (spec.programName().equalsIgnoreCase(mainName)) {
                             toolbarController.setSelectedProgram(MAIN_PSEUDO);
                         } else {
-                            toolbarController.setSelectedProgram(spec.programName());
+                            toolbarController.setSelectedProgram(displayForProgram(spec.programName()));
                         }
 
                         toolbarController.setHighlightEnabled(true);
@@ -357,7 +360,15 @@ public class MainController {
                 quotedFns = quotedFns.stream().filter(available::contains).sorted(String.CASE_INSENSITIVE_ORDER).toList();
                 List<String> targets = new ArrayList<>();
                 targets.add(MAIN_PSEUDO);
-                targets.addAll(quotedFns);
+                programDisplayToInternal.clear();
+                List<String> displays = new ArrayList<>();
+                displays.add(MAIN_PSEUDO);
+
+                for (String internal : quotedFns) {
+                    String disp = displayForProgram(internal);
+                    programDisplayToInternal.put(disp, internal);
+                    displays.add(disp);
+                }
 
                 List<String> choices = new ArrayList<>();
                 if (XVars != null) choices.addAll(XVars);
@@ -365,7 +376,7 @@ public class MainController {
                 choices.addAll(scan.zs);
                 choices.addAll(labels);
 
-                toolbarController.setPrograms(targets);
+                toolbarController.setPrograms(displays);
                 toolbarController.setOnProgramSelected(this::onProgramPicked);
                 toolbarController.setHighlightOptions(choices);
                 toolbarController.setHighlightEnabled(true);
@@ -522,29 +533,26 @@ public class MainController {
         }
     }
 
-    private void onProgramPicked(String name) {
-        if (name == null) return;
+    private void onProgramPicked(String pickedDisplay) {
+        if (pickedDisplay == null) return;
         try {
-            if (MAIN_PSEUDO.equals(name)) {
+            if (MAIN_PSEUDO.equals(pickedDisplay)) {
                 int max = engine.programView(0).maxDegree();
                 currentDegree = Math.min(currentDegree, max);
                 toolbarController.bindDegree(currentDegree, max);
                 render(currentDegree);
             } else {
-                // Show function view at the same degree (clamped to that function’s max)
-                int fMax = engine.programView(name, 0).maxDegree();
+                String internal = programDisplayToInternal.getOrDefault(pickedDisplay, pickedDisplay);
+                int fMax = engine.programView(internal, 0).maxDegree();
                 int deg = Math.min(currentDegree, fMax);
                 toolbarController.bindDegree(deg, fMax);
-                // re-render using the overload that targets a function:
-                var pv = engine.programView(name, deg);
+                var pv = engine.programView(internal, deg);
                 instructionsController.update(pv);
                 summaryLineController.update(pv);
                 refreshHighlightOptions(pv);
-                // provenance panel is only meaningful vs original program at deg>0:
-                if (deg > 0) historyChainController.clear(); // or adapt if you keep provenance per function
+                if (deg > 0) historyChainController.clear();
             }
         } catch (Exception ex) {
-            // fall back to main if anything goes wrong
             int max = engine.programView(0).maxDegree();
             currentDegree = Math.min(currentDegree, max);
             toolbarController.bindDegree(currentDegree, max);
@@ -710,6 +718,60 @@ public class MainController {
             }
         }
         return null;
+    }
+
+    private String programUserString(String internalName) {
+        if (internalName == null) return "";
+        for (String mname : List.of(
+                "user-string",
+                "functionUserString",
+                "programUserString",
+                "userStringFor",
+                "userString",
+                "getUserString",
+                "displayName"
+        )) {
+            try {
+                var m = engine.getClass().getMethod(mname, String.class);
+                Object v = m.invoke(engine, internalName);
+                if (v != null) return String.valueOf(v);
+            } catch (NoSuchMethodException ignore) {} catch (Exception ignore) {}
+        }
+
+        try {
+            var pv = engine.programView(internalName, 0);
+            for (String mname : List.of(
+                    "user-string",
+                    "programUserString",
+                    "userString",
+                    "getProgramUserString",
+                    "displayName"
+            )) {
+                try {
+                    var m = pv.getClass().getMethod(mname);
+                    Object v = m.invoke(pv);
+                    if (v != null) return String.valueOf(v);
+                } catch (NoSuchMethodException ignore) {}
+            }
+
+            try {
+                var m = pv.getClass().getMethod("programName");
+                Object v = m.invoke(pv);
+                if (v != null) {
+                    String pn = String.valueOf(v);
+                    if (!pn.isBlank() && !pn.equals(internalName)) {
+                        return pn;
+                    }
+                }
+            } catch (NoSuchMethodException ignore) {}
+        } catch (Exception ignore) {}
+
+        return internalName;
+    }
+
+    private String displayForProgram(String internalName) {
+        String us = programUserString(internalName);
+        return (us == null || us.isBlank()) ? internalName : us;
     }
 
     public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class InstructionsTableController {
 
@@ -27,6 +28,11 @@ public class InstructionsTableController {
     private Consumer<InstructionView> onRowSelected;
     private String highlightTerm = null;
     private int highlightedIndex = -1;
+    private Function<String,String> fnNameResolver = s -> s; // identity default
+    public void setFunctionNameResolver(java.util.function.Function<String,String> f) {
+        this.fnNameResolver = (f != null) ? f : (s -> s);
+    }
+
     @FXML
     private void initialize() {
         indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index));
@@ -167,22 +173,19 @@ public class InstructionsTableController {
             case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
             case "QUOTE": {
                 String dest = (!args.isEmpty() && !args.get(0).contains("=")) ? args.get(0) : "y";
-                String fn = nz(getArg(args, "userString")); // prefer userString if defined
-                if (fn.isEmpty()) fn = nz(getArg(args, "functionUserString"));
-                if (fn.isEmpty()) fn = nz(getArg(args, "functionName"));
-                String fargs = nz(getArg(args, "functionArguments"));
+                String fn = nz(getArgFlex(args, "userString", "user-string", "functionUserString", "function-user-string", "functionName"));
+                fn = fnNameResolver.apply(fn);
+                String fargs = replaceHeadsWithUserStrings(nz(getArgFlex(args, "functionArguments", "function-arguments")));
                 String inside = fargs.isEmpty() ? fn : fn + ", " + fargs;
                 return dest + " <- (" + inside + ")";
             }
             case "JUMP_EQUAL_FUNCTION": {
-                String V = args.get(0); // the variable being compared
-                String fn = getArg(args, "userString");
-                if (fn.isEmpty()) fn = getArg(args, "functionUserString");
-                if (fn.isEmpty()) fn = getArg(args, "functionName");
-                String fargs = getArg(args, "functionArguments");
-                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
-
-                String label = findLabel(args); // reuse your helper
+                String V = args.get(0);
+                String fn = nz(getArgFlex(args, "userString", "user-string", "functionUserString", "function-user-string", "functionName"));
+                fn = fnNameResolver.apply(fn);
+                String fargs = replaceHeadsWithUserStrings(nz(getArgFlex(args, "functionArguments", "function-arguments")));
+                String inside = fargs.isBlank() ? fn : fn + ", " + fargs;
+                String label = findLabel(args);
                 return "IF " + V + " = (" + inside + ") GOTO " + label;
             }
             default: return iv.opcode() + " " + String.join(", ", args);
@@ -269,5 +272,45 @@ public class InstructionsTableController {
             highlightedIndex = -1;
             table.refresh();
         } catch (Throwable ignore) {}
+    }
+
+    private String replaceHeadsWithUserStrings(String fargs) {
+        if (fargs == null || fargs.isBlank()) return fargs;
+        StringBuilder out = new StringBuilder();
+        int n = fargs.length();
+        int i = 0;
+        while (i < n) {
+            char c = fargs.charAt(i);
+            out.append(c);
+            if (c == '(') {
+                int start = i + 1;
+                int j = start;
+                while (j < n && fargs.charAt(j) != ',' && fargs.charAt(j) != ')') j++;
+                String head = fargs.substring(start, j).trim();
+                String repl = (head.isEmpty() ? head : fnNameResolver.apply(head));
+                out.append(repl);
+                i = j - 1;
+            }
+            i++;
+        }
+        return out.toString();
+    }
+
+    private String getArgFlex(List<String> args, String... keys) {
+        if (args == null || keys == null || keys.length == 0) return "";
+        for (String a : args) {
+            if (a == null) continue;
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String leftNorm = a.substring(0, eq).replaceAll("[-_]", "").toLowerCase(Locale.ROOT);
+                for (String k : keys) {
+                    String kNorm = k.replaceAll("[-_]", "").toLowerCase(Locale.ROOT);
+                    if (leftNorm.equals(kNorm)) {
+                        return a.substring(eq + 1);
+                    }
+                }
+            }
+        }
+        return "";
     }
 }
