@@ -51,6 +51,7 @@ public class MainController {
 
     private static final String MAIN_PSEUDO = "Main Program";
     private final Map<String,String> programDisplayToInternal = new LinkedHashMap<>();
+    private String currentTargetProgramInternal = null;
 
     private EmulatorEngine engine;
     private List<String> inputNames = Collections.emptyList();
@@ -234,11 +235,13 @@ public class MainController {
                         toolbarController.bindDegree(degree, fMax);
                         String mainName = engine.programView(0).programName();
                         if (spec.programName().equalsIgnoreCase(mainName)) {
+                            currentTargetProgramInternal = null;
                             toolbarController.setSelectedProgram(MAIN_PSEUDO);
                         } else {
+                            currentTargetProgramInternal = spec.programName();
                             toolbarController.setSelectedProgram(displayForProgram(spec.programName()));
                         }
-
+                        currentDegree = degree;
                         toolbarController.setHighlightEnabled(true);
                     }
                     if (RunButtonsController != null) {
@@ -328,6 +331,7 @@ public class MainController {
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
+        currentTargetProgramInternal = null;
         currentDegree = 0;
         toolbarController.bindDegree(0, ev.maxDegree());
         toolbarController.setDegreeButtonEnabled(true);
@@ -463,7 +467,17 @@ public class MainController {
         catch (Exception e) { return List.of(); }
     }
 
-
+    private int maxDegreeForCurrentSelection() {
+        try {
+            if (currentTargetProgramInternal == null) {
+                return engine.programView(0).maxDegree();
+            } else {
+                return engine.programView(currentTargetProgramInternal, 0).maxDegree();
+            }
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 
     private static int numSuffix(String s) {
         // assumes s starts with 'z' or 'Z'
@@ -492,7 +506,7 @@ public class MainController {
 
     private void onExpandOne() {
         if (!isLoaded()) return;
-        int max = engine.programView(0).maxDegree();
+        int max = maxDegreeForCurrentSelection();
         if (currentDegree < max) {
             currentDegree++;
             toolbarController.bindDegree(currentDegree, max);
@@ -503,7 +517,7 @@ public class MainController {
 
     private void onCollapseOne() {
         if (!isLoaded()) return;
-        int max = engine.programView(0).maxDegree();
+        int max = maxDegreeForCurrentSelection();
         if (currentDegree > 0) {
             currentDegree--;
             toolbarController.bindDegree(currentDegree, max);
@@ -524,10 +538,17 @@ public class MainController {
 
     private void render(int degree) {
         try {
-            var pv = engine.programView(degree);
-            instructionsController.update(pv);
-            summaryLineController.update(pv);
-            refreshHighlightOptions(pv);
+            if (currentTargetProgramInternal == null) {
+                var pv = engine.programView(degree);
+                instructionsController.update(pv);
+                summaryLineController.update(pv);
+                refreshHighlightOptions(pv);
+            } else {
+                    var pv = engine.programView(currentTargetProgramInternal, degree);
+                    instructionsController.update(pv);
+                    summaryLineController.update(pv);
+                    refreshHighlightOptions(pv);
+            }
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
         }
@@ -537,23 +558,20 @@ public class MainController {
         if (pickedDisplay == null) return;
         try {
             if (MAIN_PSEUDO.equals(pickedDisplay)) {
-                int max = engine.programView(0).maxDegree();
-                currentDegree = Math.min(currentDegree, max);
-                toolbarController.bindDegree(currentDegree, max);
-                render(currentDegree);
+                currentTargetProgramInternal = null;
             } else {
                 String internal = programDisplayToInternal.getOrDefault(pickedDisplay, pickedDisplay);
-                int fMax = engine.programView(internal, 0).maxDegree();
-                int deg = Math.min(currentDegree, fMax);
-                toolbarController.bindDegree(deg, fMax);
-                var pv = engine.programView(internal, deg);
-                instructionsController.update(pv);
-                summaryLineController.update(pv);
-                refreshHighlightOptions(pv);
-                if (deg > 0) historyChainController.clear();
+                currentTargetProgramInternal = internal;
             }
+            int max = maxDegreeForCurrentSelection();
+            currentDegree = Math.min(currentDegree, max);
+            toolbarController.bindDegree(currentDegree, max);
+            if (RunButtonsController != null) RunButtonsController.setLastMaxDegree(max);
+            render(currentDegree);
+            if (currentDegree > 0) historyChainController.clear();
         } catch (Exception ex) {
-            int max = engine.programView(0).maxDegree();
+            currentTargetProgramInternal = null;
+            int max = maxDegreeForCurrentSelection();
             currentDegree = Math.min(currentDegree, max);
             toolbarController.bindDegree(currentDegree, max);
             render(currentDegree);
@@ -563,10 +581,8 @@ public class MainController {
     private void onJumpToDegree(Integer target) {
         if (target == null || !isLoaded()) return;
 
-        int max = engine.programView(0).maxDegree();
-        // clamp (just in case)
+        int max = maxDegreeForCurrentSelection();
         int clamped = Math.max(0, Math.min(target, max));
-
         currentDegree = clamped;
         toolbarController.bindDegree(currentDegree, max);
 
@@ -576,11 +592,12 @@ public class MainController {
         }
 
         render(currentDegree);
-        // optional: refresh provenance panel if a row is selected
+
         if (currentDegree > 0 && instructionsController != null) {
             var sel = instructionsController.getTableView().getSelectionModel().getSelectedItem();
             if (sel != null && sel.sourceIv != null) {
-                onExpandedRowSelected(sel.sourceIv);
+                if (currentTargetProgramInternal == null) onExpandedRowSelected(sel.sourceIv);
+                else historyChainController.clear();
             } else {
                 historyChainController.clear();
             }
