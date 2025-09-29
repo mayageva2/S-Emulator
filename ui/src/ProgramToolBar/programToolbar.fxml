@@ -14,14 +14,13 @@
       <URL value="@program-toolbar.css"/>
    </stylesheets>
    <center>
-      <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT" style="-fx-padding:5 5 5 5; ">
+      <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER_LEFT">
          <children>
             <ChoiceBox fx:id="selectProgramChoice" prefWidth="250" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
             <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="150" prefHeight="43.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
             <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="100" prefHeight="43.0" style="-fx-background-color: purple;"/>
-            <ChoiceBox fx:id="HighlightChoices" prefWidth="250" prefHeight="43.0" style="-fx-background-color: purple;"/>
-          <!--  <Region HBox.hgrow="ALWAYS"/>-->
+            <ChoiceBox fx:id="HighlightChoices" prefWidth="257" prefHeight="43.0" style="-fx-background-color: purple;"/>
          </children>
          <opaqueInsets>
             <Insets />

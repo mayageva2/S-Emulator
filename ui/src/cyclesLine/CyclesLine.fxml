@@ -23,7 +23,7 @@
 
          <ScrollPane fitToWidth="true" fitToHeight="true"
                      hbarPolicy="NEVER" vbarPolicy="NEVER"
-                     style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
+                     style="-fx-background-color: transparent; -fx-background-color: purple;">
             <content>
                <StackPane>
                   <children>

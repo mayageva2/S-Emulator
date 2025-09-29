@@ -27,7 +27,7 @@
                            VBox.vgrow="ALWAYS"
                            minWidth="0.0" minHeight="0.0"
                            maxWidth="Infinity"
-                           prefHeight="150.0"
+                           prefHeight="300.0"
                            style="-fx-border-color: purple;"
                            stylesheets="@../InstructionsTable/InstructionTable.css">
                         <columns>

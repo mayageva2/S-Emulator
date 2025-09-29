@@ -1,16 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.ColumnConstraints?>
-<?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="Main.MainController" maxWidth="Infinity">
+            fx:controller="Main.MainController" maxWidth="Infinity" minWidth="0">
 
     <top>
         <VBox spacing="2" style="-fx-padding: 6 10 0 10">
@@ -19,70 +15,62 @@
     </top>
 
     <center>
-        <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 12 10 12">
+        <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 12 10 12" minWidth="0">
 
-            <HBox spacing="20" maxWidth="Infinity">
-                <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml" HBox.hgrow="ALWAYS"/>
-                <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml" HBox.hgrow="ALWAYS"/>
-            </HBox>
+            <HBox fx:id="mainSplit" spacing="24" maxWidth="Infinity" minWidth="0">
 
-            <HBox fx:id="topSplit" alignment="CENTER_LEFT" spacing="15">
+                <!-- ===== LEFT COLUMN ===== -->
                 <ScrollPane fitToWidth="true" fitToHeight="true"
-                            hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED"
-                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
+                            hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
                     <content>
-                        <VBox fx:id="contentBox" fillWidth="true" maxWidth="Infinity" spacing="0"
-                              HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-                            <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml"
-                                        VBox.vgrow="ALWAYS"/>
-                            <fx:include fx:id="summaryLine" source="../SummaryLine/summaryLine.fxml"
-                                        VBox.vgrow="ALWAYS"/>
+                        <VBox fx:id="leftCol" spacing="12" minWidth="0" maxWidth="Infinity">
+
+                            <fx:include fx:id="toolbar" source="../ProgramToolBar/programToolbar.fxml"/>
+
+                            <VBox fx:id="contentBox" fillWidth="true" spacing="0"
+                                  minWidth="0" maxWidth="Infinity">
+                                <fx:include fx:id="instructions" source="../InstructionsTable/InstructionsTable.fxml"/>
+                                <fx:include fx:id="summaryLine"  source="../SummaryLine/summaryLine.fxml"/>
+                            </VBox>
+
+                            <VBox fx:id="historyChainBox" fillWidth="true" spacing="20"
+                                  minWidth="0" maxWidth="Infinity">
+                                <fx:include fx:id="historyChain" source="../SelectedInstructionHistoryChainTable/SelectedInstructionHistoryChainTable.fxml"/>
+                            </VBox>
+
                         </VBox>
                     </content>
                 </ScrollPane>
 
+                <!-- ===== RIGHT COLUMN ===== -->
                 <ScrollPane fitToWidth="true" fitToHeight="true"
-                            hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED"
-                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
+                            hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
                     <content>
-                        <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10" HBox.hgrow="ALWAYS">
-                            <fx:include fx:id="varsBox"   source="../VariablesBox/VariablesBox.fxml"
-                                        HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS"/>
-                            <fx:include fx:id="inputsBox" source="../InputsBox/InputsBox.fxml"
-                                        HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS"/>
-                        </HBox>
-                    </content>
-                </ScrollPane>
-            </HBox>
+                        <VBox fx:id="rightCol" spacing="12" minWidth="0" maxWidth="Infinity">
 
-            <HBox fx:id="bottomSplit">
-                <ScrollPane fitToWidth="true" fitToHeight="true"
-                            vbarPolicy="AS_NEEDED" hbarPolicy="AS_NEEDED"
-                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
-                    <content>
-                        <VBox fx:id="historyChainBox" fillWidth="true" maxWidth="Infinity" spacing="20"
-                              HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-                            <fx:include fx:id="historyChain" source="../SelectedInstructionHistoryChainTable/SelectedInstructionHistoryChainTable.fxml"
-                                        VBox.vgrow="ALWAYS"/>
+                            <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml"/>
+
+                            <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10"
+                                  minWidth="0" maxWidth="Infinity">
+                                <fx:include fx:id="varsBox"   source="../VariablesBox/VariablesBox.fxml"/>
+                                <fx:include fx:id="inputsBox" source="../InputsBox/InputsBox.fxml"/>
+                            </HBox>
+
+                            <VBox fx:id="statisticsBox" fillWidth="true" spacing="20"
+                                  minWidth="0" maxWidth="Infinity">
+                                <fx:include fx:id="statisticsTable"    source="../StatisticsTable/StatisticsTable.fxml"/>
+                                <fx:include fx:id="statisticsCommands" source="../StatisticsCommands/StatisticsCommands.fxml"/>
+                            </VBox>
+
                         </VBox>
                     </content>
                 </ScrollPane>
 
-                <ScrollPane fitToWidth="true" fitToHeight="true"
-                            vbarPolicy="AS_NEEDED" hbarPolicy="AS_NEEDED"
-                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-border-color: transparent;">
-                    <content>
-                        <VBox fx:id="statisticsBox" fillWidth="true" maxWidth="Infinity" spacing="20"
-                              HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-                            <fx:include fx:id="statisticsTable"    source="../StatisticsTable/StatisticsTable.fxml"
-                                        VBox.vgrow="ALWAYS"/>
-                            <fx:include fx:id="statisticsCommands" source="../StatisticsCommands/StatisticsCommands.fxml"
-                                        VBox.vgrow="ALWAYS"/>
-                        </VBox>
-                    </content>
-                </ScrollPane>
             </HBox>
-
         </VBox>
     </center>
 </BorderPane>
