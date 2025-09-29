@@ -21,21 +21,24 @@
             <style>-fx-background-color: purple;</style>
          </Label>
 
-         <ScrollPane fitToWidth="true" fitToHeight="true"
-                     hbarPolicy="NEVER" vbarPolicy="NEVER"
-                     style="-fx-background-color: transparent; -fx-background-color: purple;">
-            <content>
-               <StackPane>
-                  <children>
-                     <Label fx:id="cyclesValue" text="" styleClass="kv-value"
-                            maxWidth="Infinity" wrapText="true" alignment="CENTER"
-                            textAlignment="CENTER">
-                        <font><Font size="14.0"/></font>
-                     </Label>
-                  </children>
-               </StackPane>
-            </content>
-         </ScrollPane>
+         <StackPane minWidth="0" maxWidth="Infinity" snapToPixel="false" style="-fx-border-color: purple; -fx-border-width: 1;
+                  -fx-border-insets: 0 0 1 0; -fx-background-color: transparent; -fx-background-insets: 0;">
+            <ScrollPane fitToWidth="true" fitToHeight="true"
+                        hbarPolicy="NEVER" vbarPolicy="NEVER"
+                        style="-fx-background-color: transparent;" >
+               <content>
+                  <StackPane>
+                     <children>
+                        <Label fx:id="cyclesValue" text="" styleClass="kv-value"
+                               maxWidth="Infinity" wrapText="true" alignment="CENTER"
+                               textAlignment="CENTER">
+                           <font><Font size="14.0"/></font>
+                        </Label>
+                     </children>
+                  </StackPane>
+               </content>
+            </ScrollPane>
+         </StackPane>
       </HBox>
    </center>
 </BorderPane>
