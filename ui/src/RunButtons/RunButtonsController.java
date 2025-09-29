@@ -29,6 +29,7 @@ import javafx.util.Duration;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class RunButtonsController {
     @FXML private Button btnNewRun, btnRun, btnDebug, btnStop, btnResume, btnStepOver, btnStepBack;
@@ -59,6 +60,8 @@ public class RunButtonsController {
     private Long[] inputsAtDebugStart = new Long[0];
     private final List<Control> degreeControls = new ArrayList<>();
     private final List<TitledPane> degreePanes = new ArrayList<>();
+    private Supplier<String> selectedProgramSupplier = () -> null;
+    private String debugProgramName = null;
 
     private Function<ProgramView, String> basicRenderer = pv -> pv != null ? pv.toString() : "";
     private Function<ProgramView, String> provenanceRenderer = pv -> pv != null ? pv.toString() : "";
@@ -70,6 +73,10 @@ public class RunButtonsController {
 
     public void setInstructionsController(InstructionsTable.InstructionsTableController c) {
         this.instructionsController = c;
+    }
+
+    public void setSelectedProgramSupplier(java.util.function.Supplier<String> s) {
+        this.selectedProgramSupplier = s;
     }
 
     public void setBasicRenderer(Function<ProgramView, String> renderer) {
@@ -199,13 +206,18 @@ public class RunButtonsController {
             return;
         }
 
-        int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
-        if (max == 0) { try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {} }
-        int degree = Math.max(0, Math.min(currentDegree, max));
-
         try {
             Long[] inputs = inputController.collectAsLongsOrThrow();
-            RunResult result = engine.run(degree, inputs);
+            int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
+            if (max == 0) { try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {} }
+            int degree = Math.max(0, Math.min(currentDegree, max));
+
+            String target = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
+            EngineDebugAdapter adapter = new EngineDebugAdapter(engine);
+            adapter.start(inputs, degree, target);
+            RunResult result = (target == null || target.isBlank())
+                    ? engine.run(degree, inputs)
+                    : engine.run(target, degree, inputs);
 
             if (varsBoxController != null) {
                 varsBoxController.renderFromRun(result, inputs);
@@ -263,8 +275,12 @@ public class RunButtonsController {
         try {
             Long[] inputs = (inputController != null) ? inputController.collectAsLongsOrThrow() : new Long[0];
             inputsAtDebugStart = Arrays.copyOf(inputs, inputs.length);
+            debugProgramName = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
+            if (debugProgramName == null || debugProgramName.isBlank()) {
+                debugProgramName = engine.programView(0).programName();
+            }
             int degree = currentDegree;
-            debugSession = new EngineDebugAdapter(engine);
+            debugSession = new EngineDebugAdapter(engine, debugProgramName);
             DebugSnapshot first = debugSession.start(inputs, degree);
             if (inputController != null) inputController.lockInputs();
             debugState = DebugState.PAUSED;
@@ -320,7 +336,11 @@ public class RunButtonsController {
 
     private int toDisplayRowFromInstructionIndex(int instrIndex) {
         try {
-            ProgramView pv = engine.programView(currentDegree);
+            String target = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
+            ProgramView pv = (target == null || target.isBlank())
+                    ? engine.programView(currentDegree)
+                    : engine.programView(target, currentDegree);
+
             if (pv != null && pv.instructions() != null) {
                 var list = pv.instructions();
                 for (int i = 0; i < list.size(); i++) {
@@ -508,6 +528,13 @@ public class RunButtonsController {
             }
             if (varsBoxController != null) {
                 try { varsBoxController.clearHighlight(); } catch (Exception ignore) {}
+            }
+
+            if (debugProgramName == null || debugProgramName.isBlank()) {
+                String fromSupplier = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
+                debugProgramName = (fromSupplier != null && !fromSupplier.isBlank())
+                        ? fromSupplier
+                        : engine.programView(0).programName();
             }
 
             debugSession = new EngineDebugAdapter(engine);

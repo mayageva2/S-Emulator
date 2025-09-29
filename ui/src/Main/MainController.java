@@ -58,6 +58,10 @@ public class MainController {
     private int currentDegree = 0;
     private Consumer<String> onHighlightChanged;
 
+    private String getCurrentTargetProgramInternal() {
+        return currentTargetProgramInternal;
+    }
+
     @FXML
     private void initialize() {
         headerController.setOnLoaded(this::onProgramLoaded);
@@ -142,6 +146,7 @@ public class MainController {
             RunButtonsController.setVarsBoxController(varsBoxController);
             RunButtonsController.setInstructionsController(instructionsController);
             RunButtonsController.setProgramToolbarController(toolbarController);
+            RunButtonsController.setSelectedProgramSupplier(this::getCurrentTargetProgramInternal);
 
             if (statisticsTableController != null) {
                 RunButtonsController.setStatisticsTableController(statisticsTableController);

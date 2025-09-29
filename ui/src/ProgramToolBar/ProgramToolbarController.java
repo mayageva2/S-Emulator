@@ -28,6 +28,10 @@ public class ProgramToolbarController {
     private int maxDegree = 0;
     private boolean degreeUiLocked = false;
 
+    public String getSelectedProgramName() {
+        return (selectProgramChoice != null) ? selectProgramChoice.getValue() : null;
+    }
+
     @FXML
     private void initialize() {
         CollapseButton.setOnAction(e -> { if (onCollapseClick != null) onCollapseClick.run(); });
