@@ -336,6 +336,7 @@ public class MainController {
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
+        resetForNewLoadUI();
         currentTargetProgramInternal = null;
         currentDegree = 0;
         toolbarController.bindDegree(0, ev.maxDegree());
@@ -794,6 +795,56 @@ public class MainController {
     private String displayForProgram(String internalName) {
         String us = programUserString(internalName);
         return (us == null || us.isBlank()) ? internalName : us;
+    }
+
+    private void resetForNewLoadUI() {
+        resetForNewRunUI();
+        currentTargetProgramInternal = null;
+        currentDegree = 0;
+        programDisplayToInternal.clear();
+        inputNames = Collections.emptyList();
+
+        try { if (centerOutput != null) centerOutput.clear(); } catch (Throwable ignore) {}
+        if (instructionsController != null) {
+            try { instructionsController.clearHighlight(); } catch (Throwable ignore) {}
+            try { instructionsController.clearSelection(); } catch (Throwable ignore) {}
+            try { instructionsController.clear(); } catch (Throwable ignore) {}
+        }
+        if (summaryLineController != null) {
+            try { summaryLineController.clear(); } catch (Throwable ignore) {}
+        }
+        if (historyChainController != null) {
+            try { historyChainController.clear(); } catch (Throwable ignore) {}
+        }
+        if (varsBoxController != null) {
+            try { varsBoxController.clearForNewRun(); } catch (Throwable ignore) {}
+        }
+        if (inputsBoxController != null) {
+            try { inputsBoxController.showNames(Collections.emptyList()); } catch (Throwable ignore) {}
+            try { inputsBoxController.setInputs(Collections.emptyList()); } catch (Throwable ignore) {}
+        } else if (headerController != null && headerController.getInputController() != null) {
+            try {
+                headerController.getInputController().showNames(Collections.emptyList());
+                headerController.getInputController().setInputs(Collections.emptyList());
+            } catch (Throwable ignore) {}
+        }
+        if (statisticsTableController != null) {
+            try { statisticsTableController.clearSelection(); } catch (Throwable ignore) {}
+            try { statisticsTableController.clear(); } catch (Throwable ignore) {}
+        }
+        if (RunButtonsController != null) {
+            try { RunButtonsController.resetForNewRun(); } catch (Throwable ignore) {}
+        }
+        if (toolbarController != null) {
+            try {
+                toolbarController.setPrograms(List.of(MAIN_PSEUDO));   // רק "Main Program" זמנית
+                toolbarController.setSelectedProgram(MAIN_PSEUDO);
+                toolbarController.bindDegree(0, 0);
+                toolbarController.setDegreeButtonEnabled(false);
+                toolbarController.setHighlightOptions(Collections.emptyList());
+                toolbarController.setHighlightEnabled(false);
+            } catch (Throwable ignore) {}
+        }
     }
 
     public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }

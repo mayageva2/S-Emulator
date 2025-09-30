@@ -141,4 +141,14 @@ public class StatisticsTableController {
             }
         } catch (Throwable ignore) {}
     }
+
+    public void clear() {
+        try {
+            if (table != null) {
+                table.getItems().clear();
+                table.getSelectionModel().clearSelection();
+            }
+            currentHistory = List.of();
+        } catch (Throwable ignore) {}
+    }
 }
