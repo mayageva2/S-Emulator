@@ -43,19 +43,22 @@ public class EngineDebugAdapter implements DebugSession {
         try { mainName = engine.programView(0).programName(); }
         catch (Exception ex) { mainName = null; }
 
-        String target = (programName != null && !programName.isBlank())
-                ? programName
-                : mainName;
+        String target = (programName != null && !programName.isBlank()) ? programName : mainName;
+        if (!Objects.equals(target, engine.lastRunProgramName())) {
+            engine.clearHistory();
+        }
 
         this.selectedProgram = target;
         this.degreeAtStart = degree;
         this.inputsAtStart = inputs != null ? inputs.clone() : new Long[0];
+
         ProgramView pvAtStart = null;
         try {
             pvAtStart = (selectedProgram != null && !selectedProgram.isBlank())
                     ? engine.programView(selectedProgram, this.degreeAtStart)
                     : engine.programView(this.degreeAtStart);
         } catch (Exception ignore) {}
+
         this.orderedVarNames = discoverAllVarNames(pvAtStart, this.inputsAtStart);
         this.lastKnownVars = new LinkedHashMap<>();
         for (String n : orderedVarNames) lastKnownVars.put(n, "-");
@@ -75,14 +78,10 @@ public class EngineDebugAdapter implements DebugSession {
             return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
         } else {
             // REPLAY
-            RunResult rr = (selectedProgram != null && !selectedProgram.isBlank())
-                    ? engine.run(selectedProgram, degree, inputs)
-                    : engine.run(degree, inputs);
-            this.timeline = buildTimelineFromHistoryOrFallback(rr);
-            this.idx = (timeline.isEmpty() ? -1 : 0);
-            this.alive = !timeline.isEmpty();
-            DebugSnapshot cur = current();
-            return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
+            this.timeline = new ArrayList<>();
+            this.idx = -1;
+            this.alive = false;
+            return buildSnapshotWithState(-1, lastKnownVars, 0, false);
         }
     }
 

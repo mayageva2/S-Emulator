@@ -33,6 +33,7 @@ public interface EmulatorEngine {
             ProgramException,              // other domain errors
             IOException;                   // reader surfaces raw IO
     LoadResult loadProgram(Path xmlPath, ProgressListener listener) throws Exception;
+    public void clearHistory();
     void saveState(Path fileWithoutExt) throws Exception;
     void loadState(Path fileWithoutExt) throws Exception;
 }

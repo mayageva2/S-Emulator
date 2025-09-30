@@ -325,8 +325,13 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
+        recordRun(degree, input, y, cycles);
 
         return new RunResult(y, cycles, vars);
+    }
+
+    private void recordRun(int degree, Long[] input, long y, int cycles) {
+        history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
     }
 
     @Override
@@ -551,7 +556,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
+        recordRun(degree, input, y, cycles);
         return new RunResult(y, cycles, vars);
     }
 
@@ -624,5 +629,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.programExpander = new ProgramExpander();
         this.quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
         this.expander = new Expander();
+    }
+
+    @Override
+    public void clearHistory() {
+        history.clear();
+        runCounter = 0;
     }
 }
