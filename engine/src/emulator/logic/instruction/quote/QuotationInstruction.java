@@ -1,6 +1,7 @@
 package emulator.logic.instruction.quote;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.instruction.*;
@@ -19,6 +20,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
     private final QuoteParser parser;
     private final QuotationRegistry registry;
     private final VarResolver varResolver;
+    private final QuoteEvaluator quoteEval;
 
     private QuotationInstruction(Builder builder) {
         super(emulator.logic.instruction.InstructionData.QUOTATION, Objects.requireNonNull(builder.variable, "variable"), builder.myLabel);
@@ -28,6 +30,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         this.rawArgs = List.copyOf(this.parser.parseTopLevelArgs(this.functionArguments));
         this.registry = Objects.requireNonNull(builder.registry, "registry");
         this.varResolver = Objects.requireNonNull(builder.varResolver, "varResolver");
+        this.quoteEval = Objects.requireNonNull(builder.quoteEval, "quoteEval");
 
         setArgument("functionName", this.functionName);
         setArgument("functionArguments", this.functionArguments);
@@ -42,6 +45,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         private QuoteParser parser;
         private QuotationRegistry registry;
         private VarResolver varResolver;
+        private QuoteEvaluator quoteEval;
 
         public Builder variable(Variable variable) { this.variable = variable; return this; }
         public Builder funcName(String funcName) { this.funcName = funcName; return this; }
@@ -49,14 +53,15 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         public Builder myLabel(Label label) { this.myLabel = label; return this; }
         public Builder parser(QuoteParser parser) { this.parser = parser; return this; }
         public Builder registry(QuotationRegistry r) { this.registry = r; return this; }
-        public Builder varResolver(VarResolver r) { this.varResolver = r; return this; }
+        public Builder varResolver(VarResolver var) { this.varResolver = var; return this; }
+        public Builder quoteEval(QuoteEvaluator q) { this.quoteEval = q; return this; }
 
         public QuotationInstruction build() { return new QuotationInstruction(this); }
     }
 
     @Override
     public Label execute(ExecutionContext ctx) {
-        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver);
+        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, quoteEval);
         ctx.updateVariable(getVariable(), resultY);
         return FixedLabel.EMPTY;
     }
@@ -110,13 +115,14 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                 out.add(new ZeroVariableInstruction(dstZi, FixedLabel.EMPTY));
             } else if (parser.isNestedCall(tok)) {
                 QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                out.add(new QuotationInstruction.Builder()
+                out.add(new Builder()
                         .variable(dstZi)
                         .funcName(nc.name())
                         .funcArguments(nc.argsCsv())
                         .parser(parser)
                         .registry(registry)
                         .varResolver(varResolver)
+                        .quoteEval(quoteEval)
                         .build());
             } else {
                 Variable src = resolveLoose(varResolver, tok);
@@ -256,6 +262,7 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                     .parser(qi.parser)
                     .registry(qi.registry)
                     .varResolver(qi.varResolver)
+                    .quoteEval(quoteEval)
                     .myLabel(newLbl)
                     .build();
         }

@@ -187,7 +187,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(300);
         XmlProgramReader reader = new XmlProgramReader();
         ProgramXml pxml = reader.read(xmlPath);
-        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
 
@@ -217,7 +217,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         listener.onProgress("Building program...", 0.85);
         Thread.sleep(200);
-        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
         this.lastViewProgram = null;
@@ -337,7 +337,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         });
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
-        cycles += QuoteUtils.drainCycles();
 
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
@@ -566,7 +565,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         });
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
-        cycles += QuoteUtils.drainCycles();
 
         //Collect final state of all variables after execution
         var vars = exec.variableState().entrySet().stream()
@@ -650,7 +648,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             this.current = loaded.current;
             this.lastViewProgram = loaded.lastViewProgram;
-            this.executor = loaded.executor;
+            this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
             this.history.clear();
             this.history.addAll(loaded.history);
             this.runCounter = loaded.runCounter;
@@ -660,7 +658,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func creates heavy objects
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
-        this.executor = new ProgramExecutorImpl(this.current);
+        this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         this.programExpander = new ProgramExpander();
         this.quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
         this.expander = new Expander();
@@ -792,7 +790,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             try {
                 long y = dbgExecutor.run(inputs == null ? new Long[0] : inputs);
                 int cycles = dbgExecutor.getLastExecutionCycles();
-                cycles += QuoteUtils.drainCycles();
                 Map<String,String> vars = snapshotVars(dbgExecutor, inputs);
                 List<VariableView> varViews = dbgExecutor.variableState().entrySet().stream()
                         .map(e -> new VariableView(

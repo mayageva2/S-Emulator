@@ -109,41 +109,18 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
         String opcodeName = ins.getInstructionData().getName();
-
-        if ("QUOTE".equalsIgnoreCase(opcodeName) && quoteEval != null) {
-            Map<String, String> a = (ins.getArguments() == null) ? Map.of() : ins.getArguments();
-            String fn = a.getOrDefault("functionName", a.getOrDefault("FUNCTIONNAME", ""));
-            String fargs = a.getOrDefault("functionArguments", a.getOrDefault("FUNCTIONARGUMENTS", ""));
-            if (fn != null && fn.equalsIgnoreCase(program.getName())) {
-                throw new IllegalStateException("QUOTE cannot call the current program: " + fn);
-            }
-            var env = buildCurrentEnvMapLowerCase();
-            var out = quoteEval.eval(fn, fargs, env, 0);
-            long y = out.isEmpty() ? 0L : out.get(0);
-            Variable targetVar = ins.getVariable();
-            context.updateVariable(targetVar != null ? targetVar : Variable.RESULT, y);
-            lastExecutionCycles += ins.cycles();
-            lastExecutionCycles += QuoteUtils.drainCycles();
-
-            int nextIndex = currentIndex + 1;
-            boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
-            if (stepListener != null) {
-                stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
-            }
-            return nextIndex;
-        }
-
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
 
         if ("JUMP_EQUAL_FUNCTION".equalsIgnoreCase(opcodeName)) {
-            lastExecutionCycles += QuoteUtils.drainCycles();
+            lastExecutionCycles += QuoteUtils.getCurrentCycles();
+            QuoteUtils.resetCycles();
         }
 
         int nextIndex;
         if (isExit(next)) {
             nextIndex = instructions.size();
-        } else if (isEmpty(next))  {
+        } else if (isEmpty(next)) {
             nextIndex = currentIndex + 1;
         } else {
             Instruction target = program.instructionAt(next);

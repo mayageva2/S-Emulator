@@ -1,6 +1,7 @@
 package emulator.logic.xml;
 
 import emulator.exception.InvalidInstructionException;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.instruction.*;
 import emulator.logic.instruction.quote.ProgramVarResolver;
 import emulator.logic.instruction.quote.QuotationInstruction;
@@ -18,7 +19,7 @@ public final class XmlToObjects {
     private XmlToObjects(){}
     private enum LabelPolicy { REQUIRED, OPTIONAL }
 
-    public static Program toProgram(ProgramXml pxml, QuotationRegistry registry) {
+    public static Program toProgram(ProgramXml pxml, QuotationRegistry registry, QuoteEvaluator quoteEval) {
         Objects.requireNonNull(pxml, "pxml");
         Objects.requireNonNull(registry, "registry");
 
@@ -42,7 +43,7 @@ public final class XmlToObjects {
             List<InstructionXml> finstr = (fxml.getInstructions() == null) ? List.of() : fxml.getInstructions().getInstructions();
             for (InstructionXml ix : finstr) {
                 fidx++;
-                fprog.addInstruction(toInstruction(ix, fidx, fprog, registry));
+                fprog.addInstruction(toInstruction(ix, fidx, fprog, registry, quoteEval));
             }
         }
 
@@ -53,16 +54,16 @@ public final class XmlToObjects {
 
         for (InstructionXml ix : pinstr) {
             idx++;
-            program.addInstruction(toInstruction(ix, idx, program, registry));
+            program.addInstruction(toInstruction(ix, idx, program, registry, quoteEval));
         }
 
         registry.putProgram(program.getName().toUpperCase(Locale.ROOT), program);
         return program;
     }
 
-    private static Instruction toInstruction(InstructionXml ix, int index, Program program, QuotationRegistry registry) {
+    private static Instruction toInstruction(InstructionXml ix, int index, Program program, QuotationRegistry registry, QuoteEvaluator quoteEval) {
         ParsedParts p = parseParts(ix, index);
-        return buildInstruction(p, index, program, registry);
+        return buildInstruction(p, index, program, registry, quoteEval);
     }
 
     private static ParsedParts parseParts(InstructionXml ix, int index) {
@@ -77,7 +78,7 @@ public final class XmlToObjects {
         return new ParsedParts(opcode, v, lbl, args);
     }
 
-    private static Instruction buildInstruction(ParsedParts p, int index, Program program, QuotationRegistry registry) {
+    private static Instruction buildInstruction(ParsedParts p, int index, Program program, QuotationRegistry registry, QuoteEvaluator quoteEval) {
         String opcode = p.opcode();
         Variable v = p.v();
         Label lbl = p.lbl();
@@ -136,8 +137,8 @@ public final class XmlToObjects {
                         .myLabel(lbl)
                         .parser(new QuoteParserImpl())
                         .varResolver(new ProgramVarResolver(program))
-                        .registry(registry);
-
+                        .registry(registry)
+                        .quoteEval(quoteEval);
                 yield b.build();
             }
             case "JUMP_EQUAL_FUNCTION" -> {
@@ -154,8 +155,8 @@ public final class XmlToObjects {
                         .myLabel(lbl)
                         .parser(new QuoteParserImpl())
                         .registry(registry)
-                        .varResolver(new ProgramVarResolver(program));
-
+                        .varResolver(new ProgramVarResolver(program))
+                        .quoteEval(quoteEval);
                 yield b.build();
             }
             default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);

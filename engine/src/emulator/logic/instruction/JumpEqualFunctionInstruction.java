@@ -2,6 +2,7 @@ package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
 import emulator.logic.execution.ProgramExecutorImpl;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.instruction.quote.*;
@@ -20,6 +21,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
     private final QuoteParser parser;
     private final QuotationRegistry registry;
     private final VarResolver varResolver;
+    private final QuoteEvaluator quoteEval;
 
     private JumpEqualFunctionInstruction(Builder builder) {
         super(InstructionData.JUMP_EQUAL_FUNCTION, builder.variable, builder.myLabel);
@@ -30,6 +32,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         this.parser            = (builder.parser != null) ? builder.parser : new QuoteParserImpl();
         this.registry          = Objects.requireNonNull(builder.registry, "registry");
         this.varResolver       = Objects.requireNonNull(builder.varResolver, "varResolver");
+        this.quoteEval         = builder.quoteEval;
 
         setArgument("JEFunctionLabel", this.jeFunctionLabel.getLabelRepresentation());
         setArgument("functionName", this.functionName);
@@ -47,6 +50,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         private QuoteParser parser;
         private QuotationRegistry registry;
         private VarResolver varResolver;
+        private QuoteEvaluator quoteEval;
 
         public Builder variable(Variable variable) {
             this.variable = variable;
@@ -88,6 +92,11 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
             return this;
         }
 
+        public Builder quoteEval(QuoteEvaluator quoteEval) {
+            this.quoteEval = quoteEval;
+            return this;
+        }
+
         public JumpEqualFunctionInstruction build() {
             return new JumpEqualFunctionInstruction(this);
         }
@@ -97,7 +106,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
     @Override
     public Label execute(ExecutionContext ctx) {
         long vVal = ctx.getVariableValue(getVariable());
-        long qVal = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver);
+        long qVal = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, quoteEval);
         return (vVal == qVal) ? jeFunctionLabel : FixedLabel.EMPTY;
     }
 
@@ -151,7 +160,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
             String tok = args.get(i);
             if (parser.isNestedCall(tok)) {
                 var nc = parser.parseNestedCall(tok);
-                long v = QuoteUtils.runQuotedEval(nc.name(), nc.argsCsv(), QuoteUtils.newScratchCtx(), registry, parser, varResolver);
+                long v = QuoteUtils.runQuotedEval(nc.name(), nc.argsCsv(), QuoteUtils.newScratchCtx(), registry, parser, varResolver, quoteEval);
                 out.add(new ConstantAssignmentInstruction(dst, v));
             } else {
                 try {
