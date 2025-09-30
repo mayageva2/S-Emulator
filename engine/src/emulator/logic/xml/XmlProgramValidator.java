@@ -318,6 +318,7 @@ public class XmlProgramValidator {
                 if (isBlank(rawName)) continue;
                 String normName = norm(rawName);
                 if (isLabelArgName(normName)) continue; // already validated in handlePotentialLabelArg
+                if ("FUNCTIONARGUMENTS".equals(normName)) continue;
 
                 String val = arg.getValue();
                 String opcode = ins.getName() == null ? "<unknown>" : ins.getName();
@@ -367,8 +368,7 @@ public class XmlProgramValidator {
     }
 
     private static boolean looksLikeFunctionArg(String name) {
-        String n = name.toLowerCase(Locale.ROOT);
-        return n.contains("function"); // e.g., "functionName"
+        return "functionName".equalsIgnoreCase(name);
     }
 
     private void validateFunctions(ProgramXml p) {
@@ -448,11 +448,7 @@ public class XmlProgramValidator {
                         if (n == null) continue;
                         if (looksLikeFunctionArg(n)) {
                             String val = (arg.getValue() == null ? "" : arg.getValue().trim());
-                            // If there are no matches in S-Functions, DO NOT throw; QUOTE may use external registry.
-                            if (!functionNames.contains(val)) {
-                                // Optional: just warn in logs, or skip silently
-                                // System.out.println("Note: QUOTE references external function '" + val + "'");
-                            }
+                            if (!functionNames.contains(norm(val))) {}
                         }
                     }
                 }

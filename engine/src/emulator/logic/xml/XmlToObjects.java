@@ -18,7 +18,6 @@ public final class XmlToObjects {
     private XmlToObjects(){}
     private enum LabelPolicy { REQUIRED, OPTIONAL }
 
-    //This func converts a ProgramXml into a Program object
     public static Program toProgram(ProgramXml pxml, QuotationRegistry registry) {
         Objects.requireNonNull(pxml, "pxml");
         Objects.requireNonNull(registry, "registry");
@@ -31,12 +30,12 @@ public final class XmlToObjects {
             String fname = fxml.getName();
             if (fname == null || fname.isBlank()) continue;
             ProgramImpl fprog = new ProgramImpl(fname);
-            funcPrograms.put(fname, fprog);
+            funcPrograms.put(fname.toUpperCase(Locale.ROOT), fprog);
             registry.putProgram(fname.toUpperCase(Locale.ROOT), fprog);
         }
 
         for (FunctionXml fxml : functions) {
-            ProgramImpl fprog = funcPrograms.get(fxml.getName());
+            ProgramImpl fprog = funcPrograms.get(fxml.getName().toUpperCase(Locale.ROOT));
             if (fprog == null) continue;
 
             int fidx = 0;
@@ -61,13 +60,11 @@ public final class XmlToObjects {
         return program;
     }
 
-    //This func converts a InstructionXml into an Instruction object
     private static Instruction toInstruction(InstructionXml ix, int index, Program program, QuotationRegistry registry) {
         ParsedParts p = parseParts(ix, index);
         return buildInstruction(p, index, program, registry);
     }
 
-    //This func parse opcode, main variable, label, and args once
     private static ParsedParts parseParts(InstructionXml ix, int index) {
         String name = safe(ix.getName());
         String opcode = name.isEmpty() ? "<unknown>" : name.trim().toUpperCase(Locale.ROOT);
@@ -80,7 +77,6 @@ public final class XmlToObjects {
         return new ParsedParts(opcode, v, lbl, args);
     }
 
-    //This func switches to instruction
     private static Instruction buildInstruction(ParsedParts p, int index, Program program, QuotationRegistry registry) {
         String opcode = p.opcode();
         Variable v = p.v();
@@ -130,7 +126,7 @@ public final class XmlToObjects {
                 yield b.build();
             }
             case "QUOTE" -> {
-                String fname = req(args, "FUNCTIONNAME", opcode, index);
+                String fname = req(args, "FUNCTIONNAME", opcode, index).toUpperCase(Locale.ROOT);
                 String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
 
                 QuotationInstruction.Builder b = new QuotationInstruction.Builder()
@@ -145,7 +141,7 @@ public final class XmlToObjects {
                 yield b.build();
             }
             case "JUMP_EQUAL_FUNCTION" -> {
-                String fname = req(args, "FUNCTIONNAME", opcode, index);
+                String fname = req(args, "FUNCTIONNAME", opcode, index).toUpperCase(Locale.ROOT);
                 String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
                 Label target = parseLabel(req(args, "JEFUNCTIONLABEL", opcode, index),
                         opcode, index, LabelPolicy.REQUIRED, "JEFUNCTIONLABEL");
@@ -166,7 +162,6 @@ public final class XmlToObjects {
         };
     }
 
-    //This func converts an instruction’s arguments into a map
     private static Map<String,String> toArgMap(InstructionXml ix) {
         Map<String,String> m = new LinkedHashMap<>();
         if (ix.getArguments() != null) {
@@ -180,7 +175,6 @@ public final class XmlToObjects {
         return m;
     }
 
-    //This func retrieves a required argument
     private static String req(Map<String,String> m, String keyUpper, String opcode, int index) {
         String v = m.get(keyUpper);
         if (v == null || v.isBlank()) {
@@ -193,12 +187,10 @@ public final class XmlToObjects {
         return v.trim();
     }
 
-    //This func returns a trimmed string
     private static String safe(String s) {
         return (s == null) ? "" : s.trim();
     }
 
-    //This func checks whether a string is non-empty
     private static boolean isAllDigits(String s) {
         if (s == null || s.isEmpty()) return false;
         for (int i = 0; i < s.length(); i++) {
@@ -208,7 +200,6 @@ public final class XmlToObjects {
         return true;
     }
 
-    //This func parses a string into a Variable object
     private static Variable parseVariable(String s, String opcode, int index) {
         if (s == null || s.isBlank()) {
             throw new InvalidInstructionException(opcode, "Missing variable", index);
@@ -220,7 +211,7 @@ public final class XmlToObjects {
             return Variable.RESULT;
         }
 
-        if (su.length() >= 2) {   // General case
+        if (su.length() >= 2) {
             char kind = su.charAt(0);
             String numPart = su.substring(1);
             if ((kind == 'X' || kind == 'Z') && isAllDigits(numPart)) {
@@ -234,7 +225,6 @@ public final class XmlToObjects {
         throw new InvalidInstructionException(opcode, "Illegal variable: " + s, index);
     }
 
-    //This func parses a string into an int
     private static long parseNonNegInt(String s, String opcode, int index) {
         if (s == null) {
             throw new InvalidInstructionException(opcode, "Missing integer value", index);
@@ -250,7 +240,6 @@ public final class XmlToObjects {
         }
     }
 
-    //This func parses a string into a valid Label object
     private static Label parseLabel(String s, String opcode, int index, LabelPolicy policy, String errCtx) {
         if (s == null || s.isBlank()) {
             if (policy == LabelPolicy.OPTIONAL) return FixedLabel.EMPTY;
