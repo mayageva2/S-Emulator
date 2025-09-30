@@ -1,5 +1,6 @@
 package emulator.api;
 
+import emulator.api.debug.DebugService;
 import emulator.api.dto.*;
 import emulator.exception.*;
 
@@ -36,4 +37,5 @@ public interface EmulatorEngine {
     public void clearHistory();
     void saveState(Path fileWithoutExt) throws Exception;
     void loadState(Path fileWithoutExt) throws Exception;
+    DebugService debugger();
 }

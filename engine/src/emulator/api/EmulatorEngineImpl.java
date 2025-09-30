@@ -1,9 +1,11 @@
 package emulator.api;
 
 import emulator.api.debug.DebugRecord;
+import emulator.api.debug.DebugService;
 import emulator.api.dto.*;
 import emulator.exception.*;
 import emulator.logic.compose.Composer;
+import emulator.logic.debug.EngineDebugAdapter;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.execution.QuoteEvaluator;
@@ -657,6 +659,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
 
         recordRun(this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+    }
+
+    @Override
+    public DebugService debugger() {
+        return new EngineDebugAdapter(this);
     }
 
     @Override

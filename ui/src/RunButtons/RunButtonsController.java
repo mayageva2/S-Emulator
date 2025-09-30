@@ -3,18 +3,16 @@ package RunButtons;
 import InputsBox.InputsBoxController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
+import emulator.api.debug.DebugService;
 import emulator.api.debug.DebugSnapshot;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import emulator.api.dto.RunResult;
-import emulator.api.debug.DebugSession;
-import emulator.logic.debug.EngineDebugAdapter;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
@@ -53,7 +51,7 @@ public class RunButtonsController {
     private final Map<Integer, Map<String, String>> varsSnapshotsByIndex = new HashMap<>();
 
     // -- Debug --//
-    private DebugSession debugSession;
+    private DebugService debugSession;
     private enum DebugState { IDLE, RUNNING, PAUSED, STOPPED }
     private DebugState debugState = DebugState.IDLE;
     private Map<String, String> lastVarsSnapshot = new HashMap<>();
@@ -278,8 +276,8 @@ public class RunButtonsController {
                 debugProgramName = engine.programView(0).programName();
             }
             int degree = currentDegree;
-            debugSession = new EngineDebugAdapter(engine, debugProgramName);
-            DebugSnapshot first = debugSession.start(inputs, degree);
+            debugSession = engine.debugger();
+            DebugSnapshot first = debugSession.start(inputs, degree, debugProgramName);
             if (inputController != null) inputController.lockInputs();
             debugState = DebugState.PAUSED;
             applySnapshot(first);
@@ -397,7 +395,7 @@ public class RunButtonsController {
             debugState = DebugState.RUNNING;
             refreshButtonsEnabled();
             DebugSnapshot snap = debugSession.resume();
-            applySnapshot(snap); // יגדיר PAUSED/STOPPED בהתאם ל-finished
+            applySnapshot(snap);
         } catch (UnsupportedOperationException ex) {
             alertInfo("Resume not wired", "Implement resume() in EngineDebugAdapter.");
             debugState = DebugState.PAUSED;
@@ -549,8 +547,8 @@ public class RunButtonsController {
                         : engine.programView(0).programName();
             }
 
-            debugSession = new EngineDebugAdapter(engine);
-            DebugSnapshot first = debugSession.start(inputsAtDebugStart, newDegree);
+            debugSession = engine.debugger();
+            DebugSnapshot first = debugSession.start((inputsAtDebugStart != null ? inputsAtDebugStart : new Long[0]), newDegree, debugProgramName);
             if (inputController != null) inputController.lockInputs();
 
             currentDegree = Math.max(0, newDegree);

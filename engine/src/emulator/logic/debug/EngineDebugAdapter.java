@@ -1,6 +1,7 @@
 package emulator.logic.debug;
 
 import emulator.api.EmulatorEngine;
+import emulator.api.debug.DebugService;
 import emulator.api.debug.DebugSession;
 import emulator.api.debug.DebugSnapshot;
 import emulator.api.dto.InstructionView;
@@ -10,7 +11,7 @@ import emulator.api.dto.RunResult;
 import java.lang.reflect.Method;
 import java.util.*;
 
-public class EngineDebugAdapter implements DebugSession {
+public class EngineDebugAdapter implements DebugSession, DebugService {
     private final EmulatorEngine engine;
     private final String programName;
     private String selectedProgram;
@@ -27,7 +28,7 @@ public class EngineDebugAdapter implements DebugSession {
     @SuppressWarnings("unused")
     private Long[] inputsAtStart = new Long[0];
 
-    public EngineDebugAdapter(EmulatorEngine engine, String programName) {
+    private EngineDebugAdapter(EmulatorEngine engine, String programName) {
         this.engine = Objects.requireNonNull(engine, "engine");
         this.programName = programName;
         tryBindDirectMode();
@@ -146,7 +147,7 @@ public class EngineDebugAdapter implements DebugSession {
             directAvailable= true;
             commitHistoryIfPossible(out);
         } finally {
-        alive = false;
+            alive = false;
         }
     }
 
