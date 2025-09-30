@@ -1,6 +1,7 @@
 package emulator.logic.execution;
 
 import emulator.logic.instruction.Instruction;
+import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
@@ -34,6 +35,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public long run(Long... input) {
         lastExecutionCycles = 0;
+        QuoteUtils.resetCycles();
         this.lastInputs = (input == null) ? new Long[0] : java.util.Arrays.copyOf(input, input.length);
 
         List<Instruction> instructions = program.getInstructions();
@@ -122,6 +124,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
             Variable targetVar = ins.getVariable();
             context.updateVariable(targetVar != null ? targetVar : Variable.RESULT, y);
             lastExecutionCycles += ins.cycles();
+            lastExecutionCycles += QuoteUtils.drainCycles();
 
             int nextIndex = currentIndex + 1;
             boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
@@ -133,6 +136,10 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
+
+        if ("JUMP_EQUAL_FUNCTION".equalsIgnoreCase(opcodeName)) {
+            lastExecutionCycles += QuoteUtils.drainCycles();
+        }
 
         int nextIndex;
         if (isExit(next)) {
