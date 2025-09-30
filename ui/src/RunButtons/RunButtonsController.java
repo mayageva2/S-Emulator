@@ -213,8 +213,6 @@ public class RunButtonsController {
             int degree = Math.max(0, Math.min(currentDegree, max));
 
             String target = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
-            EngineDebugAdapter adapter = new EngineDebugAdapter(engine);
-            adapter.start(inputs, degree, target);
             RunResult result = (target == null || target.isBlank())
                     ? engine.run(degree, inputs)
                     : engine.run(target, degree, inputs);
@@ -346,7 +344,7 @@ public class RunButtonsController {
                 for (int i = 0; i < list.size(); i++) {
                     InstructionView iv = list.get(i);
                     if (iv != null && iv.index() == instrIndex) {
-                        return i + 1;
+                        return i;
                     }
                 }
                 return Math.max(1, Math.min(instrIndex, list.size()));

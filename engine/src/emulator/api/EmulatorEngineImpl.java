@@ -272,7 +272,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             InstructionView self = mkViewNoIndex.apply(ins);
             out.add(new InstructionView(
-                    i + 1,
+                    i,
                     self.opcode(), self.label(),
                     self.basic(), self.cycles(), self.args(),
                     List.of(),

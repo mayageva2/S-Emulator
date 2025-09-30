@@ -35,7 +35,7 @@ public class InstructionsTableController {
 
     @FXML
     private void initialize() {
-        indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index));
+        indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index + 1));
         typeCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().basic ? "B" : "S"));
         labelCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(ns(cd.getValue().label)));
         cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));

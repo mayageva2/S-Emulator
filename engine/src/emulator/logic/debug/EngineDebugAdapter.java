@@ -78,10 +78,14 @@ public class EngineDebugAdapter implements DebugSession {
             return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
         } else {
             // REPLAY
-            this.timeline = new ArrayList<>();
-            this.idx = -1;
-            this.alive = false;
-            return buildSnapshotWithState(-1, lastKnownVars, 0, false);
+            RunResult rr = (selectedProgram != null && !selectedProgram.isBlank())
+                    ? engine.run(selectedProgram, degree, inputs)
+                    : engine.run(degree, inputs);
+            this.timeline = buildTimelineFromHistoryOrFallback(rr);
+            this.idx = (timeline.isEmpty() ? -1 : 0);
+            this.alive = !timeline.isEmpty();
+            DebugSnapshot cur = current();
+            return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
         }
     }
 
@@ -251,6 +255,11 @@ public class EngineDebugAdapter implements DebugSession {
             Object v = m.invoke(engine);
             if (v instanceof List<?> list && !list.isEmpty()) {
                 List<DebugSnapshot> out = new ArrayList<>(list.size());
+                Map<String, String> initVars = new LinkedHashMap<>();
+                for (String n : orderedVarNames) {
+                    initVars.put(n, "-");
+                }
+                out.add(new DebugSnapshot(0, initVars, 0, false));
                 for (Object rec : list) {
                     int pcAfter = (int)  rec.getClass().getMethod("pcAfter").invoke(rec);
                     int cycles  = (int)  rec.getClass().getMethod("cycles").invoke(rec);
@@ -261,9 +270,7 @@ public class EngineDebugAdapter implements DebugSession {
                 }
                 return out;
             }
-        } catch (NoSuchMethodException ignore) {
-        } catch (Exception ignore) {
-        }
+        } catch (NoSuchMethodException ignore) {} catch (Exception ignore) {}
 
         var synth = synthesizeTimelineFromProgramView(rr);
         if (!synth.isEmpty()) return synth;
