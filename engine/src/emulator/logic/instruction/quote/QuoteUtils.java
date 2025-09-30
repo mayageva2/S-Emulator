@@ -51,7 +51,7 @@ public final class QuoteUtils {
 
         ProgramExecutorImpl exec = new ProgramExecutorImpl(qProgram);
         long resultY = exec.run(inputs);
-        addCycles(exec.getLastExecutionCycles());
+        QuoteUtils.addCycles(exec.getLastExecutionCycles());
         return Math.max(resultY, 0);
     }
 
@@ -68,12 +68,12 @@ public final class QuoteUtils {
     public static Long evalArgToValue(String token, ExecutionContext ctx, QuoteParser parser, QuotationRegistry registry, VarResolver varResolver) {
         if (parser.isNestedCall(token)) {
             QuoteParser.NestedCall nc = parser.parseNestedCall(token);
-            int before = drainCycles();
-            long val = runQuotedEval(nc.name(), nc.argsCsv(), ctx, registry, parser, varResolver);
-            int nestedCycles = drainCycles();
-            addCycles(nestedCycles);
-            addCycles(1);
-            return val;
+            Program qProgram = registry.getProgramByName(nc.name());
+            ProgramExecutorImpl exec = new ProgramExecutorImpl(qProgram);
+            long resultY = exec.run(/* inputs */);
+            QuoteUtils.addCycles(exec.getLastExecutionCycles());
+            QuoteUtils.addCycles(1);
+            return resultY;
         } else {
             if (varResolver != null) {
                 try {

@@ -43,13 +43,7 @@ public class CyclesLineController {
 
     private long extractCycles(RunResult result) {
         if (result == null) return 0L;
-
-        for (String m : new String[]{"getTotalCycles", "totalCycles", "getCycles", "cycles"}) {
-            Long v = tryNumberGetter(result, m);
-            if (v != null) return v;
-        }
-        Integer sz = tryCollectionSizeGetter(result, "getTrace", "trace", "getSteps", "steps");
-        return (sz != null) ? sz : 0L;
+        return result.getTotalCycles();
     }
 
     public void reset() {

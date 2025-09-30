@@ -15,6 +15,7 @@ import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.instruction.quote.MapBackedQuotationRegistry;
 import emulator.logic.instruction.quote.QuotationRegistry;
+import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramCost;
@@ -262,6 +263,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
                         });
                         long y = exec.run(inputs.toArray(Long[]::new));
+                        int nested = exec.getLastExecutionCycles();
+                        QuoteUtils.addCycles(nested);
                         return List.of(y);
                     } finally {
                         stack.pop();
@@ -334,6 +337,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         });
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
+        cycles += QuoteUtils.drainCycles();
 
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
@@ -562,6 +566,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         });
         long y = exec.run(input);
         int cycles = exec.getLastExecutionCycles();
+        cycles += QuoteUtils.drainCycles();
 
         //Collect final state of all variables after execution
         var vars = exec.variableState().entrySet().stream()
@@ -787,6 +792,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             try {
                 long y = dbgExecutor.run(inputs == null ? new Long[0] : inputs);
                 int cycles = dbgExecutor.getLastExecutionCycles();
+                cycles += QuoteUtils.drainCycles();
                 Map<String,String> vars = snapshotVars(dbgExecutor, inputs);
                 List<VariableView> varViews = dbgExecutor.variableState().entrySet().stream()
                         .map(e -> new VariableView(

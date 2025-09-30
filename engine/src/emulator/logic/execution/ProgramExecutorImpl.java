@@ -36,7 +36,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     public long run(Long... input) {
         lastExecutionCycles = 0;
         QuoteUtils.resetCycles();
-        this.lastInputs = (input == null) ? new Long[0] : java.util.Arrays.copyOf(input, input.length);
+        this.lastInputs = (input == null) ? new Long[0] : Arrays.copyOf(input, input.length);
 
         List<Instruction> instructions = program.getInstructions();
         validateNotEmpty(instructions);
@@ -46,7 +46,6 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         seedVariables(finalInputs);
 
         executeProgram(instructions);
-
         return context.getVariableValue(Variable.RESULT);
     }
 
@@ -156,6 +155,10 @@ public class ProgramExecutorImpl implements ProgramExecutor{
             stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
         }
         return nextIndex;
+    }
+
+    public int getTotalCycles() {
+        return lastExecutionCycles;
     }
 
     //This func returns the variable's state
