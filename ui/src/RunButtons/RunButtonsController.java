@@ -49,6 +49,7 @@ public class RunButtonsController {
     private PauseTransition runGlowStopTimer;
     private Map<String, String> lastRunVarsSnapshot = Map.of();
     private final Map<Integer, Map<String, String>> varsSnapshotsByIndex = new HashMap<>();
+    private String lastStatsProgramName = null;
 
     // -- Debug --//
     private DebugService debugSession;
@@ -121,6 +122,16 @@ public class RunButtonsController {
 
     public void setProgramToolbarController(ProgramToolBar.ProgramToolbarController c) {
         this.toolbarController = c;
+        if (this.toolbarController != null) {
+            this.toolbarController.setOnProgramSelected(name -> {
+                if (name != null) clearStatisticsIfProgramChanged(name);
+            });
+
+            String sel = this.toolbarController.getSelectedProgramName();
+            if (sel != null && !sel.isBlank()) {
+                this.lastStatsProgramName = sel.trim();
+            }
+        }
         refreshButtonsEnabled();
     }
 
@@ -205,6 +216,8 @@ public class RunButtonsController {
         }
 
         try {
+            String currentProgram = resolveCurrentProgramName();
+            clearStatisticsIfProgramChanged(currentProgram);
             Long[] inputs = inputController.collectAsLongsOrThrow();
             int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
             if (max == 0) { try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {} }
@@ -275,6 +288,7 @@ public class RunButtonsController {
             if (debugProgramName == null || debugProgramName.isBlank()) {
                 debugProgramName = engine.programView(0).programName();
             }
+            clearStatisticsIfProgramChanged(debugProgramName);
             int degree = currentDegree;
             debugSession = engine.debugger();
             DebugSnapshot first = debugSession.start(inputs, degree, debugProgramName);
@@ -546,7 +560,7 @@ public class RunButtonsController {
                         ? fromSupplier
                         : engine.programView(0).programName();
             }
-
+            clearStatisticsIfProgramChanged(debugProgramName);
             debugSession = engine.debugger();
             DebugSnapshot first = debugSession.start((inputsAtDebugStart != null ? inputsAtDebugStart : new Long[0]), newDegree, debugProgramName);
             if (inputController != null) inputController.lockInputs();
@@ -593,4 +607,38 @@ public class RunButtonsController {
             refreshButtonsEnabled();
         }
     }
+
+    private void clearStatisticsUI() {
+        Platform.runLater(() -> {
+            if (statisticsController != null) {
+                try {
+                    statisticsController.clear();
+                } catch (Throwable ignore) {
+                    Function<String,String> fmt = (inputsFormatter != null) ? inputsFormatter : (s -> s);
+                    statisticsController.setHistory(java.util.List.of(), fmt);
+                }
+            }
+            varsSnapshotsByIndex.clear();
+            lastRunVarsSnapshot = Map.of();
+        });
+    }
+
+    private void clearStatisticsIfProgramChanged(String programName) {
+        if (programName == null) return;
+        String newKey = programName.trim().toLowerCase(Locale.ROOT);
+        String oldKey = (lastStatsProgramName == null) ? null : lastStatsProgramName.trim().toLowerCase(Locale.ROOT);
+        if (!Objects.equals(oldKey, newKey)) {
+            clearStatisticsUI();
+            lastStatsProgramName = programName;
+        }
+    }
+
+    private String resolveCurrentProgramName() {
+        String name = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
+        if (name == null || name.isBlank()) {
+            try { name = engine.programView(0).programName(); } catch (Exception ignore) {}
+        }
+        return name == null ? "" : name.trim();
+    }
+
 }

@@ -39,9 +39,14 @@ public class ProgramToolbarController {
 
         if (selectProgramChoice != null) {
             selectProgramChoice.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
-                if (newV != null && onProgramSelected != null) onProgramSelected.accept(newV);
+                if (onProgramSelected == null) return;
+                String oldKey = (oldV == null) ? null : oldV.trim().toLowerCase(java.util.Locale.ROOT);
+                String newKey = (newV == null) ? null : newV.trim().toLowerCase(java.util.Locale.ROOT);
+                if (newKey != null && !newKey.isBlank() && !java.util.Objects.equals(oldKey, newKey)) {
+                    onProgramSelected.accept(newV.trim());
+                }
             });
-            selectProgramChoice.setDisable(true); // disabled until we load a program
+            selectProgramChoice.setDisable(true);// disabled until we load a program
         }
 
         CurrentOrMaxDegreeButton.setMnemonicParsing(false);
@@ -179,9 +184,15 @@ public class ProgramToolbarController {
 
     public void setPrograms(java.util.List<String> names) {
         if (selectProgramChoice == null) return;
-        var items = (names == null) ? java.util.List.<String>of() : names;
-        selectProgramChoice.setItems(javafx.collections.FXCollections.observableArrayList(items));
-        if (!items.isEmpty()) selectProgramChoice.getSelectionModel().select(0);
+        var items = (names == null) ? List.<String>of() : names;
+        selectProgramChoice.setItems(FXCollections.observableArrayList(items));
+        if (!items.isEmpty()) {
+            selectProgramChoice.getSelectionModel().select(0);
+            if (onProgramSelected != null) {
+                String v = selectProgramChoice.getValue();
+                if (v != null && !v.isBlank()) onProgramSelected.accept(v.trim());
+            }
+        }
         selectProgramChoice.setDisable(items.isEmpty());
     }
 

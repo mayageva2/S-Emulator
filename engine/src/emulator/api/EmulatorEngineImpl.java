@@ -291,6 +291,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Program target = functionLibrary.get(programName);
         if (target == null) target = functionLibrary.get(programName.toUpperCase(ROOT));
         if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+        if (!Objects.equals(programName, lastRunProgramName)) {
+            clearHistory();
+        }
 
         int maxDegree = target.calculateMaxDegree();
         if (degree < 0 || degree > maxDegree) {
