@@ -53,6 +53,31 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
 
+    // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
+    private transient Thread dbgThread;
+    private final Object dbgLock = new Object();
+    private volatile boolean dbgAlive = false;
+    private volatile boolean dbgFinished = true;
+    private volatile boolean dbgStopRequested = false;
+    private volatile boolean dbgResumeMode = false;
+    private volatile boolean dbgStepOnce = false;
+    private volatile Runnable dbgOnFinish;
+
+    private volatile int dbgPC = 0;
+    private volatile int dbgCycles = 0;
+    private volatile Map<String,String> dbgVars = Map.of();
+
+    private transient Program dbgProgram;
+    private transient ProgramExecutor dbgExecutor;
+
+    private static final class DebugAbortException extends RuntimeException {
+        DebugAbortException() { super("Debug aborted"); }
+    }
+
+    public void setOnDebugFinish(Runnable r) {
+        this.dbgOnFinish = r;
+    }
+
     //This func returns a ProgramView of the currently loaded program
     @Override
     public ProgramView programView() {
@@ -662,6 +687,194 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
 
         recordRun(this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+    }
+
+    private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {
+        if (ex == null) return Map.of();
+        var state = ex.variableState(); // Map<VarRef,Long>
+        if (state == null) return Map.of();
+
+        java.util.TreeMap<Integer, Long> x = new java.util.TreeMap<>();
+        java.util.TreeMap<Integer, Long> z = new java.util.TreeMap<>();
+        Long yVal = null;
+        LinkedHashMap<String,String> out = new LinkedHashMap<>();
+
+        for (var e : state.entrySet()) {
+            var ref = e.getKey();
+            long v = e.getValue();
+            String name = ref.getRepresentation();
+            String low = name.toLowerCase(java.util.Locale.ROOT);
+            if ("y".equals(low)) {
+                yVal = v;
+            } else if (low.startsWith("x")) {
+                try { x.put(Integer.parseInt(low.substring(1)), v); } catch (Exception ignore) {}
+            } else if (low.startsWith("z")) {
+                try { z.put(Integer.parseInt(low.substring(1)), v); } catch (Exception ignore) {}
+            } else {
+                out.put(name, String.valueOf(v));
+            }
+        }
+
+        if (inputs != null) {
+            for (int i = 0; i < inputs.length; i++) {
+                x.putIfAbsent(i + 1, inputs[i] == null ? 0L : inputs[i]);
+            }
+        }
+
+        if (yVal == null) yVal = 0L;
+        LinkedHashMap<String,String> finalMap = new LinkedHashMap<>();
+        finalMap.put("y", String.valueOf(yVal));
+        x.forEach((i,v) -> finalMap.put("x"+i, String.valueOf(v)));
+        z.forEach((i,v) -> finalMap.put("z"+i, String.valueOf(v)));
+        finalMap.putAll(out);
+        return finalMap;
+    }
+
+    public void debugStart(String programName, Long[] inputs, int degree) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName);
+        if (target == null) target = functionLibrary.get(programName.toUpperCase(java.util.Locale.ROOT));
+        if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+        debugStartCommon(target, inputs, degree);
+    }
+
+    public void debugStart(Long[] inputs, int degree) {
+        requireLoaded();
+        debugStartCommon(current, inputs, degree);
+    }
+
+    private void debugStartCommon(Program target, Long[] inputs, int degree) {
+        int maxDegree = target.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
+        }
+        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+        debugStopSafe();
+
+        dbgProgram = toRun;
+        dbgExecutor = new ProgramExecutorImpl(dbgProgram, makeQuoteEvaluator());
+        dbgPC = 0;
+        dbgCycles = 0;
+        dbgVars = Map.of();
+        dbgFinished = false;
+        dbgStopRequested = false;
+        dbgResumeMode = false;
+        dbgStepOnce = false;
+        dbgAlive = true;
+
+        dbgExecutor.setStepListener((pcAfter, cycles, vars, finished) -> {
+            dbgPC = pcAfter;
+            dbgCycles = cycles;
+            dbgVars = (vars == null) ? snapshotVars(dbgExecutor, inputs) : Map.copyOf(vars);
+
+            synchronized (dbgLock) {
+                if (dbgStopRequested) throw new DebugAbortException();
+
+                if (!dbgResumeMode) {
+                    while (!dbgStopRequested && !dbgStepOnce) {
+                        try { dbgLock.wait(); } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new DebugAbortException();
+                        }
+                    }
+                    if (dbgStopRequested) throw new DebugAbortException();
+                    dbgStepOnce = false;
+                }
+            }
+        });
+
+        dbgThread = new Thread(() -> {
+            try {
+                long y = dbgExecutor.run(inputs == null ? new Long[0] : inputs);
+                int cycles = dbgExecutor.getLastExecutionCycles();
+                Map<String,String> vars = snapshotVars(dbgExecutor, inputs);
+                List<VariableView> varViews = dbgExecutor.variableState().entrySet().stream()
+                        .map(e -> new VariableView(
+                                e.getKey().getRepresentation(),
+                                VarType.valueOf(e.getKey().getType().name()),
+                                e.getKey().getNumber(),
+                                e.getValue()
+                        ))
+                        .toList();
+                lastRunVars = dbgExecutor.variableState().entrySet().stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                e -> e.getKey().getRepresentation(),
+                                Map.Entry::getValue,
+                                (a,b)->b,
+                                LinkedHashMap::new
+                        ));
+                lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+                lastRunDegree = degree;
+                lastRunProgramName = target.getName();
+                dbgVars = vars;
+                dbgFinished = true;
+                dbgAlive = false;
+            } catch (DebugAbortException ignore) {
+            } catch (Throwable t) {
+            } finally {
+                dbgFinished = true;
+                dbgAlive = false;
+                synchronized (dbgLock) { dbgLock.notifyAll(); }
+                if (dbgOnFinish != null) {
+                    dbgOnFinish.run();
+                }
+            }
+        }, "emu-debug-thread");
+        dbgThread.setDaemon(true);
+        dbgThread.start();
+    }
+
+    public void debugStepOver() {
+        if (!dbgAlive || dbgFinished) return;
+        synchronized (dbgLock) {
+            dbgStepOnce = true;
+            dbgLock.notifyAll();
+        }
+    }
+
+    public void debugResume() {
+        if (!dbgAlive || dbgFinished) return;
+        synchronized (dbgLock) {
+            dbgResumeMode = true;
+            dbgLock.notifyAll();
+        }
+    }
+
+    public void debugStop() {
+        debugStopSafe();
+    }
+
+    private void debugStopSafe() {
+        synchronized (dbgLock) {
+            dbgStopRequested = true;
+            dbgResumeMode = true;
+            dbgStepOnce = true;
+            dbgLock.notifyAll();
+        }
+        if (dbgThread != null && dbgThread.isAlive()) {
+            try { dbgThread.join(100); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+        }
+        dbgAlive = false;
+        dbgFinished = true;
+    }
+
+    public boolean debugIsFinished() {return dbgFinished;}
+    public int debugCurrentPC() {return dbgPC;}
+    public int debugCycles() {return dbgCycles;}
+    public Map<String,String> debugVarsSnapshot() {return (dbgVars == null) ? Map.of() : dbgVars;}
+
+    public RunResult debugCurrentRunResult() {
+        if (dbgExecutor == null) return null;
+        var vars = dbgExecutor.variableState().entrySet().stream()
+                .map(e -> new VariableView(
+                        e.getKey().getRepresentation(),
+                        VarType.valueOf(e.getKey().getType().name()),
+                        e.getKey().getNumber(),
+                        e.getValue()
+                ))
+                .toList();
+        long y = lastRunVars.getOrDefault("y", 0L);
+        return new RunResult(y, dbgCycles, vars);
     }
 
     @Override

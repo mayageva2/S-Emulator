@@ -4,7 +4,7 @@ public interface DebugSession extends AutoCloseable {
     DebugSnapshot start(Long[] inputs, int degree) throws Exception;
     DebugSnapshot stepOver() throws Exception;
     DebugSnapshot resume() throws Exception;
-    void stop() throws Exception;
+    DebugSnapshot stop() throws Exception;
     boolean isAlive();
 
     @Override

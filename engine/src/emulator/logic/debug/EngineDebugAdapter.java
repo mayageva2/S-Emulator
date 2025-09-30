@@ -23,6 +23,8 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
     private int idx = -1;
     private Map<String,String> lastKnownVars = new LinkedHashMap<>();
     private List<String> orderedVarNames = List.of();
+    private DebugSnapshot lastForcedStop = null;
+    private boolean forceUseStopOnce = false;
 
     private int degreeAtStart = 0;
     @SuppressWarnings("unused")
@@ -64,30 +66,23 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
         this.lastKnownVars = new LinkedHashMap<>();
         for (String n : orderedVarNames) lastKnownVars.put(n, "-");
 
-        boolean canUseDirectForThisTarget =
-                directAvailable && (directHasProgramParam
-                                || (mainName != null && mainName.equalsIgnoreCase(selectedProgram)));
-        if (canUseDirectForThisTarget) {
-            // DIRECT
-            if (directHasProgramParam) {
-                invoke(mDebugStartWithProgram, selectedProgram, inputs, degree);
+        if (directAvailable) {
+            String progForDirect = (selectedProgram != null && !selectedProgram.isBlank()) ? selectedProgram : mainName;
+            if (directHasProgramParam && progForDirect != null && !progForDirect.isBlank()) {
+                invoke(mDebugStartWithProgram, progForDirect, inputs, degree);
             } else {
                 invoke(mDebugStart, inputs, degree);
             }
             alive = true;
             DebugSnapshot snap = directSnapshot();
             return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
-        } else {
-            // REPLAY
-            RunResult rr = (selectedProgram != null && !selectedProgram.isBlank())
-                    ? engine.run(selectedProgram, degree, inputs)
-                    : engine.run(degree, inputs);
-            this.timeline = buildTimelineFromHistoryOrFallback(rr);
-            this.idx = (timeline.isEmpty() ? -1 : 0);
-            this.alive = !timeline.isEmpty();
-            DebugSnapshot cur = current();
-            return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
         }
+
+        this.timeline = synthesizeTimelineFromProgramView(null);
+        this.idx = (timeline.isEmpty() ? -1 : 0);
+        this.alive = !timeline.isEmpty();
+        DebugSnapshot cur = current();
+        return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
     }
 
     @Override
@@ -116,36 +111,31 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
 
     @Override
     public DebugSnapshot resume() throws Exception {
-        if (directAvailable) {
-            invoke(mResume);
-            DebugSnapshot s = directSnapshot();
-            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
-            commitHistoryIfPossible(out);
-            return out;
+        RunResult rr;
+        if (selectedProgram != null && !selectedProgram.isBlank()) {
+            rr = engine.run(selectedProgram, degreeAtStart, inputsAtStart);
         } else {
-            if (!alive || timeline.isEmpty()) return buildSnapshotWithState(current().currentInstructionIndex(), current().vars(), current().cycles(), current().finished());
-            idx = timeline.size() - 1;
-            alive = false;
-            DebugSnapshot s = current();
-            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
-            commitHistoryIfPossible(out);
-            return out;
+            rr = engine.run(degreeAtStart, inputsAtStart);
         }
+
+        DebugSnapshot out = buildSnapshotWithState(
+                inferLastPC(rr),
+                toVarsMap(rr, inputsAtStart),
+                rr.cycles(),
+                true
+        );
+
+        alive = false;
+        return out;
     }
 
     @Override
-    public void stop() throws Exception {
+    public DebugSnapshot stop() throws Exception {
         try {
-            DebugSnapshot snap;
-            if (directAvailable) {
-                snap = directSnapshot();
-                invoke(mStop);
-            } else {
-                snap = current();
-            }
+            DebugSnapshot snap = directAvailable ? directSnapshot() : current();
             DebugSnapshot out = buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), true);
-            directAvailable= true;
             commitHistoryIfPossible(out);
+            return out;
         } finally {
             alive = false;
         }

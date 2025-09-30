@@ -32,7 +32,7 @@ public final class XmlToObjects {
             if (fname == null || fname.isBlank()) continue;
             ProgramImpl fprog = new ProgramImpl(fname);
             funcPrograms.put(fname, fprog);
-            registry.putProgram(fname, fprog);
+            registry.putProgram(fname.toUpperCase(Locale.ROOT), fprog);
         }
 
         for (FunctionXml fxml : functions) {
@@ -57,7 +57,7 @@ public final class XmlToObjects {
             program.addInstruction(toInstruction(ix, idx, program, registry));
         }
 
-        registry.putProgram(program.getName(), program);
+        registry.putProgram(program.getName().toUpperCase(Locale.ROOT), program);
         return program;
     }
 
@@ -144,7 +144,24 @@ public final class XmlToObjects {
 
                 yield b.build();
             }
+            case "JUMP_EQUAL_FUNCTION" -> {
+                String fname = req(args, "FUNCTIONNAME", opcode, index);
+                String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
+                Label target = parseLabel(req(args, "JEFUNCTIONLABEL", opcode, index),
+                        opcode, index, LabelPolicy.REQUIRED, "JEFUNCTIONLABEL");
 
+                JumpEqualFunctionInstruction.Builder b = new JumpEqualFunctionInstruction.Builder()
+                        .variable(v)
+                        .jeFunctionLabel(target)
+                        .funcName(fname)
+                        .funcArguments(fargs)
+                        .myLabel(lbl)
+                        .parser(new QuoteParserImpl())
+                        .registry(registry)
+                        .varResolver(new ProgramVarResolver(program));
+
+                yield b.build();
+            }
             default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);
         };
     }

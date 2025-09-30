@@ -3,6 +3,7 @@ package RunButtons;
 import InputsBox.InputsBoxController;
 import VariablesBox.VariablesBoxController;
 import emulator.api.EmulatorEngine;
+import emulator.api.EmulatorEngineImpl;
 import emulator.api.debug.DebugService;
 import emulator.api.debug.DebugSnapshot;
 import emulator.api.dto.InstructionView;
@@ -28,6 +29,7 @@ import javafx.util.Duration;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class RunButtonsController {
     @FXML private Button btnNewRun, btnRun, btnDebug, btnStop, btnResume, btnStepOver, btnStepBack;
@@ -388,7 +390,12 @@ public class RunButtonsController {
     @FXML
     private void onStop(ActionEvent e) {
         try {
-            if (debugSession != null) debugSession.stop();
+            if (debugSession != null) {
+                DebugSnapshot snap = debugSession.stop();
+                if (snap != null) {
+                    applySnapshot(snap);
+                }
+            }
             updateStatisticsFromEngineHistory();
         } catch (UnsupportedOperationException ex) {
         } catch (Exception ex) {
@@ -405,20 +412,24 @@ public class RunButtonsController {
     @FXML
     private void onResume(ActionEvent e) {
         if (debugSession == null) return;
-        try {
-            debugState = DebugState.RUNNING;
-            refreshButtonsEnabled();
-            DebugSnapshot snap = debugSession.resume();
-            applySnapshot(snap);
-        } catch (UnsupportedOperationException ex) {
-            alertInfo("Resume not wired", "Implement resume() in EngineDebugAdapter.");
-            debugState = DebugState.PAUSED;
-            refreshButtonsEnabled();
-        } catch (Exception ex) {
-            alertError("Resume failed", friendlyMsg(ex));
-            debugState = DebugState.PAUSED;
-            refreshButtonsEnabled();
-        }
+
+        debugState = DebugState.RUNNING;
+        refreshButtonsEnabled();
+
+        Thread t = new Thread(() -> {
+            try {
+                DebugSnapshot finalSnap = debugSession.resume();
+                Platform.runLater(() -> applySnapshot(finalSnap));
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    alertError("Resume failed", friendlyMsg(ex));
+                    debugState = DebugState.PAUSED;
+                    refreshButtonsEnabled();
+                });
+            }
+        }, "resume-thread");
+        t.setDaemon(true);
+        t.start();
     }
 
     @FXML

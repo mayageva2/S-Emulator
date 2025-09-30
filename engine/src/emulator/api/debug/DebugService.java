@@ -5,6 +5,6 @@ public interface DebugService {
     DebugSnapshot start(Long[] inputs, int degree, String programName) throws Exception;
     DebugSnapshot stepOver() throws Exception;
     DebugSnapshot resume() throws Exception;
-    void stop() throws Exception;
+    DebugSnapshot stop() throws Exception;
     boolean isAlive();
 }

@@ -384,7 +384,8 @@ public class XmlProgramValidator {
                         Map.of("section", "S-Function", "name", String.valueOf(fname))
                 );
             }
-            if (!functionNames.add(fname)) {
+            String normName = norm(fname);
+            if (!functionNames.add(normName)) {
                 throw new XmlInvalidContentException(
                         "Duplicate function name: " + fname,
                         Map.of("section", "S-Functions", "name", fname)
@@ -429,7 +430,7 @@ public class XmlProgramValidator {
                         if (n == null) continue;
                         if (looksLikeFunctionArg(n)) {
                             String val = (arg.getValue() == null ? "" : arg.getValue().trim());
-                            if (!functionNames.contains(val)) {
+                            if (!functionNames.contains(norm(val))) {
                                 throw new InvalidInstructionException(
                                         norm(opcode),
                                         "Unknown function '" + val + "' at instruction #" + idx,

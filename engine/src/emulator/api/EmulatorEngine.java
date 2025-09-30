@@ -38,4 +38,9 @@ public interface EmulatorEngine {
     void saveState(Path fileWithoutExt) throws Exception;
     void loadState(Path fileWithoutExt) throws Exception;
     DebugService debugger();
+    void debugResume();
+    boolean debugIsFinished();
+    Map<String,String> debugVarsSnapshot();
+    int debugCurrentPC();
+    int debugCycles();
 }
