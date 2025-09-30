@@ -99,13 +99,17 @@ public class EngineDebugAdapter implements DebugSession {
         if (directAvailable) {
             invoke(mStepOver);
             DebugSnapshot s = directSnapshot();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            if (out.finished()) commitHistoryIfPossible(out);
+            return out;
         } else {
             if (!alive || timeline.isEmpty()) return buildSnapshotWithState(current().currentInstructionIndex(), current().vars(), current().cycles(), current().finished());
             idx = Math.min(idx + 1, timeline.size() - 1);
             if (idx == timeline.size() - 1) alive = false;
             DebugSnapshot s = current();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            if (!alive || out.finished()) commitHistoryIfPossible(out);
+            return out;
         }
     }
 
@@ -114,22 +118,36 @@ public class EngineDebugAdapter implements DebugSession {
         if (directAvailable) {
             invoke(mResume);
             DebugSnapshot s = directSnapshot();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            commitHistoryIfPossible(out);
+            return out;
         } else {
             if (!alive || timeline.isEmpty()) return buildSnapshotWithState(current().currentInstructionIndex(), current().vars(), current().cycles(), current().finished());
             idx = timeline.size() - 1;
             alive = false;
             DebugSnapshot s = current();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            commitHistoryIfPossible(out);
+            return out;
         }
     }
 
     @Override
     public void stop() throws Exception {
-        if (directAvailable) {
-            invoke(mStop);
-        }
+        try {
+            DebugSnapshot snap;
+            if (directAvailable) {
+                snap = directSnapshot();
+                invoke(mStop);
+            } else {
+                snap = current();
+            }
+            DebugSnapshot out = buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), true);
+            directAvailable= true;
+            commitHistoryIfPossible(out);
+        } finally {
         alive = false;
+        }
     }
 
     @Override
@@ -174,6 +192,20 @@ public class EngineDebugAdapter implements DebugSession {
         } catch (NoSuchMethodException e) {
             directAvailable = false;
         }
+    }
+
+    private void commitHistoryIfPossible(DebugSnapshot s) {
+        if (s == null || !directAvailable) return;
+        try {
+            Method m = engine.getClass().getMethod(
+                    "recordDebugSession",
+                    String.class, int.class, Long[].class, Map.class, int.class
+            );
+            String pname = (selectedProgram != null && !selectedProgram.isBlank())
+                    ? selectedProgram
+                    : engine.programView(0).programName();
+            m.invoke(engine, pname, degreeAtStart, inputsAtStart, s.vars(), s.cycles());
+        } catch (NoSuchMethodException ignore) {} catch (Exception e) {}
     }
 
     private static Method tryGetMethod(Class<?> cls, String... names) {

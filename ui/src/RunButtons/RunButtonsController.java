@@ -326,6 +326,7 @@ public class RunButtonsController {
             debugState = DebugState.STOPPED;
             onDebugFinishedUI();
             if (inputController != null) inputController.unlockInputs();
+            postDebugCommitToHistory(snap);
         } else {
             debugState = DebugState.PAUSED;
         }
@@ -359,11 +360,24 @@ public class RunButtonsController {
         }
     }
 
+    private void postDebugCommitToHistory(DebugSnapshot snap) {
+        updateStatisticsFromEngineHistory();
+        try {
+            var hist = engine.history();
+            if (hist != null && !hist.isEmpty()) {
+                int lastIdx = hist.size() - 1;
+                Map<String, String> vars = (snap != null && snap.vars() != null) ? snap.vars() : Map.of();
+                varsSnapshotsByIndex.put(lastIdx, vars);
+            }
+        } catch (Exception ignore) {}
+    }
+
 
     @FXML
     private void onStop(ActionEvent e) {
         try {
             if (debugSession != null) debugSession.stop();
+            updateStatisticsFromEngineHistory();
         } catch (UnsupportedOperationException ex) {
         } catch (Exception ex) {
             alertError("Stop failed", friendlyMsg(ex));

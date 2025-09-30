@@ -631,6 +631,34 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.expander = new Expander();
     }
 
+    public void recordDebugSession(String programName, int degree, Long[] inputs, Map<String,String> vars, int cycles) {
+        if (programName == null || programName.isBlank()) {
+            programName = (current != null ? current.getName() : "UNKNOWN");
+        }
+
+        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+        this.lastRunDegree = Math.max(0, degree);
+        this.lastRunProgramName = programName;
+
+        long y = 0L;
+        LinkedHashMap<String, Long> lastVars = new LinkedHashMap<>();
+        if (vars != null) {
+            for (var e : vars.entrySet()) {
+                String k = e.getKey();
+                String sv = e.getValue();
+                if (k == null || sv == null || sv.isBlank()) continue;
+                try {
+                    long v = Long.parseLong(sv.trim());
+                    lastVars.put(k, v);
+                    if ("y".equalsIgnoreCase(k)) y = v;
+                } catch (NumberFormatException ignore) {}
+            }
+        }
+        this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
+
+        recordRun(this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+    }
+
     @Override
     public void clearHistory() {
         history.clear();
