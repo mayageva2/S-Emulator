@@ -137,8 +137,7 @@ public final class XmlToObjects {
                         .myLabel(lbl)
                         .parser(new QuoteParserImpl())
                         .varResolver(new ProgramVarResolver(program))
-                        .registry(registry)
-                        .quoteEval(quoteEval);
+                        .registry(registry);
                 yield b.build();
             }
             case "JUMP_EQUAL_FUNCTION" -> {
@@ -155,8 +154,7 @@ public final class XmlToObjects {
                         .myLabel(lbl)
                         .parser(new QuoteParserImpl())
                         .registry(registry)
-                        .varResolver(new ProgramVarResolver(program))
-                        .quoteEval(quoteEval);
+                        .varResolver(new ProgramVarResolver(program));
                 yield b.build();
             }
             default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);

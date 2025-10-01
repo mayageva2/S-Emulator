@@ -1,6 +1,7 @@
 package emulator.logic.instruction.quote;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.execution.ExecutionContextImpl;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.program.Program;
@@ -15,15 +16,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class QuoteUtils {
     private QuoteUtils() {}
 
-    private static final ThreadLocal<AtomicInteger> dynamicCycles = ThreadLocal.withInitial(AtomicInteger::new);
+    public static final ThreadLocal<AtomicInteger> dynamicCycles = ThreadLocal.withInitial(AtomicInteger::new);
     public static void resetCycles() {dynamicCycles.get().set(0);}
-    public static void addCycles(int n) {if (n > 0) dynamicCycles.get().addAndGet(n);}
+    public static void addCycles(int n) {
+        if (n > 0){
+            int after = dynamicCycles.get().addAndGet(n);
+            System.out.println("[ADD] +" + n + " => " + after + " on " + Thread.currentThread().getName());
+        }
+    }
     public static int getCurrentCycles() {
         return dynamicCycles.get().get();
     }
     public static int drainCycles() {
         int val = dynamicCycles.get().get();
         dynamicCycles.get().set(0);
+        System.out.println("[DRAIN] " + val + " on " + Thread.currentThread().getName());
         return val;
     }
 
@@ -31,9 +38,12 @@ public final class QuoteUtils {
     public static ExecutionContext newScratchCtx() {
         return new ExecutionContext() {
             private final Map<Variable, Long> m = new HashMap<>();
+            private QuoteEvaluator quoteEval;
             @Override public long getVariableValue(Variable v) { return m.getOrDefault(v, 0L); }
             @Override public void updateVariable(Variable v, long value) { m.put(v, value); }
             @Override public Map<Variable, Long> getAllVariables() { return m; }
+            @Override public void setQuoteEvaluator(QuoteEvaluator evaluator) {this.quoteEval = evaluator;}
+            @Override public QuoteEvaluator getQuoteEvaluator() {return this.quoteEval;}
         };
     }
 
@@ -55,10 +65,10 @@ public final class QuoteUtils {
         for (int i = 0; i < copy; i++) {
             inputs[i] = evalArgToValue(args.get(i), ctx, parser, registry, varResolver, quoteEval);
         }
-
+        int carried = QuoteUtils.drainCycles();
         ProgramExecutorImpl exec = (quoteEval == null) ? new ProgramExecutorImpl(qProgram) : new ProgramExecutorImpl(qProgram, quoteEval);
         long resultY = exec.run(inputs);
-        QuoteUtils.addCycles(exec.getLastExecutionCycles());
+        QuoteUtils.addCycles(carried + exec.getLastExecutionCycles());
         return Math.max(resultY, 0);
     }
 
@@ -72,22 +82,49 @@ public final class QuoteUtils {
         return max;
     }
 
-    public static Long evalArgToValue(String token, ExecutionContext ctx, QuoteParser parser, QuotationRegistry registry, VarResolver varResolver,  QuoteEvaluator quoteEval) {
+    public static Long evalArgToValue(
+            String token,
+            ExecutionContext ctx,
+            QuoteParser parser,
+            QuotationRegistry registry,
+            VarResolver varResolver,
+            QuoteEvaluator quoteEval
+    ) {
+        token = (token == null) ? "" : token.trim();
+        if (token.isEmpty()) return 0L;
+
         if (parser.isNestedCall(token)) {
             QuoteParser.NestedCall nc = parser.parseNestedCall(token);
-            Program qProgram = registry.getProgramByName(nc.name());
+            System.out.println("EVAL nested call: " + nc.name() + "(" + nc.argsCsv() + ")");
+
+            String fname = normalizeFunctionName(nc.name(), registry);
+
+            Program qProgram = registry.getProgramByName(fname);
+            if (qProgram == null) {
+                throw new IllegalArgumentException("Unknown function: " + fname + " (from: " + nc.name() + ")");
+            }
+
             List<String> args = parser.parseTopLevelArgs(nc.argsCsv());
             int need = requiredInputCount(qProgram);
-            Long[] inputs = new Long[need];
+
+            Long[] inputs = new Long[Math.max(need, 0)];
             Arrays.fill(inputs, 0L);
-            int copy = Math.min(need, args.size());
-            for (int i = 0; i < copy; i++) {
-                inputs[i] = evalArgToValue(args.get(i), ctx, parser, registry, varResolver,  quoteEval);
+            for (int i = 0; i < Math.min(need, args.size()); i++) {
+                inputs[i] = evalArgToValue(args.get(i), ctx, parser, registry, varResolver, quoteEval);
             }
-            ProgramExecutorImpl exec = (quoteEval == null) ? new ProgramExecutorImpl(qProgram) : new ProgramExecutorImpl(qProgram, quoteEval);
+
+            ProgramExecutorImpl exec = (quoteEval == null)
+                    ? new ProgramExecutorImpl(qProgram)
+                    : new ProgramExecutorImpl(qProgram, quoteEval);
+
             long resultY = exec.run(inputs);
-            QuoteUtils.addCycles(exec.getLastExecutionCycles());
-            QuoteUtils.addCycles(1);
+            int argCycles = exec.getLastExecutionCycles();
+            QuoteUtils.addCycles(argCycles);
+
+            if (ctx instanceof ExecutionContextImpl ectx) {
+                ectx.addDynamicCycles(argCycles);
+            }
+
             return resultY;
         } else {
             if (varResolver != null) {
@@ -95,12 +132,35 @@ public final class QuoteUtils {
                     Variable v = varResolver.resolve(token);
                     return ctx.getVariableValue(v);
                 } catch (Exception ignored) {
-                    return safeParseLong(token);
                 }
-            } else {
-                return safeParseLong(token);
             }
+            Long num = tryParseLong(token);
+            if (num != null) return num;
+
+            if (token.matches("[xX][1-9]\\d*") || token.equalsIgnoreCase("y") || token.matches("[zZ][1-9]\\d*")) {
+                return 0L;
+            }
+
+            throw new IllegalArgumentException("Unrecognized token in QUOTE args: " + token);
         }
+    }
+
+    private static String normalizeFunctionName(String name, QuotationRegistry registry) {
+        if (name == null) return null;
+        String n = name.trim();
+        if (n.isEmpty()) return n;
+
+        Program p = registry.getProgramByName(n);
+        if (p != null) return p.getName();
+        Program p2 = registry.getProgramByName(n.toUpperCase(java.util.Locale.ROOT));
+        if (p2 != null) return p2.getName();
+
+        return n;
+    }
+
+    private static Long tryParseLong(String s) {
+        try { return Long.parseLong(s.trim()); }
+        catch (Exception e) { return null; }
     }
 
     public static long safeParseLong(String s) {

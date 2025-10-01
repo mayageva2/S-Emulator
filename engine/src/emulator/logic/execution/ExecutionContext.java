@@ -9,4 +9,6 @@ public interface ExecutionContext {
     long getVariableValue(Variable v);
     void updateVariable(Variable v, long value);
     Map<Variable, Long> getAllVariables();
+    void setQuoteEvaluator(QuoteEvaluator evaluator);
+    QuoteEvaluator getQuoteEvaluator();
 }

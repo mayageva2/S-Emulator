@@ -20,7 +20,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
     private final QuoteParser parser;
     private final QuotationRegistry registry;
     private final VarResolver varResolver;
-    private final QuoteEvaluator quoteEval;
 
     private QuotationInstruction(Builder builder) {
         super(emulator.logic.instruction.InstructionData.QUOTATION, Objects.requireNonNull(builder.variable, "variable"), builder.myLabel);
@@ -30,10 +29,17 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         this.rawArgs = List.copyOf(this.parser.parseTopLevelArgs(this.functionArguments));
         this.registry = Objects.requireNonNull(builder.registry, "registry");
         this.varResolver = Objects.requireNonNull(builder.varResolver, "varResolver");
-        this.quoteEval = Objects.requireNonNull(builder.quoteEval, "quoteEval");
 
         setArgument("functionName", this.functionName);
         setArgument("functionArguments", this.functionArguments);
+
+        System.out.println("=== QuotationInstruction Built ===");
+        System.out.println("functionName = " + this.functionName);
+        System.out.println("functionArguments = " + this.functionArguments);
+        System.out.println("rawArgs = " + this.rawArgs);
+        for (String arg : this.rawArgs) {
+            System.out.println("isNestedCall(" + arg + ") = " + parser.isNestedCall(arg));
+        }
     }
 
     //This func builds instruction
@@ -45,7 +51,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         private QuoteParser parser;
         private QuotationRegistry registry;
         private VarResolver varResolver;
-        private QuoteEvaluator quoteEval;
 
         public Builder variable(Variable variable) { this.variable = variable; return this; }
         public Builder funcName(String funcName) { this.funcName = funcName; return this; }
@@ -54,14 +59,17 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         public Builder parser(QuoteParser parser) { this.parser = parser; return this; }
         public Builder registry(QuotationRegistry r) { this.registry = r; return this; }
         public Builder varResolver(VarResolver var) { this.varResolver = var; return this; }
-        public Builder quoteEval(QuoteEvaluator q) { this.quoteEval = q; return this; }
 
         public QuotationInstruction build() { return new QuotationInstruction(this); }
     }
 
     @Override
     public Label execute(ExecutionContext ctx) {
-        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, quoteEval);
+        QuoteEvaluator evaluator = (ctx != null) ? ctx.getQuoteEvaluator() : null;
+        if (evaluator == null) {
+            throw new IllegalStateException("QuoteEvaluator is not available in ExecutionContext");
+        }
+        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, evaluator);
         ctx.updateVariable(getVariable(), resultY);
         return FixedLabel.EMPTY;
     }
@@ -122,7 +130,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                         .parser(parser)
                         .registry(registry)
                         .varResolver(varResolver)
-                        .quoteEval(quoteEval)
                         .build());
             } else {
                 Variable src = resolveLoose(varResolver, tok);
@@ -140,23 +147,34 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
     @Override
     public int degree() {
-        // Depth contributed by the quoted program body
-        Program q = registry.getProgramByName(functionName);
-        int body = (q == null) ? 0 : q.calculateMaxDegree();
-
-        // Depth contributed by nested function calls inside the quote arguments
-        int argsDepth = 0;
-        for (String tok : rawArgs) {
-            if (parser.isNestedCall(tok)) {
-                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                Program p = registry.getProgramByName(nc.name());
-                int d = 1 + ((p == null) ? 0 : p.calculateMaxDegree()); // +1 for the inner QUOTE layer
-                if (d > argsDepth) argsDepth = d;
-            }
-        }
-
-        // 1 for *this* QUOTE layer + the deeper of (body, deepest nested-arg)
+        int body = degreeOfProgram(functionName);
+        int argsDepth = degreeOfArgs(functionArguments);
         return 1 + Math.max(body, argsDepth);
+    }
+
+    private int degreeOfProgram(String name) {
+        Program p = registry.getProgramByName(name);
+        return (p == null) ? 0 : p.calculateMaxDegree();
+    }
+
+    private int degreeOfArgs(String argsCsv) {
+        int best = 0;
+        for (String tok : parser.parseTopLevelArgs(argsCsv)) {
+            best = Math.max(best, degreeOfArg(tok));
+        }
+        return best;
+    }
+
+    private int degreeOfArg(String tok) {
+        tok = (tok == null) ? "" : tok.trim();
+        if (tok.isEmpty()) return 0;
+
+        if (!parser.isNestedCall(tok)) return 0;
+
+        QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+        int nestedArgsDepth = degreeOfArgs(nc.argsCsv());
+        int calleeBody = degreeOfProgram(nc.name());
+        return 1 + Math.max(calleeBody, nestedArgsDepth);
     }
 
     private Variable resolveLoose(VarResolver varResolver, String tok) {
@@ -262,7 +280,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
                     .parser(qi.parser)
                     .registry(qi.registry)
                     .varResolver(qi.varResolver)
-                    .quoteEval(quoteEval)
                     .myLabel(newLbl)
                     .build();
         }
@@ -273,5 +290,8 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
     public String functionName() { return functionName; }
     public String functionArguments() { return functionArguments; }
     public List<String> rawArgs() { return rawArgs; }
+    public QuoteParser getParser() {return parser;}
+    public String getFunctionName() {return functionName;}
+    public String getFunctionArguments() {return functionArguments;}
 
 }

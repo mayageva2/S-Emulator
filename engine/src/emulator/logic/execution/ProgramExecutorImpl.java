@@ -1,6 +1,8 @@
 package emulator.logic.execution;
 
 import emulator.logic.instruction.Instruction;
+import emulator.logic.instruction.JumpEqualFunctionInstruction;
+import emulator.logic.instruction.quote.QuotationInstruction;
 import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
@@ -16,6 +18,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private final QuoteEvaluator quoteEval;
     private final Program program;
     private int lastExecutionCycles = 0;
+    private int lastDynamicCycles = 0;
     private Long[] lastInputs = new Long[0];
     private StepListener stepListener;
 
@@ -35,7 +38,12 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public long run(Long... input) {
         lastExecutionCycles = 0;
+        lastDynamicCycles = 0;
+        int carried = QuoteUtils.drainCycles();
         QuoteUtils.resetCycles();
+        if (quoteEval != null) {
+            context.setQuoteEvaluator(quoteEval);
+        }
         this.lastInputs = (input == null) ? new Long[0] : Arrays.copyOf(input, input.length);
 
         List<Instruction> instructions = program.getInstructions();
@@ -46,6 +54,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         seedVariables(finalInputs);
 
         executeProgram(instructions);
+        QuoteUtils.addCycles(carried);
         return context.getVariableValue(Variable.RESULT);
     }
 
@@ -108,13 +117,15 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     //This func executes a single instruction and returns the next instruction index
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
-        String opcodeName = ins.getInstructionData().getName();
         Label next = ins.execute(context);
-        lastExecutionCycles += ins.cycles();
 
-        if ("JUMP_EQUAL_FUNCTION".equalsIgnoreCase(opcodeName)) {
-            lastExecutionCycles += QuoteUtils.getCurrentCycles();
-            QuoteUtils.resetCycles();
+        lastExecutionCycles += ins.cycles();
+        if (ins instanceof QuotationInstruction || ins instanceof JumpEqualFunctionInstruction) {
+            int dyn = QuoteUtils.drainCycles();
+            if (dyn > 0) {
+                lastExecutionCycles += dyn;
+                lastDynamicCycles += dyn;
+            }
         }
 
         int nextIndex;
@@ -134,8 +145,8 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         return nextIndex;
     }
 
-    public int getTotalCycles() {
-        return lastExecutionCycles;
+    public int getLastDynamicCycles() {
+        return lastDynamicCycles;
     }
 
     //This func returns the variable's state

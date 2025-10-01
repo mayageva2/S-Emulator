@@ -38,25 +38,46 @@ public final class QuoteParserImpl implements QuoteParser {
         return out;
     }
 
-    @Override
     public boolean isNestedCall(String arg) {
         if (arg == null) return false;
-        arg = arg.trim();
-        return arg.startsWith("(") && arg.endsWith(")") && arg.length() >= 2;
+        String s = arg.trim();
+        if (s.isEmpty()) return false;
+
+        int open = s.indexOf('(');
+        int close = s.lastIndexOf(')');
+        if (open > 0 && close == s.length()-1 && close > open) {
+            return true;
+        }
+        if (s.charAt(0) == '(' && s.charAt(s.length()-1) == ')') {
+            int comma = findFirstTopLevelComma(s.substring(1, s.length()-1));
+            return comma > 0;
+        }
+        return false;
     }
 
     @Override
     public NestedCall parseNestedCall(String arg) {
-        if (!isNestedCall(arg)) throw new IllegalArgumentException("Not a nested call: " + arg);
-        String inner = arg.substring(1, arg.length() - 1).trim();
-        if (inner.isEmpty()) throw new IllegalArgumentException("Empty nested call: " + arg);
+        if (arg == null) throw new IllegalArgumentException("null arg");
+        String s = arg.trim();
+        if (s.isEmpty()) throw new IllegalArgumentException("empty arg");
 
-        int firstComma = findFirstTopLevelComma(inner);
-        if (firstComma < 0) {  // no args
-            return new NestedCall(inner.trim(), "");
+        if (s.charAt(0) == '(' && s.charAt(s.length()-1) == ')') {
+            String inner = s.substring(1, s.length()-1).trim();
+            int firstComma = findFirstTopLevelComma(inner);
+            if (firstComma < 0) return new NestedCall(inner.trim(), "");
+            String name = inner.substring(0, firstComma).trim();
+            String argsCsv = inner.substring(firstComma + 1).trim();
+            if (name.isEmpty()) throw new IllegalArgumentException("Missing function name in nested call: " + arg);
+            return new NestedCall(name, argsCsv);
         }
-        String name = inner.substring(0, firstComma).trim();
-        String argsCsv = inner.substring(firstComma + 1).trim();
+
+        int open = s.indexOf('(');
+        int close = s.lastIndexOf(')');
+        if (open < 0 || close != s.length()-1 || open == 0) {
+            throw new IllegalArgumentException("Not a nested call: " + arg);
+        }
+        String name = s.substring(0, open).trim();
+        String argsCsv = s.substring(open + 1, close).trim();
         if (name.isEmpty()) throw new IllegalArgumentException("Missing function name in nested call: " + arg);
         return new NestedCall(name, argsCsv);
     }

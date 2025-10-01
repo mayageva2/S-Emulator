@@ -30,6 +30,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 import static java.util.Locale.ROOT;
 
@@ -53,6 +54,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private List<Long> lastRunInputs = List.of();
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
+    private final Map<String,String> displayToInternal = new HashMap<>();
 
     // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
     private transient Thread dbgThread;
@@ -204,6 +206,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         xmlProgramValidator.validate(pxml);
 
         fnDisplayMap.clear();
+        displayToInternal.clear();
         if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
             for (var fxml : pxml.getFunctions().getFunctions()) {
                 String internal = (fxml.getName() == null) ? "" : fxml.getName().trim();
@@ -211,6 +214,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 if (!internal.isEmpty() && !user.isEmpty()) {
                     fnDisplayMap.put(internal, user);
                     fnDisplayMap.put(internal.toUpperCase(ROOT), user);
+                    displayToInternal.put(user, internal);
+                    displayToInternal.put(user.toUpperCase(ROOT), internal);
                 }
             }
         }
@@ -233,6 +238,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 current.getInstructions().size(),
                 current.calculateMaxDegree()
         );
+    }
+
+    private String internalOf(String maybeDisplayOrInternal) {
+        if (maybeDisplayOrInternal == null) return null;
+        String s = maybeDisplayOrInternal.trim();
+        if (s.isEmpty()) return s;
+        if (functionLibrary.containsKey(s.toUpperCase(ROOT))) return s;
+        return displayToInternal.getOrDefault(s, s);
     }
 
     //------programView Helpers------//
@@ -262,9 +275,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                             Map<String,String> vv = (vars == null) ? Map.of() : Map.copyOf(vars);
                             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
                         });
+                        int carried = QuoteUtils.drainCycles();
                         long y = exec.run(inputs.toArray(Long[]::new));
-                        int nested = exec.getLastExecutionCycles();
-                        QuoteUtils.addCycles(nested);
+                        QuoteUtils.addCycles(carried + exec.getLastExecutionCycles());
                         return List.of(y);
                     } finally {
                         stack.pop();
@@ -279,6 +292,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program resolveQuotedTarget(String name) {
         if (name == null) return null;
+        String norm = internalOf(name);
         Program p = functionsOnly.get(name.toUpperCase(ROOT)); // prefer declared <S-Function>
         if (p != null) return p;
         for (var e : functionLibrary.entrySet()) {
@@ -290,7 +304,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
     private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree, int maxDegree) {
         List<Instruction> real = base.getInstructions();
-        int totalCycles = new ProgramCost().cyclesAtDegree(byDegree.get(0), degree);
+        int totalCycles = new ProgramCost(quotationRegistry).cyclesAtDegree(byDegree.get(0), degree);
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
 
@@ -336,7 +350,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
         });
         long y = exec.run(input);
-        int cycles = exec.getLastExecutionCycles();
+        int staticCycles  = new ProgramCost(quotationRegistry).cyclesAtDegree(target, degree);
+        int dynamicCycles = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastDynamicCycles() : 0;
+        int totalCycles = staticCycles + dynamicCycles;
 
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
@@ -347,20 +363,20 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 ))
                 .toList();
         this.lastRunVars = exec.variableState().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         e -> e.getKey().getRepresentation(),
-                        java.util.Map.Entry::getValue,
+                        Map.Entry::getValue,
                         (a,b) -> b,
-                        java.util.LinkedHashMap::new
+                        LinkedHashMap::new
                 ));
-        this.lastRunInputs = java.util.Arrays.stream(input == null ? new Long[0] : input)
+        this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
                 .map(v -> v == null ? 0L : v)
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-        recordRun(degree, input, y, cycles);
+        recordRun(degree, input, y, totalCycles);
 
-        return new RunResult(y, cycles, vars);
+        return new RunResult(y, totalCycles, vars);
     }
 
     private void recordRun(int degree, Long[] input, long y, int cycles) {
@@ -564,7 +580,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
         });
         long y = exec.run(input);
-        int cycles = exec.getLastExecutionCycles();
+        int staticCycles  = new ProgramCost(quotationRegistry).cyclesAtDegree(current, degree);
+        int dynamicCycles = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastDynamicCycles() : 0;
+        int totalCycles = staticCycles + dynamicCycles;
 
         //Collect final state of all variables after execution
         var vars = exec.variableState().entrySet().stream()
@@ -589,8 +607,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        recordRun(degree, input, y, cycles);
-        return new RunResult(y, cycles, vars);
+        recordRun(degree, input, y, totalCycles);
+        return new RunResult(y, totalCycles, vars);
     }
 
     //This func checks whether a program is currently loaded

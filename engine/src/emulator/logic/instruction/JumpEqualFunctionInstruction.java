@@ -1,11 +1,15 @@
 package emulator.logic.instruction;
 
 import emulator.logic.execution.ExecutionContext;
-import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
-import emulator.logic.instruction.quote.*;
+import emulator.logic.instruction.quote.QuoteParser;
+import emulator.logic.instruction.quote.QuoteParserImpl;
+import emulator.logic.instruction.quote.QuoteUtils;
+import emulator.logic.instruction.quote.QuotationInstruction;
+import emulator.logic.instruction.quote.QuotationRegistry;
+import emulator.logic.instruction.quote.VarResolver;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
@@ -21,7 +25,6 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
     private final QuoteParser parser;
     private final QuotationRegistry registry;
     private final VarResolver varResolver;
-    private final QuoteEvaluator quoteEval;
 
     private JumpEqualFunctionInstruction(Builder builder) {
         super(InstructionData.JUMP_EQUAL_FUNCTION, builder.variable, builder.myLabel);
@@ -32,14 +35,13 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         this.parser            = (builder.parser != null) ? builder.parser : new QuoteParserImpl();
         this.registry          = Objects.requireNonNull(builder.registry, "registry");
         this.varResolver       = Objects.requireNonNull(builder.varResolver, "varResolver");
-        this.quoteEval         = builder.quoteEval;
 
         setArgument("JEFunctionLabel", this.jeFunctionLabel.getLabelRepresentation());
         setArgument("functionName", this.functionName);
         setArgument("functionArguments", this.functionArguments);
     }
 
-    //This func builds instruction
+    // -------- Builder --------
     public static class Builder {
         private Variable variable;
         private Label jeFunctionLabel;
@@ -50,71 +52,37 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         private QuoteParser parser;
         private QuotationRegistry registry;
         private VarResolver varResolver;
-        private QuoteEvaluator quoteEval;
 
-        public Builder variable(Variable variable) {
-            this.variable = variable;
-            return this;
-        }
+        public Builder variable(Variable variable) { this.variable = variable; return this; }
+        public Builder jeFunctionLabel(Label label) { this.jeFunctionLabel = label; return this; }
+        public Builder funcName(String funcName) { this.funcName = funcName; return this; }
+        public Builder funcArguments(String funcArguments) { this.funcArguments = funcArguments; return this; }
+        public Builder myLabel(Label label) { this.myLabel = label; return this; }
+        public Builder parser(QuoteParser parser) { this.parser = parser; return this; }
+        public Builder registry(QuotationRegistry registry) { this.registry = registry; return this; }
+        public Builder varResolver(VarResolver varResolver) { this.varResolver = varResolver; return this; }
 
-        public Builder jeFunctionLabel(Label label) {
-            this.jeFunctionLabel = label;
-            return this;
-        }
-
-        public Builder funcName(String funcName) {
-            this.funcName = funcName;
-            return this;
-        }
-
-        public Builder funcArguments(String funcArguments) {
-            this.funcArguments = funcArguments;
-            return this;
-        }
-
-        public Builder myLabel(Label label) {
-            this.myLabel = label;
-            return this;
-        }
-
-        public Builder parser(QuoteParser parser) {
-            this.parser = parser;
-            return this;
-        }
-
-        public Builder registry(QuotationRegistry registry) {
-            this.registry = registry;
-            return this;
-        }
-
-        public Builder varResolver(VarResolver varResolver) {
-            this.varResolver = varResolver;
-            return this;
-        }
-
-        public Builder quoteEval(QuoteEvaluator quoteEval) {
-            this.quoteEval = quoteEval;
-            return this;
-        }
-
-        public JumpEqualFunctionInstruction build() {
-            return new JumpEqualFunctionInstruction(this);
-        }
+        public JumpEqualFunctionInstruction build() { return new JumpEqualFunctionInstruction(this); }
     }
 
-    //This func executes the instruction
+    // -------- Execute --------
     @Override
     public Label execute(ExecutionContext ctx) {
         long vVal = ctx.getVariableValue(getVariable());
-        long qVal = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, quoteEval);
+        QuoteEvaluator evaluator = (ctx != null) ? ctx.getQuoteEvaluator() : null;
+        if (evaluator == null) {
+            throw new IllegalStateException("QuoteEvaluator is not available in ExecutionContext");
+        }
+        long qVal = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, evaluator);
         return (vVal == qVal) ? jeFunctionLabel : FixedLabel.EMPTY;
     }
 
-    //This func expands the instruction
+    // -------- Expand --------
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
         List<Instruction> out = new ArrayList<>();
 
+        // שמירת לייבל התחלתי (אם קיים)
         Label first = getLabel();
         if (first != null && !FixedLabel.EMPTY.equals(first)) {
             out.add(new NeutralInstruction(getVariable(), first));
@@ -126,6 +94,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         Map<String, Label> labelSub = new HashMap<>();
         Variable tempZ = null;
 
+        // מיפוי משתנים של הפונקציה המצוטטת למשתנים טריים
         for (Variable qv : qProgram.getVariables()) {
             switch (qv.getType()) {
                 case INPUT -> {
@@ -146,6 +115,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         }
         if (tempZ == null) tempZ = helper.freshVar();
 
+        // מיפוי לייבלים פנימיים
         for (Instruction iq : qProgram.getInstructions()) {
             Label lq = iq.getLabel();
             if (lq == null || FixedLabel.EMPTY.equals(lq) || FixedLabel.EXIT.equals(lq)) continue;
@@ -153,30 +123,48 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         }
         Label lend = helper.freshLabel();
 
+        // טעינת ארגומנטים: אם זה קריאה מקוננת => נפלט QUOTATION כדי לחשב בזמן ריצה (וספירת סייקלים דינמית)
         List<String> args = parser.parseTopLevelArgs(functionArguments);
         for (int i = 0; i < args.size(); i++) {
             Variable dst = inputIndexToFresh.get(i + 1);
             if (dst == null) break;
-            String tok = args.get(i);
+
+            String tok = args.get(i).trim();
+            if (tok.isEmpty()) {
+                out.add(new ZeroVariableInstruction(dst, FixedLabel.EMPTY));
+                continue;
+            }
+
             if (parser.isNestedCall(tok)) {
-                var nc = parser.parseNestedCall(tok);
-                long v = QuoteUtils.runQuotedEval(nc.name(), nc.argsCsv(), QuoteUtils.newScratchCtx(), registry, parser, varResolver, quoteEval);
-                out.add(new ConstantAssignmentInstruction(dst, v));
+                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                // ניצור ציטוט פנימי שיכתוב ל־dst. החישוב יתבצע בזמן ריצה.
+                out.add(new QuotationInstruction.Builder()
+                        .variable(dst)
+                        .funcName(nc.name())
+                        .funcArguments(nc.argsCsv())
+                        .parser(parser)
+                        .registry(registry)
+                        .varResolver(varResolver)
+                        .myLabel(FixedLabel.EMPTY)
+                        .build());
             } else {
+                // נסה משתנה; אם לא—קבוע
                 try {
                     Variable src = varResolver.resolve(tok);
-                    out.add(new AssignmentInstruction(dst, src));
+                    out.add(new AssignmentInstruction(dst, src, FixedLabel.EMPTY));
                 } catch (Exception e) {
                     long v = QuoteUtils.safeParseLong(tok);
-                    out.add(new ConstantAssignmentInstruction(dst, v));
+                    out.add(new ConstantAssignmentInstruction(dst, v, FixedLabel.EMPTY));
                 }
             }
         }
 
+        // גוף הפונקציה המצוטטת (עם סאבסטיטיושן)
         for (Instruction iq : qProgram.getInstructions()) {
             out.add(cloneWithSubs(iq, varSub, labelSub, helper, lend));
         }
 
+        // השוואה y הזמני שנצבר (tempZ) למשתנה שלנו
         out.add(new JumpEqualVariableInstruction.Builder()
                 .variable(getVariable())
                 .compareVariable(tempZ)
@@ -188,22 +176,35 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
 
     @Override
     public int degree() {
-        Program q = registry.getProgramByName(functionName);
-        int body = (q == null) ? 0 : q.calculateMaxDegree();
-
-        int argsDepth = 0;
-        for (String tok : parser.parseTopLevelArgs(functionArguments)) {
-            if (parser.isNestedCall(tok)) {
-                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                Program p = registry.getProgramByName(nc.name());
-                int d = 1 + ((p == null) ? 0 : p.calculateMaxDegree());
-                if (d > argsDepth) argsDepth = d;
-            }
-        }
-
+        int body = degreeOfProgram(functionName);
+        int argsDepth = degreeOfArgs(functionArguments);
         return 1 + Math.max(body, argsDepth);
     }
 
+    private int degreeOfProgram(String name) {
+        Program p = registry.getProgramByName(name);
+        return (p == null) ? 0 : p.calculateMaxDegree();
+    }
+
+    private int degreeOfArgs(String argsCsv) {
+        int best = 0;
+        for (String tok : parser.parseTopLevelArgs(argsCsv)) {
+            best = Math.max(best, degreeOfArg(tok));
+        }
+        return best;
+    }
+
+    private int degreeOfArg(String tok) {
+        tok = (tok == null) ? "" : tok.trim();
+        if (tok.isEmpty()) return 0;
+
+        if (!parser.isNestedCall(tok)) return 0;
+
+        QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+        int nestedArgsDepth = degreeOfArgs(nc.argsCsv());
+        int calleeBody = degreeOfProgram(nc.name());
+        return 1 + Math.max(calleeBody, nestedArgsDepth);
+    }
 
     private static Variable subVar(Map<Variable, Variable> map, Variable key) {
         return map.getOrDefault(key, key);
@@ -261,5 +262,8 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
 
         return new NeutralInstruction(subVar(varSub, iq.getVariable()), newLbl);
     }
-}
 
+    public String getFunctionName() { return functionName; }
+    public String getFunctionArguments() { return functionArguments; }
+    public QuoteParser getParser() { return parser; }
+}

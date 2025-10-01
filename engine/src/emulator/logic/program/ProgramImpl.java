@@ -1,6 +1,7 @@
 package emulator.logic.program;
 
 import emulator.logic.instruction.Instruction;
+import emulator.logic.instruction.quote.QuotationRegistry;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
@@ -85,11 +86,10 @@ public class ProgramImpl implements Program, Serializable {
         return max;
     }
 
-    public int calculateCyclesAtDegree(int degree) {
-        return new ProgramCost().cyclesAtDegree(this, degree);
+    public int calculateCyclesAtDegree(int degree, QuotationRegistry registry) {
+        return new ProgramCost(registry).cyclesAtDegree(this, degree);
     }
-
-    public int calculateCyclesFullyExpanded() {
-        return new ProgramCost().cyclesFullyExpanded(this);
+    public int calculateCyclesFullyExpanded(QuotationRegistry registry) {
+        return new ProgramCost(registry).cyclesFullyExpanded(this);
     }
 }
