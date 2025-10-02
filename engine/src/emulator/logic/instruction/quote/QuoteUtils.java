@@ -4,13 +4,11 @@ import emulator.logic.execution.ExecutionContext;
 import emulator.logic.execution.ExecutionContextImpl;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.execution.QuoteEvaluator;
+import emulator.logic.instruction.InstructionData;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class QuoteUtils {
@@ -55,21 +53,50 @@ public final class QuoteUtils {
                                      VarResolver varResolver,
                                      QuoteEvaluator quoteEval) {
         Program qProgram = registry.getProgramByName(fname);
-        int need = requiredInputCount(qProgram);
+        if (qProgram == null) {
+            throw new IllegalArgumentException("Unknown function: " + fname);
+        }
+        List<String> topArgs = parser.parseTopLevelArgs(argsCsv);
 
-        List<String> args = parser.parseTopLevelArgs(argsCsv);
-        Long[] inputs = new Long[need];
+        Long[] inputs = new Long[requiredInputCount(qProgram)];
         Arrays.fill(inputs, 0L);
 
-        int copy = Math.min(need, args.size());
-        for (int i = 0; i < copy; i++) {
-            inputs[i] = evalArgToValue(args.get(i), ctx, parser, registry, varResolver, quoteEval);
+        int i = 0;
+        for (String arg : topArgs) {
+            if (i >= inputs.length) break;
+            if (parser.isNestedCall(arg)) {
+                QuoteParser.NestedCall nc = parser.parseNestedCall(arg);
+                long val = runQuotedEval(nc.name(), nc.argsCsv(), ctx, registry, parser, varResolver, quoteEval);
+                inputs[i] = val;
+            } else if (looksLikeVariable(arg)) {
+                inputs[i] = evalArgToValue(arg, ctx, parser, registry, varResolver, quoteEval);
+            } else if (isFunctionCall(arg, registry)) {
+                long val = runQuotedEval(arg.trim(), "", ctx, registry, parser, varResolver, quoteEval);
+                inputs[i] = val;
+            } else {
+                inputs[i] = evalArgToValue(arg, ctx, parser, registry, varResolver, quoteEval);
+            }
+            i++;
         }
-        int carried = QuoteUtils.drainCycles();
+
         ProgramExecutorImpl exec = (quoteEval == null) ? new ProgramExecutorImpl(qProgram) : new ProgramExecutorImpl(qProgram, quoteEval);
         long resultY = exec.run(inputs);
-        QuoteUtils.addCycles(carried + exec.getLastExecutionCycles());
-        return Math.max(resultY, 0);
+        QuoteUtils.addCycles(exec.getLastExecutionCycles());
+
+        return resultY;
+    }
+
+    private static boolean looksLikeVariable(String token) {
+        if (token == null) return false;
+        String t = token.trim().toUpperCase(Locale.ROOT);
+        if (t.equals("Y")) return true;
+        if (t.matches("[XZ][0-9]+")) return true;
+        return false;
+    }
+
+    private static boolean isFunctionCall(String token, QuotationRegistry registry) {
+        if (token == null || token.isBlank()) return false;
+        return registry.getProgramByName(token.trim().toUpperCase(Locale.ROOT)) != null;
     }
 
     public static int requiredInputCount(Program p) {
@@ -96,7 +123,6 @@ public final class QuoteUtils {
         if (parser.isNestedCall(token)) {
             QuoteParser.NestedCall nc = parser.parseNestedCall(token);
             System.out.println("EVAL nested call: " + nc.name() + "(" + nc.argsCsv() + ")");
-
             String fname = normalizeFunctionName(nc.name(), registry);
 
             Program qProgram = registry.getProgramByName(fname);
@@ -119,10 +145,10 @@ public final class QuoteUtils {
 
             long resultY = exec.run(inputs);
             int argCycles = exec.getLastExecutionCycles();
-            QuoteUtils.addCycles(argCycles);
-
+            int quoteBase = emulator.logic.instruction.InstructionData.QUOTATION.getCycles();
+            QuoteUtils.addCycles(argCycles + quoteBase);
             if (ctx instanceof ExecutionContextImpl ectx) {
-                ectx.addDynamicCycles(argCycles);
+                ectx.addDynamicCycles(argCycles + quoteBase);
             }
 
             return resultY;

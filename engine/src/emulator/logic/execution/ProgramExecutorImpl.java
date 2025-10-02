@@ -39,8 +39,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     public long run(Long... input) {
         lastExecutionCycles = 0;
         lastDynamicCycles = 0;
-        int carried = QuoteUtils.drainCycles();
-        QuoteUtils.resetCycles();
+
         if (quoteEval != null) {
             context.setQuoteEvaluator(quoteEval);
         }
@@ -54,7 +53,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         seedVariables(finalInputs);
 
         executeProgram(instructions);
-        QuoteUtils.addCycles(carried);
+        lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
     }
 
@@ -120,13 +119,6 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         Label next = ins.execute(context);
 
         lastExecutionCycles += ins.cycles();
-        if (ins instanceof QuotationInstruction || ins instanceof JumpEqualFunctionInstruction) {
-            int dyn = QuoteUtils.drainCycles();
-            if (dyn > 0) {
-                lastExecutionCycles += dyn;
-                lastDynamicCycles += dyn;
-            }
-        }
 
         int nextIndex;
         if (isExit(next)) {

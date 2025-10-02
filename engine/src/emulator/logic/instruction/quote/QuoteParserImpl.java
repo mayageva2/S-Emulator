@@ -14,6 +14,7 @@ public final class QuoteParserImpl implements QuoteParser {
         List<String> out = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
         int depth = 0;
+
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             if (c == '(') {
@@ -31,12 +32,15 @@ public final class QuoteParserImpl implements QuoteParser {
                 cur.append(c);
             }
         }
+
         if (depth != 0) throw new IllegalArgumentException("Unbalanced parentheses in QUOTE args: " + s);
 
         String last = cur.toString().trim();
         if (!last.isEmpty()) out.add(last);
+
         return out;
     }
+
 
     public boolean isNestedCall(String arg) {
         if (arg == null) return false;
@@ -49,8 +53,10 @@ public final class QuoteParserImpl implements QuoteParser {
             return true;
         }
         if (s.charAt(0) == '(' && s.charAt(s.length()-1) == ')') {
-            int comma = findFirstTopLevelComma(s.substring(1, s.length()-1));
-            return comma > 0;
+            String inner = s.substring(1, s.length()-1).trim();
+            if (inner.isEmpty()) return false;
+            int comma = findFirstTopLevelComma(inner);
+            return true;
         }
         return false;
     }
@@ -63,6 +69,7 @@ public final class QuoteParserImpl implements QuoteParser {
 
         if (s.charAt(0) == '(' && s.charAt(s.length()-1) == ')') {
             String inner = s.substring(1, s.length()-1).trim();
+            if (inner.isEmpty()) {throw new IllegalArgumentException("Missing function name in nested call: " + arg);}
             int firstComma = findFirstTopLevelComma(inner);
             if (firstComma < 0) return new NestedCall(inner.trim(), "");
             String name = inner.substring(0, firstComma).trim();

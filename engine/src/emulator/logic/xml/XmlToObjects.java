@@ -3,10 +3,7 @@ package emulator.logic.xml;
 import emulator.exception.InvalidInstructionException;
 import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.instruction.*;
-import emulator.logic.instruction.quote.ProgramVarResolver;
-import emulator.logic.instruction.quote.QuotationInstruction;
-import emulator.logic.instruction.quote.QuotationRegistry;
-import emulator.logic.instruction.quote.QuoteParserImpl;
+import emulator.logic.instruction.quote.*;
 import emulator.logic.label.*;
 import emulator.logic.program.*;
 import emulator.logic.variable.*;
@@ -127,22 +124,50 @@ public final class XmlToObjects {
                 yield b.build();
             }
             case "QUOTE" -> {
-                String fname = req(args, "FUNCTIONNAME", opcode, index).toUpperCase(Locale.ROOT);
-                String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
+                String rawFname = req(args, "FUNCTIONNAME", opcode, index).trim();
+                String rawFargs = args.getOrDefault("FUNCTIONARGUMENTS", "").trim();
+
+                QuoteParserImpl qp = new QuoteParserImpl();
+                String fname = rawFname.toUpperCase(Locale.ROOT);
+                String fargs = rawFargs;
+
+                if (qp.isNestedCall(rawFargs)) {
+                    fargs = rawFargs.trim();
+                }
+
+                if (registry.getProgramByName(fname) == null) {
+                    throw new InvalidInstructionException(opcode, "Unknown function: " + fname, index);
+                }
 
                 QuotationInstruction.Builder b = new QuotationInstruction.Builder()
                         .variable(v)
                         .funcName(fname)
                         .funcArguments(fargs)
                         .myLabel(lbl)
-                        .parser(new QuoteParserImpl())
+                        .parser(qp)
                         .varResolver(new ProgramVarResolver(program))
                         .registry(registry);
                 yield b.build();
             }
+
             case "JUMP_EQUAL_FUNCTION" -> {
-                String fname = req(args, "FUNCTIONNAME", opcode, index).toUpperCase(Locale.ROOT);
-                String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
+                String rawFname = req(args, "FUNCTIONNAME", opcode, index).trim();
+                String rawFargs = args.getOrDefault("FUNCTIONARGUMENTS", "").trim();
+
+                QuoteParserImpl qp = new QuoteParserImpl();
+                String fname = rawFname.toUpperCase(Locale.ROOT);
+                String fargs = rawFargs;
+
+                if (qp.isNestedCall(rawFargs)) {
+                    QuoteParser.NestedCall nc = qp.parseNestedCall(rawFargs);
+                    fname = nc.name().toUpperCase(Locale.ROOT);
+                    fargs = nc.argsCsv();
+                }
+
+                if (registry.getProgramByName(fname) == null) {
+                    throw new InvalidInstructionException(opcode, "Unknown function: " + fname, index);
+                }
+
                 Label target = parseLabel(req(args, "JEFUNCTIONLABEL", opcode, index),
                         opcode, index, LabelPolicy.REQUIRED, "JEFUNCTIONLABEL");
 
@@ -152,13 +177,18 @@ public final class XmlToObjects {
                         .funcName(fname)
                         .funcArguments(fargs)
                         .myLabel(lbl)
-                        .parser(new QuoteParserImpl())
+                        .parser(qp)
                         .registry(registry)
                         .varResolver(new ProgramVarResolver(program));
                 yield b.build();
             }
             default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);
         };
+    }
+
+    private static boolean isFunctionName(String s, QuotationRegistry registry) {
+        if (s == null || s.isBlank()) return false;
+        return registry.getProgramByName(s.toUpperCase(Locale.ROOT)) != null;
     }
 
     private static Map<String,String> toArgMap(InstructionXml ix) {

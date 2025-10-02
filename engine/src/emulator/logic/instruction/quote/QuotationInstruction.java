@@ -32,14 +32,6 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
         setArgument("functionName", this.functionName);
         setArgument("functionArguments", this.functionArguments);
-
-        System.out.println("=== QuotationInstruction Built ===");
-        System.out.println("functionName = " + this.functionName);
-        System.out.println("functionArguments = " + this.functionArguments);
-        System.out.println("rawArgs = " + this.rawArgs);
-        for (String arg : this.rawArgs) {
-            System.out.println("isNestedCall(" + arg + ") = " + parser.isNestedCall(arg));
-        }
     }
 
     //This func builds instruction
