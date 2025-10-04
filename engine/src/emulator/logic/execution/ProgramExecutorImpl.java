@@ -141,8 +141,6 @@ public class ProgramExecutorImpl implements ProgramExecutor{
             }
         }
 
-        int totalCyclesForStep = lastExecutionCycles + observedDynamicCycles;
-
         int nextIndex;
         if (isExit(next)) {
             nextIndex = instructions.size();
@@ -155,7 +153,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
         if (stepListener != null) {
-            stepListener.onStep(nextIndex, totalCyclesForStep, snapshotVarsForDebug(), finished);
+            stepListener.onStep(nextIndex, QuoteUtils.getCurrentCycles() + lastExecutionCycles, snapshotVarsForDebug(), finished);
         }
         return nextIndex;
     }

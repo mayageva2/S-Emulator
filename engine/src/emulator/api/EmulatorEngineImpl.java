@@ -270,6 +270,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     try {
                         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
                         var exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator()); // allow nested QUOTE
+                        if (degree > 0 && exec instanceof ProgramExecutorImpl pei) {
+                            pei.setBaseCycles(QuoteUtils.getCurrentCycles());
+                        }
                         exec.setBaseCycles(QuoteUtils.getCurrentCycles());
                         debugTrace.clear();
                         exec.setStepListener((pcAfter, cycles, vars, finished) -> {
@@ -787,6 +790,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         dbgExecutor.setStepListener((pcAfter, cycles, vars, finished) -> {
             dbgPC = pcAfter;
             dbgCycles = cycles;
+            if (dbgExecutor instanceof ProgramExecutorImpl pei) {
+                pei.setBaseCycles(cycles);
+            }
             dbgVars = (vars == null) ? snapshotVars(dbgExecutor, inputs) : Map.copyOf(vars);
 
             synchronized (dbgLock) {
@@ -882,11 +888,15 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     public boolean debugIsFinished() {return dbgFinished;}
     public int debugCurrentPC() {return dbgPC;}
-    public int debugCycles() {return dbgCycles;}
+    public int debugCycles() {
+        return dbgCycles;
+    }
+
     public Map<String,String> debugVarsSnapshot() {return (dbgVars == null) ? Map.of() : dbgVars;}
 
     public RunResult debugCurrentRunResult() {
         if (dbgExecutor == null) return null;
+
         var vars = dbgExecutor.variableState().entrySet().stream()
                 .map(e -> new VariableView(
                         e.getKey().getRepresentation(),
@@ -895,9 +905,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         e.getValue()
                 ))
                 .toList();
+
         long y = lastRunVars.getOrDefault("y", 0L);
-        return new RunResult(y, dbgCycles, vars);
+        return new RunResult(y, debugCycles(), vars);
     }
+
 
     @Override
     public DebugService debugger() {
