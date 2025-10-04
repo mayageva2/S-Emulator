@@ -68,73 +68,81 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
-        List<Instruction> out = new ArrayList<>();
-        Label origLbl = getLabel();
-        if (origLbl != null && !FixedLabel.EMPTY.equals(origLbl)) {
-            out.add(new NeutralInstruction(getVariable(), origLbl));
+        if (helper.isExpanding(functionName)) {
+            return List.of(this);
         }
+        helper.markExpanding(functionName);
+        try {
+            List<Instruction> out = new ArrayList<>();
+            Label origLbl = getLabel();
+            if (origLbl != null && !FixedLabel.EMPTY.equals(origLbl)) {
+                out.add(new NeutralInstruction(getVariable(), origLbl));
+            }
 
-        Program qProgram = registry.getProgramByName(functionName);
-        Map<Variable, Variable> varSub = new HashMap<>();
-        Map<Integer, Variable> inputIndexToFresh = new HashMap<>();
-        Variable newY = null;
+            Program qProgram = registry.getProgramByName(functionName);
+            Map<Variable, Variable> varSub = new HashMap<>();
+            Map<Integer, Variable> inputIndexToFresh = new HashMap<>();
+            Variable newY = null;
 
-        for (Variable qv : qProgram.getVariables()) {
-            switch (qv.getType()) {
-                case INPUT -> {
-                    Variable fresh = helper.freshVar();
-                    varSub.put(qv, fresh);
-                    inputIndexToFresh.put(qv.getNumber(), fresh);
-                }
-                case WORK -> varSub.put(qv, helper.freshVar());
-                default -> {
-                    if (QuoteUtils.isOutputVar(qv)) {
-                        newY = helper.freshVar();
-                        varSub.put(qv, newY);
+            for (Variable qv : qProgram.getVariables()) {
+                switch (qv.getType()) {
+                    case INPUT -> {
+                        Variable fresh = helper.freshVar();
+                        varSub.put(qv, fresh);
+                        inputIndexToFresh.put(qv.getNumber(), fresh);
+                    }
+                    case WORK -> varSub.put(qv, helper.freshVar());
+                    default -> {
+                        if (QuoteUtils.isOutputVar(qv)) {
+                            newY = helper.freshVar();
+                            varSub.put(qv, newY);
+                        }
                     }
                 }
             }
-        }
-        if (newY == null) {
-            newY = helper.freshVar();
-        }
-
-        Label lend = helper.freshLabel();
-        Map<String, Label> labelSub = new HashMap<>();
-        int nInputs = inputIndexToFresh.isEmpty() ? 0 : Collections.max(inputIndexToFresh.keySet());
-        for (int i = 1; i <= nInputs; i++) {
-            Variable dstZi = inputIndexToFresh.get(i);
-            if (dstZi == null) {
-                Variable filler = helper.freshVar();
-                out.add(new ZeroVariableInstruction(filler, FixedLabel.EMPTY));
-                continue;
+            if (newY == null) {
+                newY = helper.freshVar();
             }
 
-            String tok = (i - 1 < rawArgs.size()) ? rawArgs.get(i - 1) : "";
-            if (tok.isBlank()) {
-                out.add(new ZeroVariableInstruction(dstZi, FixedLabel.EMPTY));
-            } else if (parser.isNestedCall(tok)) {
-                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                out.add(new Builder()
-                        .variable(dstZi)
-                        .funcName(nc.name())
-                        .funcArguments(nc.argsCsv())
-                        .parser(parser)
-                        .registry(registry)
-                        .varResolver(varResolver)
-                        .build());
-            } else {
-                Variable src = resolveLoose(varResolver, tok);
-                out.add(new AssignmentInstruction(dstZi, src, FixedLabel.EMPTY));
+            Label lend = helper.freshLabel();
+            Map<String, Label> labelSub = new HashMap<>();
+            int nInputs = inputIndexToFresh.isEmpty() ? 0 : Collections.max(inputIndexToFresh.keySet());
+            for (int i = 1; i <= nInputs; i++) {
+                Variable dstZi = inputIndexToFresh.get(i);
+                if (dstZi == null) {
+                    Variable filler = helper.freshVar();
+                    out.add(new ZeroVariableInstruction(filler, FixedLabel.EMPTY));
+                    continue;
+                }
+
+                String tok = (i - 1 < rawArgs.size()) ? rawArgs.get(i - 1) : "";
+                if (tok.isBlank()) {
+                    out.add(new ZeroVariableInstruction(dstZi, FixedLabel.EMPTY));
+                } else if (parser.isNestedCall(tok)) {
+                    QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                    out.add(new Builder()
+                            .variable(dstZi)
+                            .funcName(nc.name())
+                            .funcArguments(nc.argsCsv())
+                            .parser(parser)
+                            .registry(registry)
+                            .varResolver(varResolver)
+                            .build());
+                } else {
+                    Variable src = resolveLoose(varResolver, tok);
+                    out.add(new AssignmentInstruction(dstZi, src, FixedLabel.EMPTY));
+                }
             }
-        }
 
-        for (Instruction iq : qProgram.getInstructions()) {
-            out.add(cloneWithSubs(iq, varSub, labelSub, helper, lend));
-        }
+            for (Instruction iq : qProgram.getInstructions()) {
+                out.add(cloneWithSubs(iq, varSub, labelSub, helper, lend));
+            }
 
-        out.add(new AssignmentInstruction(getVariable(), newY, lend));
-        return out;
+            out.add(new AssignmentInstruction(getVariable(), newY, lend));
+            return out;
+        } finally {
+            helper.unmarkExpanding(functionName);
+        }
     }
 
     @Override

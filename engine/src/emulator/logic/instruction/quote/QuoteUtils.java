@@ -81,6 +81,7 @@ public final class QuoteUtils {
         ProgramExecutorImpl exec = (quoteEval == null)
                 ? new ProgramExecutorImpl(qProgram)
                 : new ProgramExecutorImpl(qProgram, quoteEval);
+        exec.setBaseCycles(QuoteUtils.getCurrentCycles());
         long resultY = exec.run(inputs);
         int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
         registerQuoteCycles(ctx, totalCycles);

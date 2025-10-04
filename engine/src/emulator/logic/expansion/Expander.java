@@ -14,10 +14,10 @@ import java.util.Objects;
 public final class Expander {
 
     //This func expands one layer of expandable instructions
-    public List<Instruction> expandOnce(List<Instruction> input) {
+    public List<Instruction> expandOnce(List<Instruction> input, ExpansionHelper helper) {
         Objects.requireNonNull(input, "input");
+        Objects.requireNonNull(helper, "helper");
 
-        ExpansionHelper helper = buildHelper(input);
         List<Instruction> out = new ArrayList<>(Math.max(16, input.size() * 2));
 
         for (Instruction ins : input) {
@@ -57,7 +57,7 @@ public final class Expander {
     }
 
     //This func maps a variable’s string representation
-    private static VariableType mapVarType(String rep) {
+    public static VariableType mapVarType(String rep) {
         if (rep == null || rep.isEmpty()) return VariableType.WORK;
         char c = Character.toLowerCase(rep.charAt(0));
         if (c == 'x') return VariableType.INPUT;
@@ -67,7 +67,7 @@ public final class Expander {
     }
 
     //This func extracts and returns the first integer value
-    private static int extractInt(String s) {
+    public static int extractInt(String s) {
         if (s == null) return 0;
         int n = 0, len = s.length();
         for (int i = 0; i < len; i++) {
@@ -94,11 +94,11 @@ public final class Expander {
     public List<Instruction> expandToDegree(List<Instruction> original, int degree) {
         Objects.requireNonNull(original, "original");
         if (degree <= 0) return Collections.unmodifiableList(new ArrayList<>(original));
-
+        ExpansionHelper helper = buildHelper(original);
         List<Instruction> curr = new ArrayList<>(original);
         for (int d = 0; d < degree; d++) {
             if (isFullyBasic(curr)) break;
-            curr = new ArrayList<>(expandOnce(curr));
+            curr = new ArrayList<>(expandOnce(curr, helper));
         }
         return Collections.unmodifiableList(curr);
     }
@@ -108,8 +108,9 @@ public final class Expander {
         Objects.requireNonNull(original, "original");
         int degree = 0;
         List<Instruction> curr = new ArrayList<>(original);
+        ExpansionHelper helper = buildHelper(original);
         while (!isFullyBasic(curr)) {
-            curr = new ArrayList<>(expandOnce(curr));
+            curr = new ArrayList<>(expandOnce(curr, helper));
             degree++;
         }
         return degree;
