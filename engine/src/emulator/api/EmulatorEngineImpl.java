@@ -277,7 +277,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         });
                         int carried = QuoteUtils.drainCycles();
                         long y = exec.run(inputs.toArray(Long[]::new));
-                        QuoteUtils.addCycles(carried + exec.getLastExecutionCycles());
+                        QuoteUtils.addCycles(carried + exec.getLastExecutionCycles() + exec.getLastDynamicCycles());
                         return List.of(y);
                     } finally {
                         stack.pop();

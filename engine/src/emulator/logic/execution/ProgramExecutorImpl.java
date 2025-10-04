@@ -20,6 +20,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private int lastExecutionCycles = 0;
     private int lastDynamicCycles = 0;
     private Long[] lastInputs = new Long[0];
+    private int observedDynamicCycles = 0;
     private StepListener stepListener;
 
     public ProgramExecutorImpl(Program program) {
@@ -39,6 +40,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     public long run(Long... input) {
         lastExecutionCycles = 0;
         lastDynamicCycles = 0;
+        observedDynamicCycles = 0;
 
         if (quoteEval != null) {
             context.setQuoteEvaluator(quoteEval);
@@ -120,6 +122,16 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         System.out.println("STEP " + currentIndex + " " + ins + " Vars=" + context.getAllVariables());
         lastExecutionCycles += ins.cycles();
 
+        int dynamicIncrement = 0;
+        if (context instanceof ExecutionContextImpl ectx) {
+            dynamicIncrement = ectx.drainDynamicCycles();
+            if (dynamicIncrement != 0) {
+                observedDynamicCycles += dynamicIncrement;
+            }
+        }
+
+        int totalCyclesForStep = lastExecutionCycles + observedDynamicCycles;
+
         int nextIndex;
         if (isExit(next)) {
             nextIndex = instructions.size();
@@ -132,7 +144,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
         if (stepListener != null) {
-            stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
+            stepListener.onStep(nextIndex, totalCyclesForStep, snapshotVarsForDebug(), finished);
         }
         return nextIndex;
     }

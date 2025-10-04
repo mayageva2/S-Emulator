@@ -21,6 +21,7 @@ public final class QuoteUtils {
     public static void addCycles(int n) {
         if (n > 0){
             int after = dynamicCycles.get().addAndGet(n);
+            System.out.println("[ADD] +" + n + " => " + after + " on " + Thread.currentThread().getName());
         }
     }
     public static int getCurrentCycles() {
@@ -29,9 +30,9 @@ public final class QuoteUtils {
     public static int drainCycles() {
         int val = dynamicCycles.get().get();
         dynamicCycles.get().set(0);
+        System.out.println("[DRAIN] " + val + " on " + Thread.currentThread().getName());
         return val;
     }
-
 
     public static ExecutionContext newScratchCtx() {
         return new ExecutionContext() {
@@ -79,11 +80,24 @@ public final class QuoteUtils {
             i++;
         }
 
-        ProgramExecutorImpl exec = (quoteEval == null) ? new ProgramExecutorImpl(qProgram) : new ProgramExecutorImpl(qProgram, quoteEval);
+        ProgramExecutorImpl exec = (quoteEval == null)
+                ? new ProgramExecutorImpl(qProgram)
+                : new ProgramExecutorImpl(qProgram, quoteEval);
         long resultY = exec.run(inputs);
-        QuoteUtils.addCycles(exec.getLastExecutionCycles());
+        int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+        registerQuoteCycles(ctx, totalCycles);
 
         return resultY;
+    }
+
+    private static void registerQuoteCycles(ExecutionContext ctx, int cycles) {
+        if (cycles <= 0) {
+            return;
+        }
+        addCycles(cycles);
+        if (ctx instanceof ExecutionContextImpl ectx) {
+            ectx.addDynamicCycles(cycles);
+        }
     }
 
     private static boolean looksLikeVariable(String token) {
@@ -173,12 +187,11 @@ public final class QuoteUtils {
                     : new ProgramExecutorImpl(qProgram, quoteEval);
 
             long resultY = exec.run(inputs);
-            int argCycles = exec.getLastExecutionCycles();
+            int nestedStaticCycles = exec.getLastExecutionCycles();
+            int nestedDynamicCycles = exec.getLastDynamicCycles();
             int quoteBase = emulator.logic.instruction.InstructionData.QUOTATION.getCycles();
-            QuoteUtils.addCycles(argCycles + quoteBase);
-            if (ctx instanceof ExecutionContextImpl ectx) {
-                ectx.addDynamicCycles(argCycles + quoteBase);
-            }
+            int producedCycles = nestedStaticCycles + nestedDynamicCycles + quoteBase;
+            registerQuoteCycles(ctx, producedCycles);
 
             return new ResolvedArg(trimmedToken, resultY, null, ResolvedArg.Origin.NESTED_CALL);
         }

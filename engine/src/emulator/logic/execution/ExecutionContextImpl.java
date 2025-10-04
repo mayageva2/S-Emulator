@@ -24,4 +24,9 @@ public class ExecutionContextImpl implements ExecutionContext {
     public int getDynamicCycles() {
         return dynamicCycles;
     }
+    public int drainDynamicCycles() {
+        int current = dynamicCycles;
+        dynamicCycles = 0;
+        return current;
+    }
 }
