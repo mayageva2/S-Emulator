@@ -22,6 +22,15 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private Long[] lastInputs = new Long[0];
     private int observedDynamicCycles = 0;
     private StepListener stepListener;
+    private int baseCycles = 0; // base offset from previous nested executions
+
+    public void setBaseCycles(int base) {
+        this.baseCycles = base;
+    }
+
+    public int getBaseCycles() {
+        return baseCycles;
+    }
 
     public ProgramExecutorImpl(Program program) {
         this.program = Objects.requireNonNull(program, "program must not be null");
@@ -56,6 +65,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         System.out.println("current program is" + program.getName());
         executeProgram(instructions);
+//        lastExecutionCycles += baseCycles;
         lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
     }
@@ -122,7 +132,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         Label next = ins.execute(context);
         System.out.println("STEP " + currentIndex + " " + ins + " Vars=" + context.getAllVariables());
         lastExecutionCycles += ins.cycles();
-        System.out.println("total cycles in " + ins + " is " + lastExecutionCycles);
+        System.out.println("total cycles in " + ins + " is " + (QuoteUtils.getCurrentCycles() + lastExecutionCycles));
         int dynamicIncrement = 0;
         if (context instanceof ExecutionContextImpl ectx) {
             dynamicIncrement = ectx.drainDynamicCycles();

@@ -270,6 +270,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     try {
                         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
                         var exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator()); // allow nested QUOTE
+                        exec.setBaseCycles(QuoteUtils.getCurrentCycles());
                         debugTrace.clear();
                         exec.setStepListener((pcAfter, cycles, vars, finished) -> {
                             Map<String,String> vv = (vars == null) ? Map.of() : Map.copyOf(vars);
@@ -350,7 +351,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
         });
         long y = exec.run(input);
-        int staticCycles  = new ProgramCost(quotationRegistry).cyclesAtDegree(target, degree);
+        int staticCycles  = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastExecutionCycles() : 0;
         int dynamicCycles = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastDynamicCycles() : 0;
         int totalCycles = staticCycles + dynamicCycles;
 
@@ -580,7 +581,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
         });
         long y = exec.run(input);
-        int staticCycles  = new ProgramCost(quotationRegistry).cyclesAtDegree(current, degree);
+        int staticCycles  = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastExecutionCycles() : 0;
         int dynamicCycles = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastDynamicCycles() : 0;
         int totalCycles = staticCycles + dynamicCycles;
 

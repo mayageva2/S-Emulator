@@ -25,6 +25,7 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
     private List<String> orderedVarNames = List.of();
     private DebugSnapshot lastForcedStop = null;
     private boolean forceUseStopOnce = false;
+    private int lastCycleSnapshot = 0;
 
     private int degreeAtStart = 0;
     @SuppressWarnings("unused")
@@ -195,7 +196,10 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
             String pname = (selectedProgram != null && !selectedProgram.isBlank())
                     ? selectedProgram
                     : engine.programView(0).programName();
-            m.invoke(engine, pname, degreeAtStart, inputsAtStart, s.vars(), s.cycles());
+            int delta = s.cycles() - lastCycleSnapshot;
+            if (delta < 0) delta = 0;
+            lastCycleSnapshot = s.cycles();
+            m.invoke(engine, pname, degreeAtStart, inputsAtStart, s.vars(), delta);
         } catch (NoSuchMethodException ignore) {} catch (Exception e) {}
     }
 

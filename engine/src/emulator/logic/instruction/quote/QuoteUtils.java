@@ -21,7 +21,6 @@ public final class QuoteUtils {
     public static void addCycles(int n) {
         if (n > 0){
             int after = dynamicCycles.get().addAndGet(n);
-            System.out.println("[ADD] +" + n + " => " + after + " on " + Thread.currentThread().getName());
         }
     }
     public static int getCurrentCycles() {
@@ -30,7 +29,6 @@ public final class QuoteUtils {
     public static int drainCycles() {
         int val = dynamicCycles.get().get();
         dynamicCycles.get().set(0);
-        System.out.println("[DRAIN] " + val + " on " + Thread.currentThread().getName());
         return val;
     }
 
