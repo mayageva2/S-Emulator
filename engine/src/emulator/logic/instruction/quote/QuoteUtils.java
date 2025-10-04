@@ -66,7 +66,6 @@ public final class QuoteUtils {
             if (i >= inputs.length) break;
             if (parser.isNestedCall(arg)) {
                 QuoteParser.NestedCall nc = parser.parseNestedCall(arg);
-                System.out.println("EVAL nested call: " + nc.name() + "(" + nc.argsCsv() + ")");
                 long val = runQuotedEval(nc.name(), nc.argsCsv(), ctx, registry, parser, varResolver, quoteEval);
                 inputs[i] = val;
             } else if (looksLikeVariable(arg)) {
@@ -118,12 +117,24 @@ public final class QuoteUtils {
             VarResolver varResolver,
             QuoteEvaluator quoteEval
     ) {
-        token = (token == null) ? "" : token.trim();
-        if (token.isEmpty()) return 0L;
+        return evalArgWithDetails(token, ctx, parser, registry, varResolver, quoteEval).value();
+    }
 
-        if (parser.isNestedCall(token)) {
-            QuoteParser.NestedCall nc = parser.parseNestedCall(token);
-            System.out.println("EVAL nested call: " + nc.name() + "(" + nc.argsCsv() + ")");
+    private static ResolvedArg evalArgWithDetails(
+            String token,
+            ExecutionContext ctx,
+            QuoteParser parser,
+            QuotationRegistry registry,
+            VarResolver varResolver,
+            QuoteEvaluator quoteEval
+    ) {
+        String trimmedToken = (token == null) ? "" : token.trim();
+        if (trimmedToken.isEmpty()) {
+            return new ResolvedArg(trimmedToken, 0L, null, ResolvedArg.Origin.LITERAL_ZERO);
+        }
+
+        if (parser.isNestedCall(trimmedToken)) {
+            QuoteParser.NestedCall nc = parser.parseNestedCall(trimmedToken);
             String fname = normalizeFunctionName(nc.name(), registry);
 
             Program qProgram = registry.getProgramByName(fname);
@@ -136,8 +147,25 @@ public final class QuoteUtils {
 
             Long[] inputs = new Long[Math.max(need, 0)];
             Arrays.fill(inputs, 0L);
+            List<ResolvedArg> resolvedArgs = new ArrayList<>();
+            List<String> displayArgs = new ArrayList<>(args.size());
+            for (int i = 0; i < args.size(); i++) {
+                String raw = args.get(i);
+                displayArgs.add(raw == null ? "" : raw.trim());
+            }
+
             for (int i = 0; i < Math.min(need, args.size()); i++) {
-                inputs[i] = evalArgToValue(args.get(i), ctx, parser, registry, varResolver, quoteEval);
+                String argToken = args.get(i);
+                ResolvedArg resolved = evalArgWithDetails(argToken, ctx, parser, registry, varResolver, quoteEval);
+                inputs[i] = resolved.value();
+                resolvedArgs.add(resolved);
+            }
+
+            String callSignature = nc.name() + "(" + String.join(",", displayArgs) + ")";
+            System.out.println("EVAL nested call: " + callSignature);
+            if (!resolvedArgs.isEmpty()) {
+                System.out.println("  resolved order: " + buildResolvedOrderLog(resolvedArgs));
+                System.out.println("  resolved inputs: " + buildResolvedValuesLog(resolvedArgs));
             }
 
             ProgramExecutorImpl exec = (quoteEval == null)
@@ -152,28 +180,71 @@ public final class QuoteUtils {
                 ectx.addDynamicCycles(argCycles + quoteBase);
             }
 
-            return resultY;
-        } else {
-            if (varResolver != null) {
-                try {
-                    Variable v = varResolver.resolve(token);
-                    return ctx.getVariableValue(v);
-                } catch (Exception ignored) {
-                }
-            }
-
-            Long ctxValue = resolveFromExecutionContext(token, ctx);
-            if (ctxValue != null) {
-                return ctxValue;
-            }
-
-            Long num = tryParseLong(token);
-            if (num != null) return num;
-            throw new IllegalArgumentException("Unrecognized token in QUOTE args: " + token);
+            return new ResolvedArg(trimmedToken, resultY, null, ResolvedArg.Origin.NESTED_CALL);
         }
+
+        if (varResolver != null) {
+            try {
+                Variable v = varResolver.resolve(trimmedToken);
+                long value = ctx.getVariableValue(v);
+                return new ResolvedArg(trimmedToken, value, v, ResolvedArg.Origin.RESOLVED_VARIABLE);
+            } catch (Exception ignored) {
+            }
+        }
+
+        ContextValue ctxValue = resolveFromExecutionContextDetailed(trimmedToken, ctx);
+        if (ctxValue != null) {
+            return new ResolvedArg(trimmedToken, ctxValue.value(), ctxValue.variable(), ResolvedArg.Origin.CONTEXT_LOOKUP);
+        }
+
+        Long num = tryParseLong(trimmedToken);
+        if (num != null) {
+            return new ResolvedArg(trimmedToken, num, null, ResolvedArg.Origin.NUMERIC_LITERAL);
+        }
+
+        throw new IllegalArgumentException("Unrecognized token in QUOTE args: " + trimmedToken);
     }
 
-    private static Long resolveFromExecutionContext(String token, ExecutionContext ctx) {
+    private static String buildResolvedOrderLog(List<ResolvedArg> resolvedArgs) {
+        List<String> orderLog = new ArrayList<>(resolvedArgs.size());
+        for (int i = 0; i < resolvedArgs.size(); i++) {
+            ResolvedArg resolved = resolvedArgs.get(i);
+            String label = resolved.displayName();
+            if (!equalsIgnoreCaseSafe(label, resolved.token())) {
+                orderLog.add("input" + (i + 1) + "<-" + label + " (token='" + resolved.token() + "')");
+            } else {
+                orderLog.add("input" + (i + 1) + "<-" + label);
+            }
+        }
+        return String.join(", ", orderLog);
+    }
+
+    private static String buildResolvedValuesLog(List<ResolvedArg> resolvedArgs) {
+        List<String> valueLog = new ArrayList<>(resolvedArgs.size());
+        for (int i = 0; i < resolvedArgs.size(); i++) {
+            ResolvedArg resolved = resolvedArgs.get(i);
+            String label = resolved.displayName();
+            StringBuilder sb = new StringBuilder();
+            sb.append("input").append(i + 1).append("=").append(resolved.value());
+            if (label != null && !label.isBlank()) {
+                sb.append(" (from ").append(label);
+                if (!equalsIgnoreCaseSafe(label, resolved.token())) {
+                    sb.append(", token='").append(resolved.token()).append("'");
+                }
+                sb.append(")");
+            }
+            valueLog.add(sb.toString());
+        }
+        return String.join(", ", valueLog);
+    }
+
+    private static boolean equalsIgnoreCaseSafe(String a, String b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.equalsIgnoreCase(b);
+    }
+
+    private static ContextValue resolveFromExecutionContextDetailed(String token, ExecutionContext ctx) {
         if (ctx == null) {
             return null;
         }
@@ -186,25 +257,49 @@ public final class QuoteUtils {
         Variable fallback = tryResolveVariableByName(token);
         if (fallback != null) {
             if (vars.containsKey(fallback)) {
-                return vars.get(fallback);
+                return new ContextValue(fallback, vars.get(fallback));
             }
             // If the concrete instance is not present, fall back to name based lookup below.
         }
 
-        String trimmed = token.trim();
-        String normalized = trimmed.toLowerCase(Locale.ROOT);
+        String normalized = token.toLowerCase(Locale.ROOT);
         for (var entry : vars.entrySet()) {
             Variable var = entry.getKey();
             if (var == null) continue;
             String rep = var.getRepresentation();
             if (rep == null) continue;
-            if (rep.equalsIgnoreCase(trimmed) || rep.equalsIgnoreCase(normalized)) {
-                return entry.getValue();
+            if (rep.equalsIgnoreCase(token) || rep.equalsIgnoreCase(normalized)) {
+                return new ContextValue(var, entry.getValue());
             }
         }
 
         return null;
     }
+
+    private record ResolvedArg(String token, long value, Variable variable, Origin origin) {
+        enum Origin {
+            RESOLVED_VARIABLE,
+            CONTEXT_LOOKUP,
+            NUMERIC_LITERAL,
+            LITERAL_ZERO,
+            NESTED_CALL
+        }
+
+        String displayName() {
+            if (variable != null) {
+                String rep = variable.getRepresentation();
+                if (rep != null && !rep.isBlank()) {
+                    return rep;
+                }
+            }
+            if (token != null && !token.isBlank()) {
+                return token;
+            }
+            return "<value>";
+        }
+    }
+
+    private record ContextValue(Variable variable, long value) {}
 
     static Variable tryResolveVariableByName(String token) {
         if (token == null) {
