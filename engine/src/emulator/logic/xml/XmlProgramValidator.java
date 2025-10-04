@@ -448,7 +448,13 @@ public class XmlProgramValidator {
                         if (n == null) continue;
                         if (looksLikeFunctionArg(n)) {
                             String val = (arg.getValue() == null ? "" : arg.getValue().trim());
-                            if (!functionNames.contains(norm(val))) {}
+                            if (!functionNames.contains(norm(val))) {
+                                throw new InvalidInstructionException(
+                                        norm(opcode),
+                                        "Unknown function '" + val + "' at instruction #" + idx,
+                                        idx
+                                );
+                            }
                         }
                     }
                 }

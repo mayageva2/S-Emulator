@@ -48,7 +48,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         List<Instruction> instructions = program.getInstructions();
         validateNotEmpty(instructions);
 
-        int need = requiredInputCount();
+        int need = Math.max(requiredInputCount(), (input != null ? input.length : 0));
         long[] finalInputs = normalizeInputs(input, need);
         seedVariables(finalInputs);
 
@@ -117,7 +117,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
         Label next = ins.execute(context);
-
+        System.out.println("STEP " + currentIndex + " " + ins + " Vars=" + context.getAllVariables());
         lastExecutionCycles += ins.cycles();
 
         int nextIndex;

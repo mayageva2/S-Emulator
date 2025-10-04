@@ -7,6 +7,8 @@ import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
+import emulator.logic.variable.VariableImpl;
+import emulator.logic.variable.VariableType;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,7 +21,6 @@ public final class QuoteUtils {
     public static void addCycles(int n) {
         if (n > 0){
             int after = dynamicCycles.get().addAndGet(n);
-            System.out.println("[ADD] +" + n + " => " + after + " on " + Thread.currentThread().getName());
         }
     }
     public static int getCurrentCycles() {
@@ -28,7 +29,6 @@ public final class QuoteUtils {
     public static int drainCycles() {
         int val = dynamicCycles.get().get();
         dynamicCycles.get().set(0);
-        System.out.println("[DRAIN] " + val + " on " + Thread.currentThread().getName());
         return val;
     }
 
@@ -66,6 +66,7 @@ public final class QuoteUtils {
             if (i >= inputs.length) break;
             if (parser.isNestedCall(arg)) {
                 QuoteParser.NestedCall nc = parser.parseNestedCall(arg);
+                System.out.println("EVAL nested call: " + nc.name() + "(" + nc.argsCsv() + ")");
                 long val = runQuotedEval(nc.name(), nc.argsCsv(), ctx, registry, parser, varResolver, quoteEval);
                 inputs[i] = val;
             } else if (looksLikeVariable(arg)) {
@@ -160,15 +161,71 @@ public final class QuoteUtils {
                 } catch (Exception ignored) {
                 }
             }
-            Long num = tryParseLong(token);
-            if (num != null) return num;
 
-            if (token.matches("[xX][1-9]\\d*") || token.equalsIgnoreCase("y") || token.matches("[zZ][1-9]\\d*")) {
-                return 0L;
+            Long ctxValue = resolveFromExecutionContext(token, ctx);
+            if (ctxValue != null) {
+                return ctxValue;
             }
 
+            Long num = tryParseLong(token);
+            if (num != null) return num;
             throw new IllegalArgumentException("Unrecognized token in QUOTE args: " + token);
         }
+    }
+
+    private static Long resolveFromExecutionContext(String token, ExecutionContext ctx) {
+        if (ctx == null) {
+            return null;
+        }
+
+        Map<Variable, Long> vars = ctx.getAllVariables();
+        if (vars == null || vars.isEmpty()) {
+            return null;
+        }
+
+        Variable fallback = tryResolveVariableByName(token);
+        if (fallback != null) {
+            if (vars.containsKey(fallback)) {
+                return vars.get(fallback);
+            }
+            // If the concrete instance is not present, fall back to name based lookup below.
+        }
+
+        String trimmed = token.trim();
+        String normalized = trimmed.toLowerCase(Locale.ROOT);
+        for (var entry : vars.entrySet()) {
+            Variable var = entry.getKey();
+            if (var == null) continue;
+            String rep = var.getRepresentation();
+            if (rep == null) continue;
+            if (rep.equalsIgnoreCase(trimmed) || rep.equalsIgnoreCase(normalized)) {
+                return entry.getValue();
+            }
+        }
+
+        return null;
+    }
+
+    static Variable tryResolveVariableByName(String token) {
+        if (token == null) {
+            return null;
+        }
+        String normalized = token.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.equals("y")) {
+            return Variable.RESULT;
+        }
+        if (normalized.matches("x[1-9]\\d*")) {
+            int number = Integer.parseInt(normalized.substring(1));
+            return new VariableImpl(VariableType.INPUT, number);
+        }
+        if (normalized.matches("z[1-9]\\d*")) {
+            int number = Integer.parseInt(normalized.substring(1));
+            return new VariableImpl(VariableType.WORK, number);
+        }
+        return null;
     }
 
     private static String normalizeFunctionName(String name, QuotationRegistry registry) {

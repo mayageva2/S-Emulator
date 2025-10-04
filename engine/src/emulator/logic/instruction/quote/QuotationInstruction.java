@@ -138,6 +138,20 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
     }
 
     @Override
+    public Collection<Variable> referencedVariables() {
+        LinkedHashSet<Variable> vars = new LinkedHashSet<>();
+        if (getVariable() != null) {
+            vars.add(getVariable());
+        }
+
+        for (String arg : rawArgs) {
+            collectVariables(arg, vars);
+        }
+
+        return vars;
+    }
+
+    @Override
     public int degree() {
         int body = degreeOfProgram(functionName);
         int argsDepth = degreeOfArgs(functionArguments);
@@ -192,6 +206,45 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
     private static Variable subVar(Map<Variable, Variable> map, Variable key) {
         return map.getOrDefault(key, key);
+    }
+
+    private void collectVariables(String token, Set<Variable> vars) {
+        if (token == null) {
+            return;
+        }
+
+        String trimmed = token.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+
+        if (parser.isNestedCall(trimmed)) {
+            QuoteParser.NestedCall nested = parser.parseNestedCall(trimmed);
+            List<String> nestedArgs = parser.parseTopLevelArgs(nested.argsCsv());
+            for (String nestedArg : nestedArgs) {
+                collectVariables(nestedArg, vars);
+            }
+            return;
+        }
+
+        Variable resolved = resolveForReference(trimmed);
+        if (resolved != null) {
+            vars.add(resolved);
+        }
+    }
+
+    private Variable resolveForReference(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+
+        if (varResolver != null) {
+            try {
+                return varResolver.resolve(token);
+            } catch (RuntimeException ignored) {}
+        }
+
+        return QuoteUtils.tryResolveVariableByName(token);
     }
 
     private Label subLabel(Map<String, Label> map, Label key, ExpansionHelper helper, Label lend) {
