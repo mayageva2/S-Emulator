@@ -82,7 +82,6 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
     public List<Instruction> expand(ExpansionHelper helper) {
         List<Instruction> out = new ArrayList<>();
 
-        // שמירת לייבל התחלתי (אם קיים)
         Label first = getLabel();
         if (first != null && !FixedLabel.EMPTY.equals(first)) {
             out.add(new NeutralInstruction(getVariable(), first));
@@ -94,7 +93,6 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         Map<String, Label> labelSub = new HashMap<>();
         Variable tempZ = null;
 
-        // מיפוי משתנים של הפונקציה המצוטטת למשתנים טריים
         for (Variable qv : qProgram.getVariables()) {
             switch (qv.getType()) {
                 case INPUT -> {
@@ -123,7 +121,6 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
         }
         Label lend = helper.freshLabel();
 
-        // טעינת ארגומנטים: אם זה קריאה מקוננת => נפלט QUOTATION כדי לחשב בזמן ריצה (וספירת סייקלים דינמית)
         List<String> args = parser.parseTopLevelArgs(functionArguments);
         for (int i = 0; i < args.size(); i++) {
             Variable dst = inputIndexToFresh.get(i + 1);
@@ -137,7 +134,6 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
 
             if (parser.isNestedCall(tok)) {
                 QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                // ניצור ציטוט פנימי שיכתוב ל־dst. החישוב יתבצע בזמן ריצה.
                 out.add(new QuotationInstruction.Builder()
                         .variable(dst)
                         .funcName(nc.name())
@@ -148,7 +144,6 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
                         .myLabel(FixedLabel.EMPTY)
                         .build());
             } else {
-                // נסה משתנה; אם לא—קבוע
                 try {
                     Variable src = varResolver.resolve(tok);
                     out.add(new AssignmentInstruction(dst, src, FixedLabel.EMPTY));
@@ -159,12 +154,10 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction implements
             }
         }
 
-        // גוף הפונקציה המצוטטת (עם סאבסטיטיושן)
         for (Instruction iq : qProgram.getInstructions()) {
             out.add(cloneWithSubs(iq, varSub, labelSub, helper, lend));
         }
 
-        // השוואה y הזמני שנצבר (tempZ) למשתנה שלנו
         out.add(new JumpEqualVariableInstruction.Builder()
                 .variable(getVariable())
                 .compareVariable(tempZ)

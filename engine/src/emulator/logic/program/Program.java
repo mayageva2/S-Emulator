@@ -15,4 +15,5 @@ public interface Program {
     Set<Variable> getVariables();
     Instruction instructionAt(Label label);
     int calculateMaxDegree();
+    public List<String> getInputVariableNames();
 }

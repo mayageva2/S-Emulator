@@ -29,7 +29,9 @@ public class ProgramExpander {
         List<Instruction> curr = original.getInstructions();
         for (int d = 0; d < degree; d++) {
             if (expander.isFullyBasic(curr)) break;
-            curr = expander.expandOnce(curr, helper);
+            List<Instruction> next = expander.expandOnce(curr, helper);
+            if (next == curr) break;
+            curr = next;
         }
         return toProgramImpl(original.getName(), curr);
     }

@@ -19,7 +19,7 @@ public final class Expander {
         Objects.requireNonNull(helper, "helper");
 
         List<Instruction> out = new ArrayList<>(Math.max(16, input.size() * 2));
-
+        boolean changed = false;
         for (Instruction ins : input) {
             if (ins == null) continue;
             if (ins instanceof Expandable e) {
@@ -27,6 +27,12 @@ public final class Expander {
                 if (produced == null || produced.isEmpty()) {
                     out.add(ins);
                 } else {
+                    boolean sameAsOriginal = produced.size() == 1 && produced.get(0) == ins;
+                    if (sameAsOriginal) {
+                        out.add(ins);
+                        continue;
+                    }
+                    changed = true;
                     for (Instruction child : produced) {   // Add each produced child
                         if (child == null) continue;
                         if (child instanceof AbstractInstruction ai) {
@@ -38,6 +44,9 @@ public final class Expander {
             } else {   // Non-expandable instruction, keep as is
                 out.add(ins);
             }
+        }
+        if (!changed && out.size() == input.size()) {
+            return input;
         }
         return Collections.unmodifiableList(out);
     }
@@ -98,7 +107,9 @@ public final class Expander {
         List<Instruction> curr = new ArrayList<>(original);
         for (int d = 0; d < degree; d++) {
             if (isFullyBasic(curr)) break;
-            curr = new ArrayList<>(expandOnce(curr, helper));
+            List<Instruction> next = expandOnce(curr, helper);
+            if (next == curr) break;
+            curr = new ArrayList<>(next);
         }
         return Collections.unmodifiableList(curr);
     }
@@ -110,7 +121,9 @@ public final class Expander {
         List<Instruction> curr = new ArrayList<>(original);
         ExpansionHelper helper = buildHelper(original);
         while (!isFullyBasic(curr)) {
-            curr = new ArrayList<>(expandOnce(curr, helper));
+            List<Instruction> next = expandOnce(curr, helper);
+            if (next == curr) break;
+            curr = new ArrayList<>(next);
             degree++;
         }
         return degree;

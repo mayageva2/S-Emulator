@@ -130,9 +130,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
         Label next = ins.execute(context);
-        System.out.println("STEP " + currentIndex + " " + ins + " Vars=" + context.getAllVariables());
         lastExecutionCycles += ins.cycles();
-        System.out.println("total cycles in " + ins + " is " + (QuoteUtils.getCurrentCycles() + lastExecutionCycles));
         int dynamicIncrement = 0;
         if (context instanceof ExecutionContextImpl ectx) {
             dynamicIncrement = ectx.drainDynamicCycles();

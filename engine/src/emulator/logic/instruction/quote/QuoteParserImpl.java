@@ -41,7 +41,6 @@ public final class QuoteParserImpl implements QuoteParser {
         return out;
     }
 
-
     public boolean isNestedCall(String arg) {
         if (arg == null) return false;
         String s = arg.trim();
