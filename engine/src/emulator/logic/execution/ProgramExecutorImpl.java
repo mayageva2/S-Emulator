@@ -54,6 +54,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         long[] finalInputs = normalizeInputs(input, need);
         seedVariables(finalInputs);
 
+        System.out.println("current program is" + program.getName());
         executeProgram(instructions);
         lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
@@ -121,7 +122,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         Label next = ins.execute(context);
         System.out.println("STEP " + currentIndex + " " + ins + " Vars=" + context.getAllVariables());
         lastExecutionCycles += ins.cycles();
-
+        System.out.println("total cycles in " + ins + " is " + lastExecutionCycles);
         int dynamicIncrement = 0;
         if (context instanceof ExecutionContextImpl ectx) {
             dynamicIncrement = ectx.drainDynamicCycles();
