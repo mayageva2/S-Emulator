@@ -554,7 +554,12 @@ public class MainController {
             if (programChanged && historyChainController != null) {
                 historyChainController.clear();
             }
-
+            if (RunButtonsController != null) {
+                String notifyProgram = (currentTargetProgramInternal == null)
+                        ? engine.programView(0).programName()
+                        : currentTargetProgramInternal;
+                RunButtonsController.notifyProgramSelection(notifyProgram);
+            }
         } catch (Exception ex) {
             currentTargetProgramInternal = null;
             int max = maxDegreeForCurrentSelection();
@@ -823,11 +828,14 @@ public class MainController {
             try { statisticsTableController.clear(); } catch (Throwable ignore) {}
         }
         if (RunButtonsController != null) {
-            try { RunButtonsController.resetForNewRun(); } catch (Throwable ignore) {}
+            try {
+                RunButtonsController.clearStoredStatistics();
+                RunButtonsController.resetForNewRun();
+            } catch (Throwable ignore) {}
         }
         if (toolbarController != null) {
             try {
-                toolbarController.setPrograms(List.of(MAIN_PSEUDO));   // רק "Main Program" זמנית
+                toolbarController.setPrograms(List.of(MAIN_PSEUDO));
                 toolbarController.setSelectedProgram(MAIN_PSEUDO);
                 toolbarController.bindDegree(0, 0);
                 toolbarController.setDegreeButtonEnabled(false);
@@ -855,7 +863,7 @@ public class MainController {
                     var idxOpt = statisticsTableController.getSelectedHistoryIndex();
                     if (idxOpt.isPresent()) {
                         int idx = idxOpt.getAsInt();
-                        var hist = engine.history();
+                        var hist = engine.history(targetProgram);
                         if (idx >= 0 && idx < hist.size()) {
                             var r = hist.get(idx);
                             int deg = r.degree();

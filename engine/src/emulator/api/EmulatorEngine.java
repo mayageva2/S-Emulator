@@ -21,6 +21,7 @@ public interface EmulatorEngine {
     int lastRunDegree();
     String lastRunProgramName();
     List<RunRecord> history();
+    List<RunRecord> history(String programName);
     List<String> availablePrograms();
     boolean hasProgramLoaded();
     List<String> extractInputVars(ProgramView pv);

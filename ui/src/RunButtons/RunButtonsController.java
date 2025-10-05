@@ -7,6 +7,7 @@ import emulator.api.debug.DebugService;
 import emulator.api.debug.DebugSnapshot;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
+import emulator.api.dto.RunRecord;
 import emulator.api.dto.RunResult;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -42,8 +43,8 @@ public class RunButtonsController {
     private Effect debugBaseEffect;
     private DropShadow runGlowEffect;
     private Map<String, String> lastRunVarsSnapshot = Map.of();
-    private final Map<Integer, Map<String, String>> varsSnapshotsByIndex = new HashMap<>();
-    private String lastStatsProgramName = null;
+    private final Map<String, Map<Integer, Map<String, String>>> varsSnapshotsByProgram = new HashMap<>();
+    private String lastRunProgramName = null;
 
     private DebugService debugSession;
     private enum DebugState { IDLE, RUNNING, PAUSED, STOPPED }
@@ -80,7 +81,12 @@ public class RunButtonsController {
     }
 
     public Map<String, String> getVarsSnapshotForIndex(int historyIndex) {
-        return varsSnapshotsByIndex.getOrDefault(historyIndex, Map.of());
+        String program = resolveCurrentProgramName();
+        var forProgram = varsSnapshotsByProgram.get(canonicalProgramKey(program));
+        if (forProgram == null) {
+            return Map.of();
+        }
+        return forProgram.getOrDefault(historyIndex, Map.of());
     }
 
     public Map<String, String> getLastRunVarsSnapshot() {
@@ -115,16 +121,12 @@ public class RunButtonsController {
 
     public void setProgramToolbarController(ProgramToolBar.ProgramToolbarController c) {
         this.toolbarController = c;
-        if (this.toolbarController != null) {
-            this.toolbarController.setOnProgramSelected(name -> {
-                if (name != null) clearStatisticsIfProgramChanged(name);
-            });
-            String sel = this.toolbarController.getSelectedProgramName();
-            if (sel != null && !sel.isBlank()) {
-                this.lastStatsProgramName = sel.trim();
-            }
-        }
         refreshButtonsEnabled();
+    }
+
+    public void notifyProgramSelection(String internalProgramName) {
+        if (internalProgramName == null) return;
+        clearStatisticsIfProgramChanged(internalProgramName);
     }
 
     private boolean isInDebug() {
@@ -201,13 +203,13 @@ public class RunButtonsController {
         }
         try {
             String currentProgram = resolveCurrentProgramName();
-            clearStatisticsIfProgramChanged(currentProgram);
             Long[] inputs = inputController.collectAsLongsOrThrow();
             int max = (lastMaxDegree > 0) ? lastMaxDegree : 0;
             if (max == 0) { try { max = engine.programView(0).maxDegree(); } catch (Exception ignored) {} }
             int degree = Math.max(0, Math.min(currentDegree, max));
             String target = (selectedProgramSupplier != null) ? selectedProgramSupplier.get() : null;
             RunResult result = (target == null || target.isBlank()) ? engine.run(degree, inputs) : engine.run(target, degree, inputs);
+            lastRunProgramName = (target == null || target.isBlank()) ? engine.programView(0).programName() : target;
             if (varsBoxController != null) {
                 varsBoxController.renderFromRun(result, inputs);
                 Map<String, Long> snap = varsBoxController.buildVarsMap(result, inputs);
@@ -216,10 +218,14 @@ public class RunButtonsController {
                 lastRunVarsSnapshot = asStrings;
             }
             updateStatisticsFromEngineHistory();
-            var hist = engine.history();
+            var hist = (currentProgram == null || currentProgram.isBlank())
+                    ? engine.history()
+                    : engine.history(currentProgram);
             if (hist != null && !hist.isEmpty()) {
                 int idx = hist.size() - 1;
-                varsSnapshotsByIndex.put(idx, lastRunVarsSnapshot);
+                varsSnapshotsByProgram
+                        .computeIfAbsent(canonicalProgramKey(currentProgram), k -> new HashMap<>())
+                        .put(idx, lastRunVarsSnapshot);
             }
         } catch (Exception ex) {
             alertError("Run failed", friendlyMsg(ex));
@@ -240,8 +246,14 @@ public class RunButtonsController {
     }
 
     private void updateStatisticsFromEngineHistory() {
+        updateStatisticsFromEngineHistory(resolveCurrentProgramName());
+    }
+
+    private void updateStatisticsFromEngineHistory(String programName) {
         if (statisticsController == null || engine == null) return;
-        var history = engine.history();
+        List<RunRecord> history = (programName == null || programName.isBlank())
+                ? engine.history()
+                : engine.history(programName);
         Function<String, String> fmt = (inputsFormatter != null) ? inputsFormatter : (s -> s);
         Platform.runLater(() -> statisticsController.setHistory(history, fmt));
     }
@@ -327,13 +339,18 @@ public class RunButtonsController {
     }
 
     private void postDebugCommitToHistory(DebugSnapshot snap) {
-        updateStatisticsFromEngineHistory();
+        String programName = resolveCurrentProgramName();
+        updateStatisticsFromEngineHistory(programName);
         try {
-            var hist = engine.history();
+            var hist = (programName == null || programName.isBlank())
+                    ? engine.history()
+                    : engine.history(programName);
             if (hist != null && !hist.isEmpty()) {
                 int lastIdx = hist.size() - 1;
                 Map<String, String> vars = (snap != null && snap.vars() != null) ? snap.vars() : Map.of();
-                varsSnapshotsByIndex.put(lastIdx, vars);
+                varsSnapshotsByProgram
+                        .computeIfAbsent(canonicalProgramKey(programName), k -> new HashMap<>())
+                        .put(lastIdx, vars);
             }
         } catch (Exception ignore) {}
     }
@@ -487,19 +504,30 @@ public class RunButtonsController {
                     statisticsController.setHistory(List.of(), fmt);
                 }
             }
-            varsSnapshotsByIndex.clear();
             lastRunVarsSnapshot = Map.of();
         });
+    }
+
+    public void clearStoredStatistics() {
+        varsSnapshotsByProgram.clear();
+        lastRunVarsSnapshot = Map.of();
+        lastRunProgramName = null;
+        clearStatisticsUI();
     }
 
     private void clearStatisticsIfProgramChanged(String programName) {
         if (programName == null) return;
         String newKey = programName.trim().toLowerCase(Locale.ROOT);
-        String oldKey = (lastStatsProgramName == null) ? null : lastStatsProgramName.trim().toLowerCase(Locale.ROOT);
+        String oldKey = (lastRunProgramName == null) ? null : lastRunProgramName.trim().toLowerCase(Locale.ROOT);
         if (!Objects.equals(oldKey, newKey)) {
-            clearStatisticsUI();
-            lastStatsProgramName = programName;
+            lastRunProgramName = programName;
+            updateStatisticsFromEngineHistory(programName);
         }
+    }
+
+    private String canonicalProgramKey(String programName) {
+        if (programName == null) return "";
+        return programName.trim().toLowerCase(Locale.ROOT);
     }
 
     private String resolveCurrentProgramName() {

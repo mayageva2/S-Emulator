@@ -40,7 +40,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private Program lastViewProgram;
     private transient ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
-    private int runCounter = 0;
+    private final Map<String, List<RunRecord>> historyByProgram = new HashMap<>();
+    private final Map<String, Integer> runCountersByProgram = new HashMap<>();
     private transient ProgramExpander programExpander = new ProgramExpander();
     private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
@@ -227,7 +228,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
         this.lastViewProgram = null;
         this.history.clear();
-        this.runCounter = 0;
+        this.historyByProgram.clear();
+        this.runCountersByProgram.clear();
         this.lastRunVars = Map.of();
         this.lastRunInputs = List.of();
         this.lastRunDegree = 0;
@@ -337,9 +339,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Program target = functionLibrary.get(programName);
         if (target == null) target = functionLibrary.get(programName.toUpperCase(ROOT));
         if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
-        if (!Objects.equals(programName, lastRunProgramName)) {
-            clearHistory();
-        }
 
         int maxDegree = target.calculateMaxDegree();
         if (degree < 0 || degree > maxDegree) {
@@ -378,13 +377,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-        recordRun(degree, input, y, totalCycles);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
 
         return new RunResult(y, totalCycles, vars);
     }
 
-    private void recordRun(int degree, Long[] input, long y, int cycles) {
-        history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
+    private void recordRun(String programName, int degree, Long[] input, long y, int cycles) {
+        String canonical = canonicalProgramName(programName);
+        int nextRunNumber = runCountersByProgram.merge(canonical, 1, Integer::sum);
+        RunRecord record = new RunRecord(programName, nextRunNumber, degree, Arrays.asList(input), y, cycles);
+        history.add(record);
+        historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
     }
 
     @Override
@@ -418,6 +421,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         List<String> args = collectArgs(ins);
         return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of());
+    }
+
+    private String canonicalProgramName(String programName) {
+        if (programName == null) return "";
+        return programName.trim().toUpperCase(ROOT);
     }
 
     // This func collects ordered arguments and sorts extra arguments
@@ -599,19 +607,16 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
 
         this.lastRunVars = exec.variableState().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         e -> e.getKey().getRepresentation(),
-                        java.util.Map.Entry::getValue,
-                        (a,b) -> b,
-                        java.util.LinkedHashMap::new
+                        Map.Entry::getValue, (a,b) -> b, LinkedHashMap::new
                 ));
-        this.lastRunInputs = java.util.Arrays.stream(input == null ? new Long[0] : input)
-                .map(v -> v == null ? 0L : v)
-                .toList();
+        this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
+                .map(v -> v == null ? 0L : v).toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        recordRun(degree, input, y, totalCycles);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
         return new RunResult(y, totalCycles, vars);
     }
 
@@ -652,6 +657,19 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return Collections.unmodifiableList(history);
     }
 
+    @Override
+    public List<RunRecord> history(String programName) {
+        if (programName == null || programName.isBlank()) {
+            return history();
+        }
+        String canonical = canonicalProgramName(programName);
+        List<RunRecord> byProgram = historyByProgram.get(canonical);
+        if (byProgram == null || byProgram.isEmpty()) {
+            return List.of();
+        }
+        return Collections.unmodifiableList(byProgram);
+    }
+
     //This func saves the program's state
     @Override
     public void saveState(Path fileWithoutExt) throws Exception {
@@ -673,7 +691,13 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
             this.history.clear();
             this.history.addAll(loaded.history);
-            this.runCounter = loaded.runCounter;
+            this.historyByProgram.clear();
+            this.runCountersByProgram.clear();
+            for (RunRecord record : this.history) {
+                String canonical = canonicalProgramName(record.programName());
+                historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
+                runCountersByProgram.merge(canonical, record.runNumber(), Math::max);
+            }
         }
     }
 
@@ -711,7 +735,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
         this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
 
-        recordRun(this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+        recordRun(this.lastRunProgramName, this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
     }
 
     private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {
@@ -919,6 +943,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public void clearHistory() {
         history.clear();
-        runCounter = 0;
+        historyByProgram.clear();
+        runCountersByProgram.clear();
     }
 }
