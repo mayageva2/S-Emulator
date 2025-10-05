@@ -8,6 +8,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
+import javafx.scene.control.skin.TableViewSkin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +23,7 @@ public class InstructionsTableController {
     @FXML private TableColumn<InstructionRow, Number> indexCol;
     @FXML private TableColumn<InstructionRow, String> typeCol;
     @FXML private TableColumn<InstructionRow, String> labelCol;
-    @FXML private TableColumn<InstructionRow, Number> cyclesCol;
+    @FXML private TableColumn<InstructionRow, String> cyclesCol;
     @FXML private TableColumn<InstructionRow, String> instructionCol;
 
     private Consumer<InstructionView> onRowSelected;
@@ -38,7 +39,21 @@ public class InstructionsTableController {
         indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index + 1));
         typeCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().basic ? "B" : "S"));
         labelCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(ns(cd.getValue().label)));
-        cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
+        cyclesCol.setCellValueFactory(cd -> {
+            InstructionRow row = cd.getValue();
+            String op = row.opcode.toUpperCase(Locale.ROOT);
+            String display;
+
+            if (op.equals("QUOTE")) {
+                display = row.cycles + "+";
+            } else if (op.equals("JUMP_EQUAL_FUNCTION")) {
+                display = row.cycles + "+";
+            } else {
+                display = String.valueOf(row.cycles);
+            }
+
+            return new ReadOnlyStringWrapper(display);
+        });
         instructionCol.setCellValueFactory(cd -> {
             var r = cd.getValue();
             String text = prettyCommand(r.sourceIv);
@@ -137,7 +152,17 @@ public class InstructionsTableController {
                     iv            // keep the source for selection callback
             ));
         }
-        setItems(rows);
+        table.getItems().clear();
+        table.getItems().setAll(rows);
+        table.refresh();
+    }
+
+    public void forceReload(ProgramView pv) {
+        if (pv == null) return;
+        table.getItems().clear();
+        update(pv);
+        table.skinProperty().set(null);
+        table.setSkin(new TableViewSkin<>(table));
     }
 
     public void setOnRowSelected(Consumer<InstructionView> handler) {

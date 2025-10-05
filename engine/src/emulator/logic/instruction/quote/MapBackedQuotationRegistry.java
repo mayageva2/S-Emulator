@@ -4,6 +4,7 @@ import emulator.logic.program.Program;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class MapBackedQuotationRegistry implements QuotationRegistry {
     private final Map<String, Program> funcs;
@@ -35,5 +36,10 @@ public final class MapBackedQuotationRegistry implements QuotationRegistry {
         if (name == null || program == null) return;
         funcs.put(name, program);
         funcs.put(name.toUpperCase(Locale.ROOT), program);
+    }
+
+    @Override
+    public Set<String> allNames() {
+        return funcs.keySet();
     }
 }

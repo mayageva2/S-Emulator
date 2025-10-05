@@ -1,5 +1,6 @@
 package ProgramToolBar;
 
+import emulator.api.dto.ProgramView;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Node;

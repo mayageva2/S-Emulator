@@ -28,12 +28,24 @@ public final class XmlToObjects {
             String fname = fxml.getName();
             if (fname == null || fname.isBlank()) continue;
             ProgramImpl fprog = new ProgramImpl(fname);
+
             funcPrograms.put(fname.toUpperCase(Locale.ROOT), fprog);
             registry.putProgram(fname.toUpperCase(Locale.ROOT), fprog);
+            String userStr = null;
+            try {
+                userStr = fxml.getUserString();
+            } catch (Exception ignore) {}
+            if (userStr != null && !userStr.isBlank()) {
+                registry.putProgram(userStr.trim(), fprog);
+                registry.putProgram(userStr.trim().toUpperCase(Locale.ROOT), fprog);
+            }
         }
+
 
         for (FunctionXml fxml : functions) {
             ProgramImpl fprog = funcPrograms.get(fxml.getName().toUpperCase(Locale.ROOT));
+            if (fprog == null && fxml.getUserString() != null)
+                fprog = funcPrograms.get(fxml.getUserString().toUpperCase(Locale.ROOT));
             if (fprog == null) continue;
 
             int fidx = 0;
