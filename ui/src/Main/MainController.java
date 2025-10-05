@@ -137,6 +137,9 @@ public class MainController {
 
     public void setEngine(EmulatorEngine engine) {
         this.engine = Objects.requireNonNull(engine, "engine");
+        if (historyChainController != null && engine != null) {
+            historyChainController.setFunctionNameResolver(this::displayForProgram);
+        }
         headerController.setEngine(engine);
         summaryLineController.setEngine(engine);
         wireStatisticsCommands();
