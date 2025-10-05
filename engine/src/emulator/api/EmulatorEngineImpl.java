@@ -662,7 +662,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (programName == null || programName.isBlank()) {
             return history();
         }
-        String canonical = canonicalProgramName(programName);
+
+        String internal = displayToInternal.getOrDefault(programName.toUpperCase(ROOT), programName);
+        String canonical = canonicalProgramName(internal);
         List<RunRecord> byProgram = historyByProgram.get(canonical);
         if (byProgram == null || byProgram.isEmpty()) {
             return List.of();
