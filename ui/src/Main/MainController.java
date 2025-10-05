@@ -534,9 +534,12 @@ public class MainController {
             }
 
             int max = maxDegreeForCurrentSelection();
-            currentDegree = Math.min(currentDegree, max);
+            currentDegree = 0;
             toolbarController.bindDegree(currentDegree, max);
-            if (RunButtonsController != null) RunButtonsController.setLastMaxDegree(max);
+            if (RunButtonsController != null) {
+                RunButtonsController.setCurrentDegree(0);
+                RunButtonsController.setLastMaxDegree(max);
+            }
 
             ProgramView pv = (currentTargetProgramInternal == null)
                     ? engine.programView(currentDegree)
