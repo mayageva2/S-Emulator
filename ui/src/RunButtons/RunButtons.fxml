@@ -26,8 +26,8 @@
             <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
             <Button fx:id="btnResume"   onAction="#onResume"   prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏸" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
             <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
-            <Button fx:id="btnStepBack" onAction="#onStepBack" prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏮" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
-            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>
+            <!--<Button fx:id="btnStepBack" onAction="#onStepBack" prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏮" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="20"/>-->
             <Button fx:id="btnStepOver" onAction="#onStepOver" prefHeight="40.0" prefWidth="50.0" minWidth="20.0" style="-fx-background-color: purple;" text="⏭" textFill="#cf94d4"><font><Font size="20.0"/></font></Button>
          </children>
       </HBox>
