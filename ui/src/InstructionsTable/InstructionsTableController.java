@@ -88,15 +88,24 @@ public class InstructionsTableController {
 
     private static boolean matches(InstructionRow r, String term) {
         String t = term.toLowerCase();
-        if (r.label != null && r.label.equalsIgnoreCase(t)) return true;
-        if (r.opcode != null && r.opcode.toLowerCase().contains(t)) return true;
+
+        // Exact match for labels
+        if (r.label != null && r.label.equalsIgnoreCase(t))
+            return true;
+
+        // For args and opcode, only match whole word boundaries
+        if (r.opcode != null && r.opcode.toLowerCase().matches("(?i).*\\b" + java.util.regex.Pattern.quote(t) + "\\b.*"))
+            return true;
+
         if (r.args != null) {
             for (String a : r.args) {
-                if (a != null && a.toLowerCase().contains(t)) return true;
+                if (a != null && a.toLowerCase().matches("(?i).*\\b" + java.util.regex.Pattern.quote(t) + "\\b.*"))
+                    return true;
             }
         }
         return false;
     }
+
 
     public void setItems(List<InstructionRow> items) {
         table.getItems().setAll(items);
