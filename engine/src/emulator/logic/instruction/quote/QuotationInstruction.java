@@ -1,6 +1,7 @@
 package emulator.logic.instruction.quote;
 
 import emulator.logic.execution.ExecutionContext;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.expansion.Expandable;
 import emulator.logic.expansion.ExpansionHelper;
 import emulator.logic.instruction.*;
@@ -49,108 +50,145 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
         public Builder myLabel(Label label) { this.myLabel = label; return this; }
         public Builder parser(QuoteParser parser) { this.parser = parser; return this; }
         public Builder registry(QuotationRegistry r) { this.registry = r; return this; }
-        public Builder varResolver(VarResolver r) { this.varResolver = r; return this; }
+        public Builder varResolver(VarResolver var) { this.varResolver = var; return this; }
 
         public QuotationInstruction build() { return new QuotationInstruction(this); }
     }
 
     @Override
     public Label execute(ExecutionContext ctx) {
-        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver);
+        QuoteEvaluator evaluator = (ctx != null) ? ctx.getQuoteEvaluator() : null;
+        if (evaluator == null) {
+            throw new IllegalStateException("QuoteEvaluator is not available in ExecutionContext");
+        }
+        long resultY = QuoteUtils.runQuotedEval(functionName, functionArguments, ctx, registry, parser, varResolver, evaluator);
         ctx.updateVariable(getVariable(), resultY);
         return FixedLabel.EMPTY;
     }
 
     @Override
     public List<Instruction> expand(ExpansionHelper helper) {
-        List<Instruction> out = new ArrayList<>();
-        Label origLbl = getLabel();
-        if (origLbl != null && !FixedLabel.EMPTY.equals(origLbl)) {
-            out.add(new NeutralInstruction(getVariable(), origLbl));
+        if (helper.isExpanding(functionName)) {
+            return List.of(this);
         }
+        helper.markExpanding(functionName);
+        try {
+            List<Instruction> out = new ArrayList<>();
+            Label origLbl = getLabel();
+            if (origLbl != null && !FixedLabel.EMPTY.equals(origLbl)) {
+                out.add(new NeutralInstruction(getVariable(), origLbl));
+            }
 
-        Program qProgram = registry.getProgramByName(functionName);
-        Map<Variable, Variable> varSub = new HashMap<>();
-        Map<Integer, Variable> inputIndexToFresh = new HashMap<>();
-        Variable newY = null;
+            Program qProgram = registry.getProgramByName(functionName);
+            Map<Variable, Variable> varSub = new HashMap<>();
+            Map<Integer, Variable> inputIndexToFresh = new HashMap<>();
+            Variable newY = null;
 
-        for (Variable qv : qProgram.getVariables()) {
-            switch (qv.getType()) {
-                case INPUT -> {
-                    Variable fresh = helper.freshVar();
-                    varSub.put(qv, fresh);
-                    inputIndexToFresh.put(qv.getNumber(), fresh);
-                }
-                case WORK -> varSub.put(qv, helper.freshVar());
-                default -> {
-                    if (QuoteUtils.isOutputVar(qv)) {
-                        newY = helper.freshVar();
-                        varSub.put(qv, newY);
+            for (Variable qv : qProgram.getVariables()) {
+                switch (qv.getType()) {
+                    case INPUT -> {
+                        Variable fresh = helper.freshVar();
+                        varSub.put(qv, fresh);
+                        inputIndexToFresh.put(qv.getNumber(), fresh);
+                    }
+                    case WORK -> varSub.put(qv, helper.freshVar());
+                    default -> {
+                        if (QuoteUtils.isOutputVar(qv)) {
+                            newY = helper.freshVar();
+                            varSub.put(qv, newY);
+                        }
                     }
                 }
             }
-        }
-        if (newY == null) {
-            newY = helper.freshVar();
-        }
-
-        Label lend = helper.freshLabel();
-        Map<String, Label> labelSub = new HashMap<>();
-        int nInputs = inputIndexToFresh.isEmpty() ? 0 : Collections.max(inputIndexToFresh.keySet());
-        for (int i = 1; i <= nInputs; i++) {
-            Variable dstZi = inputIndexToFresh.get(i);
-            if (dstZi == null) {
-                Variable filler = helper.freshVar();
-                out.add(new ZeroVariableInstruction(filler, FixedLabel.EMPTY));
-                continue;
+            if (newY == null) {
+                newY = helper.freshVar();
             }
 
-            String tok = (i - 1 < rawArgs.size()) ? rawArgs.get(i - 1) : "";
-            if (tok.isBlank()) {
-                out.add(new ZeroVariableInstruction(dstZi, FixedLabel.EMPTY));
-            } else if (parser.isNestedCall(tok)) {
-                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                out.add(new QuotationInstruction.Builder()
-                        .variable(dstZi)
-                        .funcName(nc.name())
-                        .funcArguments(nc.argsCsv())
-                        .parser(parser)
-                        .registry(registry)
-                        .varResolver(varResolver)
-                        .build());
-            } else {
-                Variable src = resolveLoose(varResolver, tok);
-                out.add(new AssignmentInstruction(dstZi, src, FixedLabel.EMPTY));
+            Label lend = helper.freshLabel();
+            Map<String, Label> labelSub = new HashMap<>();
+            int nInputs = inputIndexToFresh.isEmpty() ? 0 : Collections.max(inputIndexToFresh.keySet());
+            for (int i = 1; i <= nInputs; i++) {
+                Variable dstZi = inputIndexToFresh.get(i);
+                if (dstZi == null) {
+                    Variable filler = helper.freshVar();
+                    out.add(new ZeroVariableInstruction(filler, FixedLabel.EMPTY));
+                    continue;
+                }
+
+                String tok = (i - 1 < rawArgs.size()) ? rawArgs.get(i - 1) : "";
+                if (tok.isBlank()) {
+                    out.add(new ZeroVariableInstruction(dstZi, FixedLabel.EMPTY));
+                } else if (parser.isNestedCall(tok)) {
+                    QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+                    out.add(new Builder()
+                            .variable(dstZi)
+                            .funcName(nc.name())
+                            .funcArguments(nc.argsCsv())
+                            .parser(parser)
+                            .registry(registry)
+                            .varResolver(varResolver)
+                            .build());
+                } else {
+                    Variable src = resolveLoose(varResolver, tok);
+                    out.add(new AssignmentInstruction(dstZi, src, FixedLabel.EMPTY));
+                }
             }
+
+            for (Instruction iq : qProgram.getInstructions()) {
+                out.add(cloneWithSubs(iq, varSub, labelSub, helper, lend));
+            }
+
+            out.add(new AssignmentInstruction(getVariable(), newY, lend));
+            return out;
+        } finally {
+            helper.unmarkExpanding(functionName);
+        }
+    }
+
+    @Override
+    public Collection<Variable> referencedVariables() {
+        LinkedHashSet<Variable> vars = new LinkedHashSet<>();
+        if (getVariable() != null) {
+            vars.add(getVariable());
         }
 
-        for (Instruction iq : qProgram.getInstructions()) {
-            out.add(cloneWithSubs(iq, varSub, labelSub, helper, lend));
+        for (String arg : rawArgs) {
+            collectVariables(arg, vars);
         }
 
-        out.add(new AssignmentInstruction(getVariable(), newY, lend));
-        return out;
+        return vars;
     }
 
     @Override
     public int degree() {
-        // Depth contributed by the quoted program body
-        Program q = registry.getProgramByName(functionName);
-        int body = (q == null) ? 0 : q.calculateMaxDegree();
-
-        // Depth contributed by nested function calls inside the quote arguments
-        int argsDepth = 0;
-        for (String tok : rawArgs) {
-            if (parser.isNestedCall(tok)) {
-                QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
-                Program p = registry.getProgramByName(nc.name());
-                int d = 1 + ((p == null) ? 0 : p.calculateMaxDegree()); // +1 for the inner QUOTE layer
-                if (d > argsDepth) argsDepth = d;
-            }
-        }
-
-        // 1 for *this* QUOTE layer + the deeper of (body, deepest nested-arg)
+        int body = degreeOfProgram(functionName);
+        int argsDepth = degreeOfArgs(functionArguments);
         return 1 + Math.max(body, argsDepth);
+    }
+
+    private int degreeOfProgram(String name) {
+        Program p = registry.getProgramByName(name);
+        return (p == null) ? 0 : p.calculateMaxDegree();
+    }
+
+    private int degreeOfArgs(String argsCsv) {
+        int best = 0;
+        for (String tok : parser.parseTopLevelArgs(argsCsv)) {
+            best = Math.max(best, degreeOfArg(tok));
+        }
+        return best;
+    }
+
+    private int degreeOfArg(String tok) {
+        tok = (tok == null) ? "" : tok.trim();
+        if (tok.isEmpty()) return 0;
+
+        if (!parser.isNestedCall(tok)) return 0;
+
+        QuoteParser.NestedCall nc = parser.parseNestedCall(tok);
+        int nestedArgsDepth = degreeOfArgs(nc.argsCsv());
+        int calleeBody = degreeOfProgram(nc.name());
+        return 1 + Math.max(calleeBody, nestedArgsDepth);
     }
 
     private Variable resolveLoose(VarResolver varResolver, String tok) {
@@ -176,6 +214,45 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
 
     private static Variable subVar(Map<Variable, Variable> map, Variable key) {
         return map.getOrDefault(key, key);
+    }
+
+    private void collectVariables(String token, Set<Variable> vars) {
+        if (token == null) {
+            return;
+        }
+
+        String trimmed = token.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+
+        if (parser.isNestedCall(trimmed)) {
+            QuoteParser.NestedCall nested = parser.parseNestedCall(trimmed);
+            List<String> nestedArgs = parser.parseTopLevelArgs(nested.argsCsv());
+            for (String nestedArg : nestedArgs) {
+                collectVariables(nestedArg, vars);
+            }
+            return;
+        }
+
+        Variable resolved = resolveForReference(trimmed);
+        if (resolved != null) {
+            vars.add(resolved);
+        }
+    }
+
+    private Variable resolveForReference(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+
+        if (varResolver != null) {
+            try {
+                return varResolver.resolve(token);
+            } catch (RuntimeException ignored) {}
+        }
+
+        return QuoteUtils.tryResolveVariableByName(token);
     }
 
     private Label subLabel(Map<String, Label> map, Label key, ExpansionHelper helper, Label lend) {
@@ -266,5 +343,8 @@ public class QuotationInstruction extends AbstractInstruction implements Expanda
     public String functionName() { return functionName; }
     public String functionArguments() { return functionArguments; }
     public List<String> rawArgs() { return rawArgs; }
+    public QuoteParser getParser() {return parser;}
+    public String getFunctionName() {return functionName;}
+    public String getFunctionArguments() {return functionArguments;}
 
 }

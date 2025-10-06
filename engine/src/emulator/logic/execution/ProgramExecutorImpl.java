@@ -1,6 +1,9 @@
 package emulator.logic.execution;
 
 import emulator.logic.instruction.Instruction;
+import emulator.logic.instruction.JumpEqualFunctionInstruction;
+import emulator.logic.instruction.quote.QuotationInstruction;
+import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
@@ -15,8 +18,19 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private final QuoteEvaluator quoteEval;
     private final Program program;
     private int lastExecutionCycles = 0;
+    private int lastDynamicCycles = 0;
     private Long[] lastInputs = new Long[0];
+    private int observedDynamicCycles = 0;
     private StepListener stepListener;
+    private int baseCycles = 0; // base offset from previous nested executions
+
+    public void setBaseCycles(int base) {
+        this.baseCycles = base;
+    }
+
+    public int getBaseCycles() {
+        return baseCycles;
+    }
 
     public ProgramExecutorImpl(Program program) {
         this.program = Objects.requireNonNull(program, "program must not be null");
@@ -34,17 +48,25 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     @Override
     public long run(Long... input) {
         lastExecutionCycles = 0;
-        this.lastInputs = (input == null) ? new Long[0] : java.util.Arrays.copyOf(input, input.length);
+        lastDynamicCycles = 0;
+        observedDynamicCycles = 0;
+
+        if (quoteEval != null) {
+            context.setQuoteEvaluator(quoteEval);
+        }
+        this.lastInputs = (input == null) ? new Long[0] : Arrays.copyOf(input, input.length);
 
         List<Instruction> instructions = program.getInstructions();
         validateNotEmpty(instructions);
 
-        int need = requiredInputCount();
+        int need = Math.max(requiredInputCount(), (input != null ? input.length : 0));
         long[] finalInputs = normalizeInputs(input, need);
         seedVariables(finalInputs);
 
+        System.out.println("current program is" + program.getName());
         executeProgram(instructions);
-
+//        lastExecutionCycles += baseCycles;
+        lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
     }
 
@@ -107,37 +129,20 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     //This func executes a single instruction and returns the next instruction index
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
-        String opcodeName = ins.getInstructionData().getName();
-
-        if ("QUOTE".equalsIgnoreCase(opcodeName) && quoteEval != null) {
-            Map<String, String> a = (ins.getArguments() == null) ? Map.of() : ins.getArguments();
-            String fn = a.getOrDefault("functionName", a.getOrDefault("FUNCTIONNAME", ""));
-            String fargs = a.getOrDefault("functionArguments", a.getOrDefault("FUNCTIONARGUMENTS", ""));
-            if (fn != null && fn.equalsIgnoreCase(program.getName())) {
-                throw new IllegalStateException("QUOTE cannot call the current program: " + fn);
-            }
-            var env = buildCurrentEnvMapLowerCase();
-            var out = quoteEval.eval(fn, fargs, env, 0);
-            long y = out.isEmpty() ? 0L : out.get(0);
-            Variable targetVar = ins.getVariable();
-            context.updateVariable(targetVar != null ? targetVar : Variable.RESULT, y);
-            lastExecutionCycles += ins.cycles();
-
-            int nextIndex = currentIndex + 1;
-            boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
-            if (stepListener != null) {
-                stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
-            }
-            return nextIndex;
-        }
-
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
+        int dynamicIncrement = 0;
+        if (context instanceof ExecutionContextImpl ectx) {
+            dynamicIncrement = ectx.drainDynamicCycles();
+            if (dynamicIncrement != 0) {
+                observedDynamicCycles += dynamicIncrement;
+            }
+        }
 
         int nextIndex;
         if (isExit(next)) {
             nextIndex = instructions.size();
-        } else if (isEmpty(next))  {
+        } else if (isEmpty(next)) {
             nextIndex = currentIndex + 1;
         } else {
             Instruction target = program.instructionAt(next);
@@ -146,9 +151,13 @@ public class ProgramExecutorImpl implements ProgramExecutor{
 
         boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
         if (stepListener != null) {
-            stepListener.onStep(nextIndex, lastExecutionCycles, snapshotVarsForDebug(), finished);
+            stepListener.onStep(nextIndex, QuoteUtils.getCurrentCycles() + lastExecutionCycles, snapshotVarsForDebug(), finished);
         }
         return nextIndex;
+    }
+
+    public int getLastDynamicCycles() {
+        return lastDynamicCycles;
     }
 
     //This func returns the variable's state

@@ -1,11 +1,9 @@
 package emulator.logic.xml;
 
 import emulator.exception.InvalidInstructionException;
+import emulator.logic.execution.QuoteEvaluator;
 import emulator.logic.instruction.*;
-import emulator.logic.instruction.quote.ProgramVarResolver;
-import emulator.logic.instruction.quote.QuotationInstruction;
-import emulator.logic.instruction.quote.QuotationRegistry;
-import emulator.logic.instruction.quote.QuoteParserImpl;
+import emulator.logic.instruction.quote.*;
 import emulator.logic.label.*;
 import emulator.logic.program.*;
 import emulator.logic.variable.*;
@@ -18,8 +16,7 @@ public final class XmlToObjects {
     private XmlToObjects(){}
     private enum LabelPolicy { REQUIRED, OPTIONAL }
 
-    //This func converts a ProgramXml into a Program object
-    public static Program toProgram(ProgramXml pxml, QuotationRegistry registry) {
+    public static Program toProgram(ProgramXml pxml, QuotationRegistry registry, QuoteEvaluator quoteEval) {
         Objects.requireNonNull(pxml, "pxml");
         Objects.requireNonNull(registry, "registry");
 
@@ -31,19 +28,31 @@ public final class XmlToObjects {
             String fname = fxml.getName();
             if (fname == null || fname.isBlank()) continue;
             ProgramImpl fprog = new ProgramImpl(fname);
-            funcPrograms.put(fname, fprog);
-            registry.putProgram(fname, fprog);
+
+            funcPrograms.put(fname.toUpperCase(Locale.ROOT), fprog);
+            registry.putProgram(fname.toUpperCase(Locale.ROOT), fprog);
+            String userStr = null;
+            try {
+                userStr = fxml.getUserString();
+            } catch (Exception ignore) {}
+            if (userStr != null && !userStr.isBlank()) {
+                registry.putProgram(userStr.trim(), fprog);
+                registry.putProgram(userStr.trim().toUpperCase(Locale.ROOT), fprog);
+            }
         }
 
+
         for (FunctionXml fxml : functions) {
-            ProgramImpl fprog = funcPrograms.get(fxml.getName());
+            ProgramImpl fprog = funcPrograms.get(fxml.getName().toUpperCase(Locale.ROOT));
+            if (fprog == null && fxml.getUserString() != null)
+                fprog = funcPrograms.get(fxml.getUserString().toUpperCase(Locale.ROOT));
             if (fprog == null) continue;
 
             int fidx = 0;
             List<InstructionXml> finstr = (fxml.getInstructions() == null) ? List.of() : fxml.getInstructions().getInstructions();
             for (InstructionXml ix : finstr) {
                 fidx++;
-                fprog.addInstruction(toInstruction(ix, fidx, fprog, registry));
+                fprog.addInstruction(toInstruction(ix, fidx, fprog, registry, quoteEval));
             }
         }
 
@@ -54,20 +63,18 @@ public final class XmlToObjects {
 
         for (InstructionXml ix : pinstr) {
             idx++;
-            program.addInstruction(toInstruction(ix, idx, program, registry));
+            program.addInstruction(toInstruction(ix, idx, program, registry, quoteEval));
         }
 
-        registry.putProgram(program.getName(), program);
+        registry.putProgram(program.getName().toUpperCase(Locale.ROOT), program);
         return program;
     }
 
-    //This func converts a InstructionXml into an Instruction object
-    private static Instruction toInstruction(InstructionXml ix, int index, Program program, QuotationRegistry registry) {
+    private static Instruction toInstruction(InstructionXml ix, int index, Program program, QuotationRegistry registry, QuoteEvaluator quoteEval) {
         ParsedParts p = parseParts(ix, index);
-        return buildInstruction(p, index, program, registry);
+        return buildInstruction(p, index, program, registry, quoteEval);
     }
 
-    //This func parse opcode, main variable, label, and args once
     private static ParsedParts parseParts(InstructionXml ix, int index) {
         String name = safe(ix.getName());
         String opcode = name.isEmpty() ? "<unknown>" : name.trim().toUpperCase(Locale.ROOT);
@@ -80,8 +87,7 @@ public final class XmlToObjects {
         return new ParsedParts(opcode, v, lbl, args);
     }
 
-    //This func switches to instruction
-    private static Instruction buildInstruction(ParsedParts p, int index, Program program, QuotationRegistry registry) {
+    private static Instruction buildInstruction(ParsedParts p, int index, Program program, QuotationRegistry registry, QuoteEvaluator quoteEval) {
         String opcode = p.opcode();
         Variable v = p.v();
         Label lbl = p.lbl();
@@ -130,26 +136,73 @@ public final class XmlToObjects {
                 yield b.build();
             }
             case "QUOTE" -> {
-                String fname = req(args, "FUNCTIONNAME", opcode, index);
-                String fargs = args.getOrDefault("FUNCTIONARGUMENTS", "");
+                String rawFname = req(args, "FUNCTIONNAME", opcode, index).trim();
+                String rawFargs = args.getOrDefault("FUNCTIONARGUMENTS", "").trim();
+
+                QuoteParserImpl qp = new QuoteParserImpl();
+                String fname = rawFname.toUpperCase(Locale.ROOT);
+                String fargs = rawFargs;
+
+                if (qp.isNestedCall(rawFargs)) {
+                    fargs = rawFargs.trim();
+                }
+
+                if (registry.getProgramByName(fname) == null) {
+                    throw new InvalidInstructionException(opcode, "Unknown function: " + fname, index);
+                }
 
                 QuotationInstruction.Builder b = new QuotationInstruction.Builder()
                         .variable(v)
                         .funcName(fname)
                         .funcArguments(fargs)
                         .myLabel(lbl)
-                        .parser(new QuoteParserImpl())
+                        .parser(qp)
                         .varResolver(new ProgramVarResolver(program))
                         .registry(registry);
-
                 yield b.build();
             }
 
+            case "JUMP_EQUAL_FUNCTION" -> {
+                String rawFname = req(args, "FUNCTIONNAME", opcode, index).trim();
+                String rawFargs = args.getOrDefault("FUNCTIONARGUMENTS", "").trim();
+
+                QuoteParserImpl qp = new QuoteParserImpl();
+                String fname = rawFname.toUpperCase(Locale.ROOT);
+                String fargs = rawFargs;
+
+                if (qp.isNestedCall(rawFargs)) {
+                    QuoteParser.NestedCall nc = qp.parseNestedCall(rawFargs);
+                    fname = nc.name().toUpperCase(Locale.ROOT);
+                    fargs = nc.argsCsv();
+                }
+
+                if (registry.getProgramByName(fname) == null) {
+                    throw new InvalidInstructionException(opcode, "Unknown function: " + fname, index);
+                }
+
+                Label target = parseLabel(req(args, "JEFUNCTIONLABEL", opcode, index),
+                        opcode, index, LabelPolicy.REQUIRED, "JEFUNCTIONLABEL");
+
+                JumpEqualFunctionInstruction.Builder b = new JumpEqualFunctionInstruction.Builder()
+                        .variable(v)
+                        .jeFunctionLabel(target)
+                        .funcName(fname)
+                        .funcArguments(fargs)
+                        .myLabel(lbl)
+                        .parser(qp)
+                        .registry(registry)
+                        .varResolver(new ProgramVarResolver(program));
+                yield b.build();
+            }
             default -> throw new InvalidInstructionException(opcode, "Unsupported or invalid instruction", index);
         };
     }
 
-    //This func converts an instruction’s arguments into a map
+    private static boolean isFunctionName(String s, QuotationRegistry registry) {
+        if (s == null || s.isBlank()) return false;
+        return registry.getProgramByName(s.toUpperCase(Locale.ROOT)) != null;
+    }
+
     private static Map<String,String> toArgMap(InstructionXml ix) {
         Map<String,String> m = new LinkedHashMap<>();
         if (ix.getArguments() != null) {
@@ -163,7 +216,6 @@ public final class XmlToObjects {
         return m;
     }
 
-    //This func retrieves a required argument
     private static String req(Map<String,String> m, String keyUpper, String opcode, int index) {
         String v = m.get(keyUpper);
         if (v == null || v.isBlank()) {
@@ -176,12 +228,10 @@ public final class XmlToObjects {
         return v.trim();
     }
 
-    //This func returns a trimmed string
     private static String safe(String s) {
         return (s == null) ? "" : s.trim();
     }
 
-    //This func checks whether a string is non-empty
     private static boolean isAllDigits(String s) {
         if (s == null || s.isEmpty()) return false;
         for (int i = 0; i < s.length(); i++) {
@@ -191,7 +241,6 @@ public final class XmlToObjects {
         return true;
     }
 
-    //This func parses a string into a Variable object
     private static Variable parseVariable(String s, String opcode, int index) {
         if (s == null || s.isBlank()) {
             throw new InvalidInstructionException(opcode, "Missing variable", index);
@@ -203,7 +252,7 @@ public final class XmlToObjects {
             return Variable.RESULT;
         }
 
-        if (su.length() >= 2) {   // General case
+        if (su.length() >= 2) {
             char kind = su.charAt(0);
             String numPart = su.substring(1);
             if ((kind == 'X' || kind == 'Z') && isAllDigits(numPart)) {
@@ -217,7 +266,6 @@ public final class XmlToObjects {
         throw new InvalidInstructionException(opcode, "Illegal variable: " + s, index);
     }
 
-    //This func parses a string into an int
     private static long parseNonNegInt(String s, String opcode, int index) {
         if (s == null) {
             throw new InvalidInstructionException(opcode, "Missing integer value", index);
@@ -233,7 +281,6 @@ public final class XmlToObjects {
         }
     }
 
-    //This func parses a string into a valid Label object
     private static Label parseLabel(String s, String opcode, int index, LabelPolicy policy, String errCtx) {
         if (s == null || s.isBlank()) {
             if (policy == LabelPolicy.OPTIONAL) return FixedLabel.EMPTY;

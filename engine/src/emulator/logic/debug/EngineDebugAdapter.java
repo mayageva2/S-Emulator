@@ -1,6 +1,7 @@
 package emulator.logic.debug;
 
 import emulator.api.EmulatorEngine;
+import emulator.api.debug.DebugService;
 import emulator.api.debug.DebugSession;
 import emulator.api.debug.DebugSnapshot;
 import emulator.api.dto.InstructionView;
@@ -10,49 +11,84 @@ import emulator.api.dto.RunResult;
 import java.lang.reflect.Method;
 import java.util.*;
 
-public class EngineDebugAdapter implements DebugSession {
+public class EngineDebugAdapter implements DebugSession, DebugService {
     private final EmulatorEngine engine;
+    private final String programName;
+    private String selectedProgram;
     private boolean directAvailable = false;
-    private Method mDebugStart, mStepOver, mResume, mStop, mIsFinished, mCurrentPC, mCycles, mVarsSnapshot, mCurrentRunResult;
+    private boolean directHasProgramParam = false;
+    private Method mDebugStart, mDebugStartWithProgram, mStepOver, mResume, mStop, mIsFinished, mCurrentPC, mCycles, mVarsSnapshot, mCurrentRunResult;
     private boolean alive = false;
     private List<DebugSnapshot> timeline = List.of();
     private int idx = -1;
     private Map<String,String> lastKnownVars = new LinkedHashMap<>();
     private List<String> orderedVarNames = List.of();
+    private DebugSnapshot lastForcedStop = null;
+    private boolean forceUseStopOnce = false;
+    private int lastCycleSnapshot = 0;
 
     private int degreeAtStart = 0;
     @SuppressWarnings("unused")
     private Long[] inputsAtStart = new Long[0];
 
-    public EngineDebugAdapter(EmulatorEngine engine) {
+    private EngineDebugAdapter(EmulatorEngine engine, String programName) {
         this.engine = Objects.requireNonNull(engine, "engine");
+        this.programName = programName;
         tryBindDirectMode();
+    }
+
+    public EngineDebugAdapter(EmulatorEngine engine) {
+        this(engine, null);
+        tryBindDirectMode();
+    }
+
+    public DebugSnapshot start(Long[] inputs, int degree, String programName) throws Exception {
+        String mainName;
+        try { mainName = engine.programView(0).programName(); }
+        catch (Exception ex) { mainName = null; }
+
+        String target = (programName != null && !programName.isBlank()) ? programName : mainName;
+        if (!Objects.equals(target, engine.lastRunProgramName())) {
+            engine.clearHistory();
+        }
+
+        this.selectedProgram = target;
+        this.degreeAtStart = degree;
+        this.inputsAtStart = inputs != null ? inputs.clone() : new Long[0];
+
+        ProgramView pvAtStart = null;
+        try {
+            pvAtStart = (selectedProgram != null && !selectedProgram.isBlank())
+                    ? engine.programView(selectedProgram, this.degreeAtStart)
+                    : engine.programView(this.degreeAtStart);
+        } catch (Exception ignore) {}
+
+        this.orderedVarNames = discoverAllVarNames(pvAtStart, this.inputsAtStart);
+        this.lastKnownVars = new LinkedHashMap<>();
+        for (String n : orderedVarNames) lastKnownVars.put(n, "-");
+
+        if (directAvailable) {
+            String progForDirect = (selectedProgram != null && !selectedProgram.isBlank()) ? selectedProgram : mainName;
+            if (directHasProgramParam && progForDirect != null && !progForDirect.isBlank()) {
+                invoke(mDebugStartWithProgram, progForDirect, inputs, degree);
+            } else {
+                invoke(mDebugStart, inputs, degree);
+            }
+            alive = true;
+            DebugSnapshot snap = directSnapshot();
+            return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
+        }
+
+        this.timeline = synthesizeTimelineFromProgramView(null);
+        this.idx = (timeline.isEmpty() ? -1 : 0);
+        this.alive = !timeline.isEmpty();
+        DebugSnapshot cur = current();
+        return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
     }
 
     @Override
     public DebugSnapshot start(Long[] inputs, int degree) throws Exception {
-        this.degreeAtStart = degree;
-        this.inputsAtStart = inputs != null ? inputs.clone() : new Long[0];
-        ProgramView pvAtStart = null;
-        try { pvAtStart = engine.programView(degree); } catch (Exception ignore) {}
-        this.orderedVarNames = discoverAllVarNames(pvAtStart, this.inputsAtStart);
-        this.lastKnownVars = new LinkedHashMap<>();
-        for (String n : orderedVarNames) lastKnownVars.put(n, "-");
-        if (directAvailable) {
-            // DIRECT
-            invoke(mDebugStart, inputs, degree);
-            alive = true;
-            DebugSnapshot snap = directSnapshot();
-            return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
-        } else {
-            // REPLAY
-            RunResult rr = engine.run(degree, inputs);
-            this.timeline = buildTimelineFromHistoryOrFallback(rr);
-            this.idx = (timeline.isEmpty() ? -1 : 0);
-            this.alive = !timeline.isEmpty();
-            DebugSnapshot cur = current();
-            return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
-        }
+        return start(inputs, degree, this.programName);
     }
 
     @Override
@@ -60,37 +96,50 @@ public class EngineDebugAdapter implements DebugSession {
         if (directAvailable) {
             invoke(mStepOver);
             DebugSnapshot s = directSnapshot();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            if (out.finished()) commitHistoryIfPossible(out);
+            return out;
         } else {
             if (!alive || timeline.isEmpty()) return buildSnapshotWithState(current().currentInstructionIndex(), current().vars(), current().cycles(), current().finished());
             idx = Math.min(idx + 1, timeline.size() - 1);
             if (idx == timeline.size() - 1) alive = false;
             DebugSnapshot s = current();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            DebugSnapshot out = buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            if (!alive || out.finished()) commitHistoryIfPossible(out);
+            return out;
         }
     }
 
     @Override
     public DebugSnapshot resume() throws Exception {
-        if (directAvailable) {
-            invoke(mResume);
-            DebugSnapshot s = directSnapshot();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+        RunResult rr;
+        if (selectedProgram != null && !selectedProgram.isBlank()) {
+            rr = engine.run(selectedProgram, degreeAtStart, inputsAtStart);
         } else {
-            if (!alive || timeline.isEmpty()) return buildSnapshotWithState(current().currentInstructionIndex(), current().vars(), current().cycles(), current().finished());
-            idx = timeline.size() - 1;
-            alive = false;
-            DebugSnapshot s = current();
-            return buildSnapshotWithState(s.currentInstructionIndex(), s.vars(), s.cycles(), s.finished());
+            rr = engine.run(degreeAtStart, inputsAtStart);
         }
+
+        DebugSnapshot out = buildSnapshotWithState(
+                inferLastPC(rr),
+                toVarsMap(rr, inputsAtStart),
+                rr.cycles(),
+                true
+        );
+
+        alive = false;
+        return out;
     }
 
     @Override
-    public void stop() throws Exception {
-        if (directAvailable) {
-            invoke(mStop);
+    public DebugSnapshot stop() throws Exception {
+        try {
+            DebugSnapshot snap = directAvailable ? directSnapshot() : current();
+            DebugSnapshot out = buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), true);
+            commitHistoryIfPossible(out);
+            return out;
+        } finally {
+            alive = false;
         }
-        alive = false;
     }
 
     @Override
@@ -105,7 +154,14 @@ public class EngineDebugAdapter implements DebugSession {
     private void tryBindDirectMode() {
         try {
             Class<?> cls = engine.getClass();
-            mDebugStart = cls.getMethod("debugStart", Long[].class, int.class);
+            try {
+                mDebugStartWithProgram = cls.getMethod("debugStart", String.class, Long[].class, int.class);
+                directHasProgramParam = true;
+            } catch (NoSuchMethodException ignore) {
+                mDebugStart = cls.getMethod("debugStart", Long[].class, int.class);
+                directHasProgramParam = false;
+            }
+
             mStepOver = cls.getMethod("debugStepOver");
             mResume = cls.getMethod("debugResume");
             mStop = cls.getMethod("debugStop");
@@ -128,6 +184,23 @@ public class EngineDebugAdapter implements DebugSession {
         } catch (NoSuchMethodException e) {
             directAvailable = false;
         }
+    }
+
+    private void commitHistoryIfPossible(DebugSnapshot s) {
+        if (s == null || !directAvailable) return;
+        try {
+            Method m = engine.getClass().getMethod(
+                    "recordDebugSession",
+                    String.class, int.class, Long[].class, Map.class, int.class
+            );
+            String pname = (selectedProgram != null && !selectedProgram.isBlank())
+                    ? selectedProgram
+                    : engine.programView(0).programName();
+            int delta = s.cycles() - lastCycleSnapshot;
+            if (delta < 0) delta = 0;
+            lastCycleSnapshot = s.cycles();
+            m.invoke(engine, pname, degreeAtStart, inputsAtStart, s.vars(), delta);
+        } catch (NoSuchMethodException ignore) {} catch (Exception e) {}
     }
 
     private static Method tryGetMethod(Class<?> cls, String... names) {
@@ -209,6 +282,11 @@ public class EngineDebugAdapter implements DebugSession {
             Object v = m.invoke(engine);
             if (v instanceof List<?> list && !list.isEmpty()) {
                 List<DebugSnapshot> out = new ArrayList<>(list.size());
+                Map<String, String> initVars = new LinkedHashMap<>();
+                for (String n : orderedVarNames) {
+                    initVars.put(n, "-");
+                }
+                out.add(new DebugSnapshot(0, initVars, 0, false));
                 for (Object rec : list) {
                     int pcAfter = (int)  rec.getClass().getMethod("pcAfter").invoke(rec);
                     int cycles  = (int)  rec.getClass().getMethod("cycles").invoke(rec);
@@ -219,9 +297,7 @@ public class EngineDebugAdapter implements DebugSession {
                 }
                 return out;
             }
-        } catch (NoSuchMethodException ignore) {
-        } catch (Exception ignore) {
-        }
+        } catch (NoSuchMethodException ignore) {} catch (Exception ignore) {}
 
         var synth = synthesizeTimelineFromProgramView(rr);
         if (!synth.isEmpty()) return synth;
@@ -230,7 +306,9 @@ public class EngineDebugAdapter implements DebugSession {
 
     private List<DebugSnapshot> synthesizeTimelineFromProgramView(RunResult rr) {
         try {
-            ProgramView pv = engine.programView(degreeAtStart);
+            ProgramView pv = (selectedProgram != null && !selectedProgram.isBlank())
+                    ? engine.programView(selectedProgram, degreeAtStart)
+                    : engine.programView(degreeAtStart);
             if (pv == null || pv.instructions() == null || pv.instructions().isEmpty()) return List.of();
 
             List<DebugSnapshot> out = new ArrayList<>();

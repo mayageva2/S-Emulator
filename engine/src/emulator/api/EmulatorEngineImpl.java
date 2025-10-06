@@ -1,9 +1,11 @@
 package emulator.api;
 
 import emulator.api.debug.DebugRecord;
+import emulator.api.debug.DebugService;
 import emulator.api.dto.*;
 import emulator.exception.*;
 import emulator.logic.compose.Composer;
+import emulator.logic.debug.EngineDebugAdapter;
 import emulator.logic.execution.ProgramExecutor;
 import emulator.logic.execution.ProgramExecutorImpl;
 import emulator.logic.execution.QuoteEvaluator;
@@ -13,6 +15,7 @@ import emulator.logic.instruction.Instruction;
 import emulator.logic.instruction.InstructionData;
 import emulator.logic.instruction.quote.MapBackedQuotationRegistry;
 import emulator.logic.instruction.quote.QuotationRegistry;
+import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramCost;
@@ -27,6 +30,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 import static java.util.Locale.ROOT;
 
@@ -36,7 +40,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private Program lastViewProgram;
     private transient ProgramExecutor executor;
     private final List<RunRecord> history = new ArrayList<>();
-    private int runCounter = 0;
+    private final Map<String, List<RunRecord>> historyByProgram = new HashMap<>();
+    private final Map<String, Integer> runCountersByProgram = new HashMap<>();
     private transient ProgramExpander programExpander = new ProgramExpander();
     private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
@@ -50,6 +55,32 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private List<Long> lastRunInputs = List.of();
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
+    private final Map<String,String> displayToInternal = new HashMap<>();
+
+    // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
+    private transient Thread dbgThread;
+    private final Object dbgLock = new Object();
+    private volatile boolean dbgAlive = false;
+    private volatile boolean dbgFinished = true;
+    private volatile boolean dbgStopRequested = false;
+    private volatile boolean dbgResumeMode = false;
+    private volatile boolean dbgStepOnce = false;
+    private volatile Runnable dbgOnFinish;
+
+    private volatile int dbgPC = 0;
+    private volatile int dbgCycles = 0;
+    private volatile Map<String,String> dbgVars = Map.of();
+
+    private transient Program dbgProgram;
+    private transient ProgramExecutor dbgExecutor;
+
+    private static final class DebugAbortException extends RuntimeException {
+        DebugAbortException() { super("Debug aborted"); }
+    }
+
+    public void setOnDebugFinish(Runnable r) {
+        this.dbgOnFinish = r;
+    }
 
     //This func returns a ProgramView of the currently loaded program
     @Override
@@ -159,7 +190,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(300);
         XmlProgramReader reader = new XmlProgramReader();
         ProgramXml pxml = reader.read(xmlPath);
-        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
 
@@ -175,14 +206,30 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Thread.sleep(150);
         xmlProgramValidator.validate(pxml);
 
+        fnDisplayMap.clear();
+        displayToInternal.clear();
+        if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
+            for (var fxml : pxml.getFunctions().getFunctions()) {
+                String internal = (fxml.getName() == null) ? "" : fxml.getName().trim();
+                String user = (fxml.getUserString() == null) ? "" : fxml.getUserString().trim();
+                if (!internal.isEmpty() && !user.isEmpty()) {
+                    fnDisplayMap.put(internal, user);
+                    fnDisplayMap.put(internal.toUpperCase(ROOT), user);
+                    displayToInternal.put(user, internal);
+                    displayToInternal.put(user.toUpperCase(ROOT), internal);
+                }
+            }
+        }
+
         listener.onProgress("Building program...", 0.85);
         Thread.sleep(200);
-        this.current = XmlToObjects.toProgram(pxml, quotationRegistry);
+        this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
         this.lastViewProgram = null;
         this.history.clear();
-        this.runCounter = 0;
+        this.historyByProgram.clear();
+        this.runCountersByProgram.clear();
         this.lastRunVars = Map.of();
         this.lastRunInputs = List.of();
         this.lastRunDegree = 0;
@@ -193,6 +240,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 current.getInstructions().size(),
                 current.calculateMaxDegree()
         );
+    }
+
+    private String internalOf(String maybeDisplayOrInternal) {
+        if (maybeDisplayOrInternal == null) return null;
+        String s = maybeDisplayOrInternal.trim();
+        if (s.isEmpty()) return s;
+        if (functionLibrary.containsKey(s.toUpperCase(ROOT))) return s;
+        return displayToInternal.getOrDefault(s, s);
     }
 
     //------programView Helpers------//
@@ -217,12 +272,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     try {
                         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
                         var exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator()); // allow nested QUOTE
+                        if (degree > 0 && exec instanceof ProgramExecutorImpl pei) {
+                            pei.setBaseCycles(QuoteUtils.getCurrentCycles());
+                        }
+                        exec.setBaseCycles(QuoteUtils.getCurrentCycles());
                         debugTrace.clear();
                         exec.setStepListener((pcAfter, cycles, vars, finished) -> {
                             Map<String,String> vv = (vars == null) ? Map.of() : Map.copyOf(vars);
                             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
                         });
+                        int carried = QuoteUtils.drainCycles();
                         long y = exec.run(inputs.toArray(Long[]::new));
+                        QuoteUtils.addCycles(carried + exec.getLastExecutionCycles() + exec.getLastDynamicCycles());
                         return List.of(y);
                     } finally {
                         stack.pop();
@@ -237,6 +298,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     private Program resolveQuotedTarget(String name) {
         if (name == null) return null;
+        String norm = internalOf(name);
         Program p = functionsOnly.get(name.toUpperCase(ROOT)); // prefer declared <S-Function>
         if (p != null) return p;
         for (var e : functionLibrary.entrySet()) {
@@ -248,7 +310,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func builds and returns a ProgramView by converting each instruction into an InstructionView
     private ProgramView buildProgramView(Program base, int degree, List<Program> byDegree, int maxDegree) {
         List<Instruction> real = base.getInstructions();
-        int totalCycles = new ProgramCost().cyclesAtDegree(byDegree.get(0), degree);
+        int totalCycles = new ProgramCost(quotationRegistry).cyclesAtDegree(byDegree.get(0), degree);
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
 
@@ -260,7 +322,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             InstructionView self = mkViewNoIndex.apply(ins);
             out.add(new InstructionView(
-                    i + 1,
+                    i,
                     self.opcode(), self.label(),
                     self.basic(), self.cycles(), self.args(),
                     List.of(),
@@ -268,7 +330,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             ));
         }
 
-        return new ProgramView(out, base.getName(), degree, maxDegree, totalCycles);
+        return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles);
     }
 
     @Override
@@ -291,7 +353,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
         });
         long y = exec.run(input);
-        int cycles = exec.getLastExecutionCycles();
+        int staticCycles  = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastExecutionCycles() : 0;
+        int dynamicCycles = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastDynamicCycles() : 0;
+        int totalCycles = staticCycles + dynamicCycles;
 
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
@@ -302,19 +366,28 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 ))
                 .toList();
         this.lastRunVars = exec.variableState().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         e -> e.getKey().getRepresentation(),
-                        java.util.Map.Entry::getValue,
+                        Map.Entry::getValue,
                         (a,b) -> b,
-                        java.util.LinkedHashMap::new
+                        LinkedHashMap::new
                 ));
-        this.lastRunInputs = java.util.Arrays.stream(input == null ? new Long[0] : input)
+        this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
                 .map(v -> v == null ? 0L : v)
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
 
-        return new RunResult(y, cycles, vars);
+        return new RunResult(y, totalCycles, vars);
+    }
+
+    private void recordRun(String programName, int degree, Long[] input, long y, int cycles) {
+        String canonical = canonicalProgramName(programName);
+        int nextRunNumber = runCountersByProgram.merge(canonical, 1, Integer::sum);
+        RunRecord record = new RunRecord(programName, nextRunNumber, degree, Arrays.asList(input), y, cycles);
+        history.add(record);
+        historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
     }
 
     @Override
@@ -348,6 +421,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         List<String> args = collectArgs(ins);
         return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of());
+    }
+
+    private String canonicalProgramName(String programName) {
+        if (programName == null) return "";
+        return programName.trim().toUpperCase(ROOT);
     }
 
     // This func collects ordered arguments and sorts extra arguments
@@ -514,7 +592,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             debugTrace.add(new DebugRecord(pcAfter, cycles, vv, finished, "STEP"));
         });
         long y = exec.run(input);
-        int cycles = exec.getLastExecutionCycles();
+        int staticCycles  = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastExecutionCycles() : 0;
+        int dynamicCycles = (exec instanceof ProgramExecutorImpl pei) ? pei.getLastDynamicCycles() : 0;
+        int totalCycles = staticCycles + dynamicCycles;
 
         //Collect final state of all variables after execution
         var vars = exec.variableState().entrySet().stream()
@@ -527,20 +607,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
 
         this.lastRunVars = exec.variableState().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         e -> e.getKey().getRepresentation(),
-                        java.util.Map.Entry::getValue,
-                        (a,b) -> b,
-                        java.util.LinkedHashMap::new
+                        Map.Entry::getValue, (a,b) -> b, LinkedHashMap::new
                 ));
-        this.lastRunInputs = java.util.Arrays.stream(input == null ? new Long[0] : input)
-                .map(v -> v == null ? 0L : v)
-                .toList();
+        this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
+                .map(v -> v == null ? 0L : v).toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        history.add(new RunRecord(++runCounter, degree, Arrays.asList(input), y, cycles));
-        return new RunResult(y, cycles, vars);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
+        return new RunResult(y, totalCycles, vars);
     }
 
     //This func checks whether a program is currently loaded
@@ -580,6 +657,21 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return Collections.unmodifiableList(history);
     }
 
+    @Override
+    public List<RunRecord> history(String programName) {
+        if (programName == null || programName.isBlank()) {
+            return history();
+        }
+
+        String internal = displayToInternal.getOrDefault(programName.toUpperCase(ROOT), programName);
+        String canonical = canonicalProgramName(internal);
+        List<RunRecord> byProgram = historyByProgram.get(canonical);
+        if (byProgram == null || byProgram.isEmpty()) {
+            return List.of();
+        }
+        return Collections.unmodifiableList(byProgram);
+    }
+
     //This func saves the program's state
     @Override
     public void saveState(Path fileWithoutExt) throws Exception {
@@ -598,19 +690,262 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             this.current = loaded.current;
             this.lastViewProgram = loaded.lastViewProgram;
-            this.executor = loaded.executor;
+            this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
             this.history.clear();
             this.history.addAll(loaded.history);
-            this.runCounter = loaded.runCounter;
+            this.historyByProgram.clear();
+            this.runCountersByProgram.clear();
+            for (RunRecord record : this.history) {
+                String canonical = canonicalProgramName(record.programName());
+                historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
+                runCountersByProgram.merge(canonical, record.runNumber(), Math::max);
+            }
         }
     }
 
     //This func creates heavy objects
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
-        this.executor = new ProgramExecutorImpl(this.current);
+        this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         this.programExpander = new ProgramExpander();
         this.quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
         this.expander = new Expander();
+    }
+
+    public void recordDebugSession(String programName, int degree, Long[] inputs, Map<String,String> vars, int cycles) {
+        if (programName == null || programName.isBlank()) {
+            programName = (current != null ? current.getName() : "UNKNOWN");
+        }
+
+        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+        this.lastRunDegree = Math.max(0, degree);
+        this.lastRunProgramName = programName;
+
+        long y = 0L;
+        LinkedHashMap<String, Long> lastVars = new LinkedHashMap<>();
+        if (vars != null) {
+            for (var e : vars.entrySet()) {
+                String k = e.getKey();
+                String sv = e.getValue();
+                if (k == null || sv == null || sv.isBlank()) continue;
+                try {
+                    long v = Long.parseLong(sv.trim());
+                    lastVars.put(k, v);
+                    if ("y".equalsIgnoreCase(k)) y = v;
+                } catch (NumberFormatException ignore) {}
+            }
+        }
+        this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
+
+        recordRun(this.lastRunProgramName, this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+    }
+
+    private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {
+        if (ex == null) return Map.of();
+        var state = ex.variableState(); // Map<VarRef,Long>
+        if (state == null) return Map.of();
+
+        java.util.TreeMap<Integer, Long> x = new java.util.TreeMap<>();
+        java.util.TreeMap<Integer, Long> z = new java.util.TreeMap<>();
+        Long yVal = null;
+        LinkedHashMap<String,String> out = new LinkedHashMap<>();
+
+        for (var e : state.entrySet()) {
+            var ref = e.getKey();
+            long v = e.getValue();
+            String name = ref.getRepresentation();
+            String low = name.toLowerCase(java.util.Locale.ROOT);
+            if ("y".equals(low)) {
+                yVal = v;
+            } else if (low.startsWith("x")) {
+                try { x.put(Integer.parseInt(low.substring(1)), v); } catch (Exception ignore) {}
+            } else if (low.startsWith("z")) {
+                try { z.put(Integer.parseInt(low.substring(1)), v); } catch (Exception ignore) {}
+            } else {
+                out.put(name, String.valueOf(v));
+            }
+        }
+
+        if (inputs != null) {
+            for (int i = 0; i < inputs.length; i++) {
+                x.putIfAbsent(i + 1, inputs[i] == null ? 0L : inputs[i]);
+            }
+        }
+
+        if (yVal == null) yVal = 0L;
+        LinkedHashMap<String,String> finalMap = new LinkedHashMap<>();
+        finalMap.put("y", String.valueOf(yVal));
+        x.forEach((i,v) -> finalMap.put("x"+i, String.valueOf(v)));
+        z.forEach((i,v) -> finalMap.put("z"+i, String.valueOf(v)));
+        finalMap.putAll(out);
+        return finalMap;
+    }
+
+    public void debugStart(String programName, Long[] inputs, int degree) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName);
+        if (target == null) target = functionLibrary.get(programName.toUpperCase(java.util.Locale.ROOT));
+        if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+        debugStartCommon(target, inputs, degree);
+    }
+
+    public void debugStart(Long[] inputs, int degree) {
+        requireLoaded();
+        debugStartCommon(current, inputs, degree);
+    }
+
+    private void debugStartCommon(Program target, Long[] inputs, int degree) {
+        int maxDegree = target.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree) {
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
+        }
+        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+        debugStopSafe();
+
+        dbgProgram = toRun;
+        dbgExecutor = new ProgramExecutorImpl(dbgProgram, makeQuoteEvaluator());
+        dbgPC = 0;
+        dbgCycles = 0;
+        dbgVars = Map.of();
+        dbgFinished = false;
+        dbgStopRequested = false;
+        dbgResumeMode = false;
+        dbgStepOnce = false;
+        dbgAlive = true;
+
+        dbgExecutor.setStepListener((pcAfter, cycles, vars, finished) -> {
+            dbgPC = pcAfter;
+            dbgCycles = cycles;
+            if (dbgExecutor instanceof ProgramExecutorImpl pei) {
+                pei.setBaseCycles(cycles);
+            }
+            dbgVars = (vars == null) ? snapshotVars(dbgExecutor, inputs) : Map.copyOf(vars);
+
+            synchronized (dbgLock) {
+                if (dbgStopRequested) throw new DebugAbortException();
+
+                if (!dbgResumeMode) {
+                    while (!dbgStopRequested && !dbgStepOnce) {
+                        try { dbgLock.wait(); } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new DebugAbortException();
+                        }
+                    }
+                    if (dbgStopRequested) throw new DebugAbortException();
+                    dbgStepOnce = false;
+                }
+            }
+        });
+
+        dbgThread = new Thread(() -> {
+            try {
+                long y = dbgExecutor.run(inputs == null ? new Long[0] : inputs);
+                int cycles = dbgExecutor.getLastExecutionCycles();
+                Map<String,String> vars = snapshotVars(dbgExecutor, inputs);
+                List<VariableView> varViews = dbgExecutor.variableState().entrySet().stream()
+                        .map(e -> new VariableView(
+                                e.getKey().getRepresentation(),
+                                VarType.valueOf(e.getKey().getType().name()),
+                                e.getKey().getNumber(),
+                                e.getValue()
+                        ))
+                        .toList();
+                lastRunVars = dbgExecutor.variableState().entrySet().stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                e -> e.getKey().getRepresentation(),
+                                Map.Entry::getValue,
+                                (a,b)->b,
+                                LinkedHashMap::new
+                        ));
+                lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+                lastRunDegree = degree;
+                lastRunProgramName = target.getName();
+                dbgVars = vars;
+                dbgFinished = true;
+                dbgAlive = false;
+            } catch (DebugAbortException ignore) {
+            } catch (Throwable t) {
+            } finally {
+                dbgFinished = true;
+                dbgAlive = false;
+                synchronized (dbgLock) { dbgLock.notifyAll(); }
+                if (dbgOnFinish != null) {
+                    dbgOnFinish.run();
+                }
+            }
+        }, "emu-debug-thread");
+        dbgThread.setDaemon(true);
+        dbgThread.start();
+    }
+
+    public void debugStepOver() {
+        if (!dbgAlive || dbgFinished) return;
+        synchronized (dbgLock) {
+            dbgStepOnce = true;
+            dbgLock.notifyAll();
+        }
+    }
+
+    public void debugResume() {
+        if (!dbgAlive || dbgFinished) return;
+        synchronized (dbgLock) {
+            dbgResumeMode = true;
+            dbgLock.notifyAll();
+        }
+    }
+
+    public void debugStop() {
+        debugStopSafe();
+    }
+
+    private void debugStopSafe() {
+        synchronized (dbgLock) {
+            dbgStopRequested = true;
+            dbgResumeMode = true;
+            dbgStepOnce = true;
+            dbgLock.notifyAll();
+        }
+        if (dbgThread != null && dbgThread.isAlive()) {
+            try { dbgThread.join(100); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+        }
+        dbgAlive = false;
+        dbgFinished = true;
+    }
+
+    public boolean debugIsFinished() {return dbgFinished;}
+    public int debugCurrentPC() {return dbgPC;}
+    public int debugCycles() {
+        return dbgCycles;
+    }
+
+    public Map<String,String> debugVarsSnapshot() {return (dbgVars == null) ? Map.of() : dbgVars;}
+
+    public RunResult debugCurrentRunResult() {
+        if (dbgExecutor == null) return null;
+
+        var vars = dbgExecutor.variableState().entrySet().stream()
+                .map(e -> new VariableView(
+                        e.getKey().getRepresentation(),
+                        VarType.valueOf(e.getKey().getType().name()),
+                        e.getKey().getNumber(),
+                        e.getValue()
+                ))
+                .toList();
+
+        long y = lastRunVars.getOrDefault("y", 0L);
+        return new RunResult(y, debugCycles(), vars);
+    }
+
+
+    @Override
+    public DebugService debugger() {
+        return new EngineDebugAdapter(this);
+    }
+
+    @Override
+    public void clearHistory() {
+        history.clear();
+        historyByProgram.clear();
+        runCountersByProgram.clear();
     }
 }

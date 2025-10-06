@@ -14,12 +14,12 @@ import java.util.Objects;
 public final class Expander {
 
     //This func expands one layer of expandable instructions
-    public List<Instruction> expandOnce(List<Instruction> input) {
+    public List<Instruction> expandOnce(List<Instruction> input, ExpansionHelper helper) {
         Objects.requireNonNull(input, "input");
+        Objects.requireNonNull(helper, "helper");
 
-        ExpansionHelper helper = buildHelper(input);
         List<Instruction> out = new ArrayList<>(Math.max(16, input.size() * 2));
-
+        boolean changed = false;
         for (Instruction ins : input) {
             if (ins == null) continue;
             if (ins instanceof Expandable e) {
@@ -27,6 +27,12 @@ public final class Expander {
                 if (produced == null || produced.isEmpty()) {
                     out.add(ins);
                 } else {
+                    boolean sameAsOriginal = produced.size() == 1 && produced.get(0) == ins;
+                    if (sameAsOriginal) {
+                        out.add(ins);
+                        continue;
+                    }
+                    changed = true;
                     for (Instruction child : produced) {   // Add each produced child
                         if (child == null) continue;
                         if (child instanceof AbstractInstruction ai) {
@@ -38,6 +44,9 @@ public final class Expander {
             } else {   // Non-expandable instruction, keep as is
                 out.add(ins);
             }
+        }
+        if (!changed && out.size() == input.size()) {
+            return input;
         }
         return Collections.unmodifiableList(out);
     }
@@ -57,7 +66,7 @@ public final class Expander {
     }
 
     //This func maps a variable’s string representation
-    private static VariableType mapVarType(String rep) {
+    public static VariableType mapVarType(String rep) {
         if (rep == null || rep.isEmpty()) return VariableType.WORK;
         char c = Character.toLowerCase(rep.charAt(0));
         if (c == 'x') return VariableType.INPUT;
@@ -67,7 +76,7 @@ public final class Expander {
     }
 
     //This func extracts and returns the first integer value
-    private static int extractInt(String s) {
+    public static int extractInt(String s) {
         if (s == null) return 0;
         int n = 0, len = s.length();
         for (int i = 0; i < len; i++) {
@@ -94,11 +103,13 @@ public final class Expander {
     public List<Instruction> expandToDegree(List<Instruction> original, int degree) {
         Objects.requireNonNull(original, "original");
         if (degree <= 0) return Collections.unmodifiableList(new ArrayList<>(original));
-
+        ExpansionHelper helper = buildHelper(original);
         List<Instruction> curr = new ArrayList<>(original);
         for (int d = 0; d < degree; d++) {
             if (isFullyBasic(curr)) break;
-            curr = new ArrayList<>(expandOnce(curr));
+            List<Instruction> next = expandOnce(curr, helper);
+            if (next == curr) break;
+            curr = new ArrayList<>(next);
         }
         return Collections.unmodifiableList(curr);
     }
@@ -108,8 +119,11 @@ public final class Expander {
         Objects.requireNonNull(original, "original");
         int degree = 0;
         List<Instruction> curr = new ArrayList<>(original);
+        ExpansionHelper helper = buildHelper(original);
         while (!isFullyBasic(curr)) {
-            curr = new ArrayList<>(expandOnce(curr));
+            List<Instruction> next = expandOnce(curr, helper);
+            if (next == curr) break;
+            curr = new ArrayList<>(next);
             degree++;
         }
         return degree;

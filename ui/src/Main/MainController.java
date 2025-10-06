@@ -11,8 +11,6 @@ import emulator.api.dto.ProgramView;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.RunRecord;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.binding.DoubleBinding;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.TextArea;
@@ -52,11 +50,17 @@ public class MainController {
     @FXML private TextArea centerOutput;
 
     private static final String MAIN_PSEUDO = "Main Program";
+    private final Map<String,String> programDisplayToInternal = new LinkedHashMap<>();
+    private String currentTargetProgramInternal = null;
 
     private EmulatorEngine engine;
     private List<String> inputNames = Collections.emptyList();
     private int currentDegree = 0;
     private Consumer<String> onHighlightChanged;
+
+    private String getCurrentTargetProgramInternal() {
+        return currentTargetProgramInternal;
+    }
 
     @FXML
     private void initialize() {
@@ -125,10 +129,17 @@ public class MainController {
             varsBox.prefWidthProperty().bind(half);
             inputsBox.prefWidthProperty().bind(half);
         });
+
+        if (instructionsController != null) {
+            instructionsController.setFunctionNameResolver(this::displayForProgram);
+        }
     }
 
     public void setEngine(EmulatorEngine engine) {
         this.engine = Objects.requireNonNull(engine, "engine");
+        if (historyChainController != null && engine != null) {
+            historyChainController.setFunctionNameResolver(this::displayForProgram);
+        }
         headerController.setEngine(engine);
         summaryLineController.setEngine(engine);
         wireStatisticsCommands();
@@ -138,6 +149,7 @@ public class MainController {
             RunButtonsController.setVarsBoxController(varsBoxController);
             RunButtonsController.setInstructionsController(instructionsController);
             RunButtonsController.setProgramToolbarController(toolbarController);
+            RunButtonsController.setSelectedProgramSupplier(this::getCurrentTargetProgramInternal);
 
             if (statisticsTableController != null) {
                 RunButtonsController.setStatisticsTableController(statisticsTableController);
@@ -177,85 +189,6 @@ public class MainController {
             if (headerController != null && inputsBoxController != null) {
                 headerController.setInputController(inputsBoxController);
             }
-        });
-    }
-
-    private void wireStatisticsCommands() {
-        if (statisticsCommandsController == null) return;
-
-        statisticsCommandsController.setStatusSupplier(() -> engine.lastRunVars()
-                .entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey, e -> String.valueOf(e.getValue()),
-                        (a, b) -> b, LinkedHashMap::new)));
-
-        statisticsCommandsController.setRerunSupplier(() -> {
-            String programName;
-            try { programName = engine.programView(0).programName(); }
-            catch (Exception e) { programName = engine.lastRunProgramName(); }
-            if (programName == null || programName.isBlank()) programName = "Main Program";
-            try {
-                if (statisticsTableController != null) {
-                    var idxOpt = statisticsTableController.getSelectedHistoryIndex();
-                    if (idxOpt.isPresent()) {
-                        int idx = idxOpt.getAsInt();
-                        var hist = engine.history();
-                        if (idx >= 0 && idx < hist.size()) {
-                            var r = hist.get(idx);
-                            int deg = r.degree();
-                            List<Long> inputs = (hasInputsList(r) ? getInputsList(r) : parseCsvAsLongs(r.inputsCsv()));
-                            return new RerunSpec(programName, deg, inputs);
-                        }
-                    }
-                }
-            } catch (Exception ignore) {}
-
-            String prog = engine.lastRunProgramName();
-            if (prog == null || prog.isBlank()) prog = programName;
-            int deg = engine.lastRunDegree();
-            var inputs = engine.lastRunInputs();
-            return new RerunSpec(prog, deg, inputs);
-        });
-
-        statisticsCommandsController.setRerunPreparer(spec -> {
-            int degree = safeDegreeForProgram(spec.programName(), spec.degree());
-            var pv = engine.programView(spec.programName(), degree);
-            resetForNewRunUI();
-            Platform.runLater(() -> {
-                showProgramView(pv);
-                try {
-                    int fMax = engine.programView(spec.programName(), 0).maxDegree();
-                    currentDegree = degree;
-
-                    if (toolbarController != null) {
-                        toolbarController.bindDegree(degree, fMax);
-                        String mainName = engine.programView(0).programName();
-                        if (spec.programName().equalsIgnoreCase(mainName)) {
-                            toolbarController.setSelectedProgram(MAIN_PSEUDO);
-                        } else {
-                            toolbarController.setSelectedProgram(spec.programName());
-                        }
-
-                        toolbarController.setHighlightEnabled(true);
-                    }
-                    if (RunButtonsController != null) {
-                        RunButtonsController.setCurrentDegree(degree);
-                        RunButtonsController.setLastMaxDegree(fMax);
-                    }
-                } catch (Exception ignore) {
-                }
-            });
-
-            Platform.runLater(() -> {
-                try {
-                    if (inputsBoxController != null) {
-                        inputsBoxController.setInputs(spec.inputs());
-                    } else if (headerController != null && headerController.getInputController() != null) {
-                        headerController.getInputController().setInputs(spec.inputs());
-                    }
-                } catch (Exception ignored) {
-                }
-            });
         });
     }
 
@@ -325,6 +258,8 @@ public class MainController {
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
+        resetForNewLoadUI();
+        currentTargetProgramInternal = null;
         currentDegree = 0;
         toolbarController.bindDegree(0, ev.maxDegree());
         toolbarController.setDegreeButtonEnabled(true);
@@ -353,19 +288,62 @@ public class MainController {
                 VarScan scan = scanZsAndY(pv0);
 
                 this.inputNames = (XVars != null) ? XVars : Collections.emptyList();
+
                 Set<String> available = new HashSet<>(engine.availablePrograms());
-                quotedFns = quotedFns.stream().filter(available::contains).sorted(String.CASE_INSENSITIVE_ORDER).toList();
-                List<String> targets = new ArrayList<>();
-                targets.add(MAIN_PSEUDO);
-                targets.addAll(quotedFns);
+                Set<String> allFns = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+                allFns.addAll(available);
+                allFns.addAll(quotedFns);
+
+                try {
+                    var qrObj = engine.getClass().getMethod("getQuotationRegistry").invoke(engine);
+                    if (qrObj instanceof emulator.logic.instruction.quote.QuotationRegistry reg) {
+                        allFns.addAll(reg.allNames());
+                    }
+                } catch (Exception ignore) {}
+
+                programDisplayToInternal.clear();
+                List<String> displays = new ArrayList<>();
+                displays.add(MAIN_PSEUDO);
+                Set<String> usedDisplays = new HashSet<>();
+
+                for (String internal : allFns) {
+                    String disp = displayForProgram(internal);
+                    if (disp == null || disp.isBlank()) continue;
+
+                    if (!usedDisplays.add(disp)) continue;
+                    programDisplayToInternal.put(disp, internal);
+                    displays.add(disp);
+
+                    try {
+                        var pv = engine.programView(internal, 0);
+                        String us = null;
+                        for (String mname : List.of("userString", "user-string", "getUserString", "programUserString")) {
+                            try {
+                                var m = pv.getClass().getMethod(mname);
+                                Object v = m.invoke(pv);
+                                if (v != null && !String.valueOf(v).isBlank()) {
+                                    us = String.valueOf(v).trim();
+                                    break;
+                                }
+                            } catch (NoSuchMethodException ignored) {}
+                        }
+
+                        if (us != null && !us.isBlank() && !usedDisplays.contains(us)) {
+                            programDisplayToInternal.put(us, internal);
+                            displays.add(us);
+                            usedDisplays.add(us);
+                        }
+                    } catch (Exception ignored) {}
+                }
+
 
                 List<String> choices = new ArrayList<>();
                 if (XVars != null) choices.addAll(XVars);
-                if (scan.hasY)  choices.add("y");
+                if (scan.hasY) choices.add("y");
                 choices.addAll(scan.zs);
                 choices.addAll(labels);
 
-                toolbarController.setPrograms(targets);
+                toolbarController.setPrograms(displays);
                 toolbarController.setOnProgramSelected(this::onProgramPicked);
                 toolbarController.setHighlightOptions(choices);
                 toolbarController.setHighlightEnabled(true);
@@ -452,7 +430,17 @@ public class MainController {
         catch (Exception e) { return List.of(); }
     }
 
-
+    private int maxDegreeForCurrentSelection() {
+        try {
+            if (currentTargetProgramInternal == null) {
+                return engine.programView(0).maxDegree();
+            } else {
+                return engine.programView(currentTargetProgramInternal, 0).maxDegree();
+            }
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 
     private static int numSuffix(String s) {
         // assumes s starts with 'z' or 'Z'
@@ -481,7 +469,7 @@ public class MainController {
 
     private void onExpandOne() {
         if (!isLoaded()) return;
-        int max = engine.programView(0).maxDegree();
+        int max = maxDegreeForCurrentSelection();
         if (currentDegree < max) {
             currentDegree++;
             toolbarController.bindDegree(currentDegree, max);
@@ -492,7 +480,7 @@ public class MainController {
 
     private void onCollapseOne() {
         if (!isLoaded()) return;
-        int max = engine.programView(0).maxDegree();
+        int max = maxDegreeForCurrentSelection();
         if (currentDegree > 0) {
             currentDegree--;
             toolbarController.bindDegree(currentDegree, max);
@@ -513,52 +501,95 @@ public class MainController {
 
     private void render(int degree) {
         try {
-            var pv = engine.programView(degree);
-            instructionsController.update(pv);
-            summaryLineController.update(pv);
-            refreshHighlightOptions(pv);
+            if (currentTargetProgramInternal == null) {
+                var pv = engine.programView(degree);
+                instructionsController.update(pv);
+                summaryLineController.update(pv);
+                refreshHighlightOptions(pv);
+            } else {
+                    var pv = engine.programView(currentTargetProgramInternal, degree);
+                    instructionsController.update(pv);
+                    summaryLineController.update(pv);
+                    refreshHighlightOptions(pv);
+            }
         } catch (Exception e) {
             if (centerOutput != null) centerOutput.setText("Render failed: " + e.getMessage());
         }
     }
 
-    private void onProgramPicked(String name) {
-        if (name == null) return;
+    private void onProgramPicked(String pickedDisplay) {
+        if (pickedDisplay == null) return;
+        String prevProgram = currentTargetProgramInternal;
         try {
-            if (MAIN_PSEUDO.equals(name)) {
-                int max = engine.programView(0).maxDegree();
-                currentDegree = Math.min(currentDegree, max);
-                toolbarController.bindDegree(currentDegree, max);
-                render(currentDegree);
+            if (MAIN_PSEUDO.equals(pickedDisplay)) {
+                currentTargetProgramInternal = null;
             } else {
-                // Show function view at the same degree (clamped to that function’s max)
-                int fMax = engine.programView(name, 0).maxDegree();
-                int deg = Math.min(currentDegree, fMax);
-                toolbarController.bindDegree(deg, fMax);
-                // re-render using the overload that targets a function:
-                var pv = engine.programView(name, deg);
-                instructionsController.update(pv);
+                String internal = programDisplayToInternal.getOrDefault(pickedDisplay, pickedDisplay);
+                if (internal == null) {
+                    for (var e : programDisplayToInternal.entrySet()) {
+                        if (pickedDisplay.equalsIgnoreCase(e.getKey())) {
+                            internal = e.getValue();
+                            break;
+                        }
+                    }
+                }
+                currentTargetProgramInternal = (internal != null) ? internal : pickedDisplay;
+            }
+
+            int max = maxDegreeForCurrentSelection();
+            currentDegree = 0;
+            toolbarController.bindDegree(currentDegree, max);
+            if (RunButtonsController != null) {
+                RunButtonsController.setCurrentDegree(0);
+                RunButtonsController.setLastMaxDegree(max);
+            }
+
+            ProgramView pv = (currentTargetProgramInternal == null)
+                    ? engine.programView(currentDegree)
+                    : engine.programView(currentTargetProgramInternal, currentDegree);
+
+            if (instructionsController != null) {
+                instructionsController.setProgramView(pv);
+            }
+            if (summaryLineController != null) {
                 summaryLineController.update(pv);
-                refreshHighlightOptions(pv);
-                // provenance panel is only meaningful vs original program at deg>0:
-                if (deg > 0) historyChainController.clear(); // or adapt if you keep provenance per function
+            }
+
+            refreshHighlightOptions(pv);
+            boolean programChanged = !Objects.equals(prevProgram, currentTargetProgramInternal);
+            if (programChanged && historyChainController != null) {
+                historyChainController.clear();
+            }
+            if (RunButtonsController != null) {
+                String notifyProgram = (currentTargetProgramInternal == null)
+                        ? engine.programView(0).programName()
+                        : currentTargetProgramInternal;
+                RunButtonsController.notifyProgramSelection(notifyProgram);
             }
         } catch (Exception ex) {
-            // fall back to main if anything goes wrong
-            int max = engine.programView(0).maxDegree();
+            currentTargetProgramInternal = null;
+            int max = maxDegreeForCurrentSelection();
             currentDegree = Math.min(currentDegree, max);
             toolbarController.bindDegree(currentDegree, max);
-            render(currentDegree);
+
+            try {
+                ProgramView pv = engine.programView(currentDegree);
+                if (instructionsController != null) instructionsController.forceReload(pv);
+                if (summaryLineController != null) summaryLineController.update(pv);
+                refreshHighlightOptions(pv);
+            } catch (Exception innerEx) {
+                if (centerOutput != null)
+                    centerOutput.setText("Failed to switch program: " + innerEx.getMessage());
+            }
         }
     }
 
     private void onJumpToDegree(Integer target) {
         if (target == null || !isLoaded()) return;
 
-        int max = engine.programView(0).maxDegree();
-        // clamp (just in case)
+        int max = maxDegreeForCurrentSelection();
         int clamped = Math.max(0, Math.min(target, max));
-
+        if (clamped == currentDegree) return;
         currentDegree = clamped;
         toolbarController.bindDegree(currentDegree, max);
 
@@ -568,17 +599,18 @@ public class MainController {
         }
 
         render(currentDegree);
-        // optional: refresh provenance panel if a row is selected
-        if (currentDegree > 0 && instructionsController != null) {
+
+        if (instructionsController != null) {
             var sel = instructionsController.getTableView().getSelectionModel().getSelectedItem();
             if (sel != null && sel.sourceIv != null) {
-                onExpandedRowSelected(sel.sourceIv);
-            } else {
-                historyChainController.clear();
+                try {
+                    ProgramView pvOriginal = engine.programView(0);
+                    historyChainController.showForSelected(sel.sourceIv, pvOriginal);
+                } catch (Exception e) {
+                }
             }
-        } else {
-            historyChainController.clear();
         }
+
     }
 
     private String formatProgramView(ProgramView pv) {
@@ -711,6 +743,205 @@ public class MainController {
         }
         return null;
     }
+
+    private String programUserString(String internalName) {
+        if (internalName == null) return "";
+        for (String mname : List.of(
+                "user-string",
+                "functionUserString",
+                "programUserString",
+                "userStringFor",
+                "userString",
+                "getUserString",
+                "displayName"
+        )) {
+            try {
+                var m = engine.getClass().getMethod(mname, String.class);
+                Object v = m.invoke(engine, internalName);
+                if (v != null) return String.valueOf(v);
+            } catch (NoSuchMethodException ignore) {} catch (Exception ignore) {}
+        }
+
+        try {
+            var pv = engine.programView(internalName, 0);
+            for (String mname : List.of(
+                    "user-string",
+                    "programUserString",
+                    "userString",
+                    "getProgramUserString",
+                    "displayName"
+            )) {
+                try {
+                    var m = pv.getClass().getMethod(mname);
+                    Object v = m.invoke(pv);
+                    if (v != null) return String.valueOf(v);
+                } catch (NoSuchMethodException ignore) {}
+            }
+
+            try {
+                var m = pv.getClass().getMethod("programName");
+                Object v = m.invoke(pv);
+                if (v != null) {
+                    String pn = String.valueOf(v);
+                    if (!pn.isBlank() && !pn.equals(internalName)) {
+                        return pn;
+                    }
+                }
+            } catch (NoSuchMethodException ignore) {}
+        } catch (Exception ignore) {}
+
+        return internalName;
+    }
+
+    private String displayForProgram(String internalName) {
+        String us = programUserString(internalName);
+        return (us == null || us.isBlank()) ? internalName : us;
+    }
+
+    private void resetForNewLoadUI() {
+        resetForNewRunUI();
+        currentTargetProgramInternal = null;
+        currentDegree = 0;
+        programDisplayToInternal.clear();
+        inputNames = Collections.emptyList();
+
+        try { if (centerOutput != null) centerOutput.clear(); } catch (Throwable ignore) {}
+        if (instructionsController != null) {
+            try { instructionsController.clearHighlight(); } catch (Throwable ignore) {}
+            try { instructionsController.clearSelection(); } catch (Throwable ignore) {}
+            try { instructionsController.clear(); } catch (Throwable ignore) {}
+        }
+        if (summaryLineController != null) {
+            try { summaryLineController.clear(); } catch (Throwable ignore) {}
+        }
+        if (historyChainController != null) {
+            try { historyChainController.clear(); } catch (Throwable ignore) {}
+        }
+        if (varsBoxController != null) {
+            try { varsBoxController.clearForNewRun(); } catch (Throwable ignore) {}
+        }
+        if (inputsBoxController != null) {
+            try { inputsBoxController.showNames(Collections.emptyList()); } catch (Throwable ignore) {}
+            try { inputsBoxController.setInputs(Collections.emptyList()); } catch (Throwable ignore) {}
+        } else if (headerController != null && headerController.getInputController() != null) {
+            try {
+                headerController.getInputController().showNames(Collections.emptyList());
+                headerController.getInputController().setInputs(Collections.emptyList());
+            } catch (Throwable ignore) {}
+        }
+        if (statisticsTableController != null) {
+            try { statisticsTableController.clearSelection(); } catch (Throwable ignore) {}
+            try { statisticsTableController.clear(); } catch (Throwable ignore) {}
+        }
+        if (RunButtonsController != null) {
+            try {
+                RunButtonsController.clearStoredStatistics();
+                RunButtonsController.resetForNewRun();
+            } catch (Throwable ignore) {}
+        }
+        if (toolbarController != null) {
+            try {
+                toolbarController.setPrograms(List.of(MAIN_PSEUDO));
+                toolbarController.setSelectedProgram(MAIN_PSEUDO);
+                toolbarController.bindDegree(0, 0);
+                toolbarController.setDegreeButtonEnabled(false);
+                toolbarController.setHighlightOptions(Collections.emptyList());
+                toolbarController.setHighlightEnabled(false);
+            } catch (Throwable ignore) {}
+        }
+    }
+
+    private void wireStatisticsCommands() {
+        if (statisticsCommandsController == null) return;
+
+        statisticsCommandsController.setStatusSupplier(() -> engine.lastRunVars()
+                .entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, e -> String.valueOf(e.getValue()),
+                        (a, b) -> b, LinkedHashMap::new)));
+
+        statisticsCommandsController.setRerunSupplier(() -> {
+            String selectedInternal = getCurrentTargetProgramInternal();
+            String targetProgram = (selectedInternal != null) ? selectedInternal : safeMainName();
+
+            try {
+                if (statisticsTableController != null) {
+                    var idxOpt = statisticsTableController.getSelectedHistoryIndex();
+                    if (idxOpt.isPresent()) {
+                        int idx = idxOpt.getAsInt();
+                        var hist = engine.history(targetProgram);
+                        if (idx >= 0 && idx < hist.size()) {
+                            var r = hist.get(idx);
+                            int deg = r.degree();
+                            List<Long> inputs = (hasInputsList(r) ? getInputsList(r)
+                                    : parseCsvAsLongs(r.inputsCsv()));
+                            return new RerunSpec(targetProgram, deg, inputs);
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+
+            int deg = currentDegree;
+            try {
+                int max = (selectedInternal != null)
+                        ? engine.programView(selectedInternal, 0).maxDegree()
+                        : engine.programView(0).maxDegree();
+                deg = Math.max(0, Math.min(deg, max));
+            } catch (Exception ignore) {}
+
+            List<Long> inputs = Optional.ofNullable(engine.lastRunInputs()).orElse(List.of());
+            return new RerunSpec(targetProgram, deg, inputs);
+        });
+
+        statisticsCommandsController.setRerunPreparer(spec -> {
+            int degree = safeDegreeForProgram(spec.programName(), spec.degree());
+            var pv = engine.programView(spec.programName(), degree);
+            resetForNewRunUI();
+            Platform.runLater(() -> {
+                showProgramView(pv);
+                try {
+                    int fMax = engine.programView(spec.programName(), 0).maxDegree();
+                    currentDegree = degree;
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(degree, fMax);
+                        String mainName = engine.programView(0).programName();
+                        if (spec.programName().equalsIgnoreCase(mainName)) {
+                            currentTargetProgramInternal = null;
+                            toolbarController.setSelectedProgram(MAIN_PSEUDO);
+                        } else {
+                            currentTargetProgramInternal = spec.programName();
+                            toolbarController.setSelectedProgram(displayForProgram(spec.programName()));
+                        }
+                        toolbarController.setHighlightEnabled(true);
+                    }
+                    if (RunButtonsController != null) {
+                        RunButtonsController.setCurrentDegree(degree);
+                        RunButtonsController.setLastMaxDegree(fMax);
+                    }
+                } catch (Exception ignore) {}
+            });
+
+            Platform.runLater(() -> {
+                try {
+                    if (inputsBoxController != null) inputsBoxController.setInputs(spec.inputs());
+                    else if (headerController != null && headerController.getInputController() != null)
+                        headerController.getInputController().setInputs(spec.inputs());
+                } catch (Exception ignored) {}
+            });
+        });
+    }
+
+    private String safeMainName() {
+        try {
+            String n = engine.programView(0).programName();
+            return (n == null || n.isBlank()) ? MAIN_PSEUDO : n;
+        } catch (Exception e) {
+            String n = engine.lastRunProgramName();
+            return (n == null || n.isBlank()) ? MAIN_PSEUDO : n;
+        }
+    }
+
 
     public void setOnHighlightChanged(Consumer<String> c) { this.onHighlightChanged = c; }
 

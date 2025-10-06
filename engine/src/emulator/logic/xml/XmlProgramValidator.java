@@ -318,6 +318,7 @@ public class XmlProgramValidator {
                 if (isBlank(rawName)) continue;
                 String normName = norm(rawName);
                 if (isLabelArgName(normName)) continue; // already validated in handlePotentialLabelArg
+                if ("FUNCTIONARGUMENTS".equals(normName)) continue;
 
                 String val = arg.getValue();
                 String opcode = ins.getName() == null ? "<unknown>" : ins.getName();
@@ -367,8 +368,7 @@ public class XmlProgramValidator {
     }
 
     private static boolean looksLikeFunctionArg(String name) {
-        String n = name.toLowerCase(Locale.ROOT);
-        return n.contains("function"); // e.g., "functionName"
+        return "functionName".equalsIgnoreCase(name);
     }
 
     private void validateFunctions(ProgramXml p) {
@@ -384,7 +384,8 @@ public class XmlProgramValidator {
                         Map.of("section", "S-Function", "name", String.valueOf(fname))
                 );
             }
-            if (!functionNames.add(fname)) {
+            String normName = norm(fname);
+            if (!functionNames.add(normName)) {
                 throw new XmlInvalidContentException(
                         "Duplicate function name: " + fname,
                         Map.of("section", "S-Functions", "name", fname)
@@ -429,7 +430,7 @@ public class XmlProgramValidator {
                         if (n == null) continue;
                         if (looksLikeFunctionArg(n)) {
                             String val = (arg.getValue() == null ? "" : arg.getValue().trim());
-                            if (!functionNames.contains(val)) {
+                            if (!functionNames.contains(norm(val))) {
                                 throw new InvalidInstructionException(
                                         norm(opcode),
                                         "Unknown function '" + val + "' at instruction #" + idx,
@@ -447,10 +448,12 @@ public class XmlProgramValidator {
                         if (n == null) continue;
                         if (looksLikeFunctionArg(n)) {
                             String val = (arg.getValue() == null ? "" : arg.getValue().trim());
-                            // If there are no matches in S-Functions, DO NOT throw; QUOTE may use external registry.
-                            if (!functionNames.contains(val)) {
-                                // Optional: just warn in logs, or skip silently
-                                // System.out.println("Note: QUOTE references external function '" + val + "'");
+                            if (!functionNames.contains(norm(val))) {
+                                throw new InvalidInstructionException(
+                                        norm(opcode),
+                                        "Unknown function '" + val + "' at instruction #" + idx,
+                                        idx
+                                );
                             }
                         }
                     }

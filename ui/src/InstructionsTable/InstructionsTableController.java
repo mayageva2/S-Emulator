@@ -8,12 +8,14 @@ import javafx.fxml.FXML;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
+import javafx.scene.control.skin.TableViewSkin;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class InstructionsTableController {
 
@@ -21,18 +23,37 @@ public class InstructionsTableController {
     @FXML private TableColumn<InstructionRow, Number> indexCol;
     @FXML private TableColumn<InstructionRow, String> typeCol;
     @FXML private TableColumn<InstructionRow, String> labelCol;
-    @FXML private TableColumn<InstructionRow, Number> cyclesCol;
+    @FXML private TableColumn<InstructionRow, String> cyclesCol;
     @FXML private TableColumn<InstructionRow, String> instructionCol;
 
     private Consumer<InstructionView> onRowSelected;
     private String highlightTerm = null;
     private int highlightedIndex = -1;
+    private Function<String,String> fnNameResolver = s -> s; // identity default
+    public void setFunctionNameResolver(java.util.function.Function<String,String> f) {
+        this.fnNameResolver = (f != null) ? f : (s -> s);
+    }
+
     @FXML
     private void initialize() {
-        indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index));
+        indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index + 1));
         typeCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().basic ? "B" : "S"));
         labelCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(ns(cd.getValue().label)));
-        cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
+        cyclesCol.setCellValueFactory(cd -> {
+            InstructionRow row = cd.getValue();
+            String op = row.opcode.toUpperCase(Locale.ROOT);
+            String display;
+
+            if (op.equals("QUOTE")) {
+                display = row.cycles + "+";
+            } else if (op.equals("JUMP_EQUAL_FUNCTION")) {
+                display = row.cycles + "+";
+            } else {
+                display = String.valueOf(row.cycles);
+            }
+
+            return new ReadOnlyStringWrapper(display);
+        });
         instructionCol.setCellValueFactory(cd -> {
             var r = cd.getValue();
             String text = prettyCommand(r.sourceIv);
@@ -82,15 +103,24 @@ public class InstructionsTableController {
 
     private static boolean matches(InstructionRow r, String term) {
         String t = term.toLowerCase();
-        if (r.label != null && r.label.equalsIgnoreCase(t)) return true;
-        if (r.opcode != null && r.opcode.toLowerCase().contains(t)) return true;
+
+        // Exact match for labels
+        if (r.label != null && r.label.equalsIgnoreCase(t))
+            return true;
+
+        // For args and opcode, only match whole word boundaries
+        if (r.opcode != null && r.opcode.toLowerCase().matches("(?i).*\\b" + java.util.regex.Pattern.quote(t) + "\\b.*"))
+            return true;
+
         if (r.args != null) {
             for (String a : r.args) {
-                if (a != null && a.toLowerCase().contains(t)) return true;
+                if (a != null && a.toLowerCase().matches("(?i).*\\b" + java.util.regex.Pattern.quote(t) + "\\b.*"))
+                    return true;
             }
         }
         return false;
     }
+
 
     public void setItems(List<InstructionRow> items) {
         table.getItems().setAll(items);
@@ -122,7 +152,17 @@ public class InstructionsTableController {
                     iv            // keep the source for selection callback
             ));
         }
-        setItems(rows);
+        table.getItems().clear();
+        table.getItems().setAll(rows);
+        table.refresh();
+    }
+
+    public void forceReload(ProgramView pv) {
+        if (pv == null) return;
+        table.getItems().clear();
+        update(pv);
+        table.skinProperty().set(null);
+        table.setSkin(new TableViewSkin<>(table));
     }
 
     public void setOnRowSelected(Consumer<InstructionView> handler) {
@@ -167,22 +207,19 @@ public class InstructionsTableController {
             case "CONSTANT_ASSIGNMENT": return args.get(0) + "<-" + getArg(args,"constantValue");
             case "QUOTE": {
                 String dest = (!args.isEmpty() && !args.get(0).contains("=")) ? args.get(0) : "y";
-                String fn = nz(getArg(args, "userString")); // prefer userString if defined
-                if (fn.isEmpty()) fn = nz(getArg(args, "functionUserString"));
-                if (fn.isEmpty()) fn = nz(getArg(args, "functionName"));
-                String fargs = nz(getArg(args, "functionArguments"));
+                String fn = nz(getArgFlex(args, "userString", "user-string", "functionUserString", "function-user-string", "functionName"));
+                fn = fnNameResolver.apply(fn);
+                String fargs = replaceHeadsWithUserStrings(nz(getArgFlex(args, "functionArguments", "function-arguments")));
                 String inside = fargs.isEmpty() ? fn : fn + ", " + fargs;
                 return dest + " <- (" + inside + ")";
             }
             case "JUMP_EQUAL_FUNCTION": {
-                String V = args.get(0); // the variable being compared
-                String fn = getArg(args, "userString");
-                if (fn.isEmpty()) fn = getArg(args, "functionUserString");
-                if (fn.isEmpty()) fn = getArg(args, "functionName");
-                String fargs = getArg(args, "functionArguments");
-                String inside = fn + (fargs == null || fargs.isBlank() ? "" : ", " + fargs);
-
-                String label = findLabel(args); // reuse your helper
+                String V = args.get(0);
+                String fn = nz(getArgFlex(args, "userString", "user-string", "functionUserString", "function-user-string", "functionName"));
+                fn = fnNameResolver.apply(fn);
+                String fargs = replaceHeadsWithUserStrings(nz(getArgFlex(args, "functionArguments", "function-arguments")));
+                String inside = fargs.isBlank() ? fn : fn + ", " + fargs;
+                String label = findLabel(args);
                 return "IF " + V + " = (" + inside + ") GOTO " + label;
             }
             default: return iv.opcode() + " " + String.join(", ", args);
@@ -269,5 +306,45 @@ public class InstructionsTableController {
             highlightedIndex = -1;
             table.refresh();
         } catch (Throwable ignore) {}
+    }
+
+    private String replaceHeadsWithUserStrings(String fargs) {
+        if (fargs == null || fargs.isBlank()) return fargs;
+        StringBuilder out = new StringBuilder();
+        int n = fargs.length();
+        int i = 0;
+        while (i < n) {
+            char c = fargs.charAt(i);
+            out.append(c);
+            if (c == '(') {
+                int start = i + 1;
+                int j = start;
+                while (j < n && fargs.charAt(j) != ',' && fargs.charAt(j) != ')') j++;
+                String head = fargs.substring(start, j).trim();
+                String repl = (head.isEmpty() ? head : fnNameResolver.apply(head));
+                out.append(repl);
+                i = j - 1;
+            }
+            i++;
+        }
+        return out.toString();
+    }
+
+    private String getArgFlex(List<String> args, String... keys) {
+        if (args == null || keys == null || keys.length == 0) return "";
+        for (String a : args) {
+            if (a == null) continue;
+            int eq = a.indexOf('=');
+            if (eq > 0) {
+                String leftNorm = a.substring(0, eq).replaceAll("[-_]", "").toLowerCase(Locale.ROOT);
+                for (String k : keys) {
+                    String kNorm = k.replaceAll("[-_]", "").toLowerCase(Locale.ROOT);
+                    if (leftNorm.equals(kNorm)) {
+                        return a.substring(eq + 1);
+                    }
+                }
+            }
+        }
+        return "";
     }
 }

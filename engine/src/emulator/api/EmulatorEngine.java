@@ -1,5 +1,6 @@
 package emulator.api;
 
+import emulator.api.debug.DebugService;
 import emulator.api.dto.*;
 import emulator.exception.*;
 
@@ -20,6 +21,7 @@ public interface EmulatorEngine {
     int lastRunDegree();
     String lastRunProgramName();
     List<RunRecord> history();
+    List<RunRecord> history(String programName);
     List<String> availablePrograms();
     boolean hasProgramLoaded();
     List<String> extractInputVars(ProgramView pv);
@@ -33,6 +35,13 @@ public interface EmulatorEngine {
             ProgramException,              // other domain errors
             IOException;                   // reader surfaces raw IO
     LoadResult loadProgram(Path xmlPath, ProgressListener listener) throws Exception;
+    public void clearHistory();
     void saveState(Path fileWithoutExt) throws Exception;
     void loadState(Path fileWithoutExt) throws Exception;
+    DebugService debugger();
+    void debugResume();
+    boolean debugIsFinished();
+    Map<String,String> debugVarsSnapshot();
+    int debugCurrentPC();
+    int debugCycles();
 }

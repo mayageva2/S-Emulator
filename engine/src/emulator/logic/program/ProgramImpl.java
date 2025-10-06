@@ -1,6 +1,7 @@
 package emulator.logic.program;
 
 import emulator.logic.instruction.Instruction;
+import emulator.logic.instruction.quote.QuotationRegistry;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.variable.Variable;
@@ -85,11 +86,41 @@ public class ProgramImpl implements Program, Serializable {
         return max;
     }
 
-    public int calculateCyclesAtDegree(int degree) {
-        return new ProgramCost().cyclesAtDegree(this, degree);
+    @Override
+    public List<String> getInputVariableNames() {
+        Set<Integer> nums = new TreeSet<>();
+        for (var instr : getInstructions()) {
+            if (instr.getVariable() != null) {
+                String name = instr.getVariable().getRepresentation().toLowerCase(Locale.ROOT);
+                if (name.startsWith("x")) {
+                    try {
+                        int n = Integer.parseInt(name.substring(1));
+                        nums.add(n);
+                    } catch (NumberFormatException ignore) {}
+                }
+            }
+            if (instr.getArguments() != null) {
+                for (String v : instr.getArguments().values()) {
+                    if (v != null && v.toLowerCase(Locale.ROOT).matches("x\\d+")) {
+                        try {
+                            int n = Integer.parseInt(v.substring(1));
+                            nums.add(n);
+                        } catch (NumberFormatException ignore) {}
+                    }
+                }
+            }
+        }
+
+        List<String> out = new ArrayList<>();
+        for (int n : nums) out.add("x" + n);
+        return out;
     }
 
-    public int calculateCyclesFullyExpanded() {
-        return new ProgramCost().cyclesFullyExpanded(this);
+
+    public int calculateCyclesAtDegree(int degree, QuotationRegistry registry) {
+        return new ProgramCost(registry).cyclesAtDegree(this, degree);
+    }
+    public int calculateCyclesFullyExpanded(QuotationRegistry registry) {
+        return new ProgramCost(registry).cyclesFullyExpanded(this);
     }
 }

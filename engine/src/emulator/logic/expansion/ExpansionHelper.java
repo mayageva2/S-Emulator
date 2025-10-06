@@ -12,6 +12,8 @@ public final class ExpansionHelper {
     private final NameAllocator lAlloc;
     private final Function<String, Variable> varFactory;
     private final Function<String, Label> labelFactory;
+    private final Set<String> expandingFunctions = new HashSet<>();
+    private final Set<String> permanentlyExpanded = new HashSet<>();
 
     public ExpansionHelper(Set<String> usedVarNames,
                            Set<String> usedLabelNames,
@@ -22,6 +24,12 @@ public final class ExpansionHelper {
         this.varFactory = varFactory;
         this.labelFactory = labelFactory;
     }
+
+    public boolean isExpanding(String fn) {return expandingFunctions.contains(fn.toUpperCase(Locale.ROOT));}
+    public void markExpanding(String fn) {expandingFunctions.add(fn.toUpperCase(Locale.ROOT));}
+    public void unmarkExpanding(String fn) {expandingFunctions.remove(fn.toUpperCase(Locale.ROOT));}
+    public boolean wasExpanded(String fn) {return permanentlyExpanded.contains(fn.toUpperCase(Locale.ROOT));}
+    public void markPermanentlyExpanded(String fn) {permanentlyExpanded.add(fn.toUpperCase(Locale.ROOT));}
 
     public String freshVarName()   { return zAlloc.next(); }
     public String freshLabelName() { return lAlloc.next(); }
