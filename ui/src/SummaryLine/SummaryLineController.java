@@ -16,8 +16,6 @@ public class SummaryLineController {
     @FXML private Label totalCount;
     @FXML private BorderPane root;
 
-    private EmulatorEngine engine;
-
     @FXML
     private void initialize() {
         var css = getClass().getResource("/SummaryLine/summary-line.css");
@@ -33,7 +31,10 @@ public class SummaryLineController {
         }
     }
 
-    public void setEngine(EmulatorEngine engine) { this.engine = engine; }
+    //Updates the summary line using a ProgramView object fetched from the server
+    public void refreshFromServer(ProgramView pv) {
+        update(pv);
+    }
 
     public void update(ProgramView pv) {
         if (pv == null) {
@@ -45,16 +46,6 @@ public class SummaryLineController {
         int basic = (list == null) ? 0 : (int) list.stream().filter(InstructionView::basic).count();
         int synthetic = Math.max(0, total - basic);
         setCounts(total, basic, synthetic);
-    }
-
-    public void refreshFromEngine(int degree) {
-        if (engine == null) return;
-        try {
-            ProgramView pv = engine.programView(degree);
-            update(pv);
-        } catch (Exception e) {
-            setCounts(0, 0, 0);
-        }
     }
 
     private void setCounts(int total, int basic, int synthetic) {

@@ -18,7 +18,7 @@ import emulator.api.dto.RunRecord;
 
 public class StatisticsTableController {
 
-    /** Row model matching your console columns. */
+    // Row model matching your console columns
     public static final class HistoryRow {
         public final int run;
         public final int degree;
@@ -53,8 +53,6 @@ public class StatisticsTableController {
         yCol.setCellValueFactory(cd -> new ReadOnlyLongWrapper(cd.getValue().y));
         cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
 
-       // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-
         // Right-align numeric cells
         TableCellAlign.right(runCol);
         TableCellAlign.right(degreeCol);
@@ -73,7 +71,7 @@ public class StatisticsTableController {
         }
     }
 
-    /** Fill the table from your engine history using your existing formatter. */
+    // Fill the table from your engine history using your existing formatter
     public void setHistory(List<RunRecord> history, Function<String, String> formatInputsByPosition) {
         currentHistory = (history == null) ? List.of() : new ArrayList<>(history);
         if (history == null || history.isEmpty()) {
@@ -95,7 +93,7 @@ public class StatisticsTableController {
         table.getItems().setAll(rows);
     }
 
-    /** Convenience if you already precomputed pretty inputs (keeps your old flow). */
+    // Convenience if you already precomputed pretty inputs
     public void setHistory(List<RunRecord> history, List<String> prettyInputs) {
         currentHistory = (history == null) ? List.of() : new ArrayList<>(history);
         if (history == null || history.isEmpty()) {

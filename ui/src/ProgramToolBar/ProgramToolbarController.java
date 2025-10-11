@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 public class ProgramToolbarController {
 
     @FXML private Button CollapseButton, ExpandButton, CurrentOrMaxDegreeButton;
-    @FXML private ChoiceBox<String> HighlightChoices, selectProgramChoice;;
+    @FXML private ChoiceBox<String> HighlightChoices, selectProgramChoice;
     private Consumer<Integer> onJumpToDegree;
     private Consumer<String> onHighlightChanged;
     private Consumer<String> onProgramSelected;

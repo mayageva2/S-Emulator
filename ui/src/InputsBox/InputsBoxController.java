@@ -166,4 +166,25 @@ public class InputsBoxController {
             tf.setText(val);
         }
     }
+
+    public String collectInputsAsJson() {
+        Long[] values = collectAsLongsOrThrow();
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < values.length; i++) {
+            sb.append(values[i]);
+            if (i < values.length - 1) sb.append(",");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public Map<String, Long> collectInputsAsMap() {
+        Map<String, Long> map = new LinkedHashMap<>();
+        for (String name : inputNames) {
+            String raw = fieldsByName.get(name).getText().trim();
+            long value = raw.isEmpty() ? 0L : Long.parseLong(raw);
+            map.put(name, value);
+        }
+        return map;
+    }
 }

@@ -8,6 +8,7 @@ import javafx.scene.layout.Region;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.Map;
 
 public class CyclesLineController {
     @FXML private Region root;
@@ -26,24 +27,29 @@ public class CyclesLineController {
         }
     }
 
-    public void renderFromRun(RunResult result, Long[] inputs) {
-        long cycles = extractCycles(result);
+    public void renderFromResponse(Map<String, Object> responseJson) {
+        if (responseJson == null) return;
+
+        Object cyclesObj = responseJson.get("cycles");
+        long cycles = 0;
+        if (cyclesObj instanceof Number n) cycles = n.longValue();
+        else if (cyclesObj instanceof String s) {
+            try { cycles = Long.parseLong(s); } catch (NumberFormatException ignored) {}
+        }
+
+        long finalCycles = cycles;
         Platform.runLater(() -> {
             if (cyclesValue != null) {
-                cyclesValue.setText(Long.toString(cycles));
+                cyclesValue.setText(Long.toString(finalCycles));
             }
             if (root != null) {
                 root.setVisible(true);
             }
         });
     }
+
     public void setCycles(int cycles) {
         Platform.runLater(() -> cyclesValue.setText(String.valueOf(cycles)));
-    }
-
-    private long extractCycles(RunResult result) {
-        if (result == null) return 0L;
-        return result.getTotalCycles();
     }
 
     public void reset() {
@@ -54,25 +60,5 @@ public class CyclesLineController {
                 root.setManaged(true);
             }
         });
-    }
-
-    private Long tryNumberGetter(Object obj, String name) {
-        try {
-            Method m = obj.getClass().getMethod(name);
-            Object v = m.invoke(obj);
-            if (v instanceof Number n) return n.longValue();
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private Integer tryCollectionSizeGetter(Object obj, String... names) {
-        for (String name : names) {
-            try {
-                Method m = obj.getClass().getMethod(name);
-                Object v = m.invoke(obj);
-                if (v instanceof Collection<?> c) return c.size();
-            } catch (Exception ignored) {}
-        }
-        return null;
     }
 }

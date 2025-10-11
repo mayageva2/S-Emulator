@@ -84,7 +84,8 @@ public class VariablesBoxController {
         Map<String, Long> vars = buildVarsMap(result, inputs);
         renderAll(vars);
         if (cyclesLineController != null) {
-            cyclesLineController.renderFromRun(result, inputs);
+            Map<String, Object> responseMap = Map.of("cycles", result.cycles());
+            cyclesLineController.renderFromResponse(responseMap);
         }
     }
 
