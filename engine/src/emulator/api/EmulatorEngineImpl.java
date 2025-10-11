@@ -813,6 +813,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         dbgStepOnce = false;
         dbgAlive = true;
 
+        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
+                .map(v -> v == null ? 0L : v)
+                .toList();
+        this.lastRunDegree = degree;
+        this.lastRunProgramName = target.getName();
+
         dbgExecutor.setStepListener((pcAfter, cycles, vars, finished) -> {
             dbgPC = pcAfter;
             dbgCycles = cycles;

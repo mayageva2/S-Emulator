@@ -57,6 +57,14 @@ public class DebugResumeServlet extends HttpServlet {
             int cycles = impl.debugCycles();
             long yVal = vars.containsKey("y") ? Long.parseLong(vars.get("y")) : 0;
 
+            impl.recordDebugSession(
+                    impl.lastRunProgramName(),
+                    impl.lastRunDegree(),
+                    impl.lastRunInputs().toArray(new Long[0]),
+                    vars,
+                    cycles
+            );
+
             out.println("{");
             out.println("  \"status\": \"Program finished\",");
             out.println("  \"y\": " + yVal + ",");
