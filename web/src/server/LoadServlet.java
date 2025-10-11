@@ -1,13 +1,13 @@
 package server;
 
-import jakarta.servlet.*;
+import emulator.api.EmulatorEngineImpl;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.*;
 import java.io.*;
-import java.nio.file.Path;
+import java.nio.file.*;
 
 import emulator.api.EmulatorEngine;
-import emulator.logic.program.Program;
+import emulator.api.dto.LoadResult;
 
 @WebServlet("/load")
 public class LoadServlet extends HttpServlet {
@@ -17,23 +17,28 @@ public class LoadServlet extends HttpServlet {
             throws IOException {
 
         resp.setContentType("text/plain;charset=UTF-8");
+        PrintWriter out = resp.getWriter();
 
-        String path = req.getParameter("path");
-        if (path == null || path.isBlank()) {
-            resp.getWriter().println("Missing 'path' parameter");
+        String pathStr = req.getParameter("path");
+        if (pathStr == null || pathStr.isBlank()) {
+            out.println("Missing 'path' parameter");
             return;
         }
 
-        try {
-            EmulatorEngine engine = new EmulatorEngine();
-            Program program = engine.loadProgram(Path.of(path));
+        Path xmlPath = Path.of(pathStr);
 
-            resp.getWriter().println("Program loaded successfully!");
-            resp.getWriter().println("Program name: " + program.getName());
+        try {
+            EmulatorEngine engine = EngineHolder.getEngine();
+            LoadResult result = engine.loadProgram(xmlPath);
+
+            out.println("Program loaded successfully!");
+            out.println("Program name: " + result.programName());
+            out.println("Instruction count: " + result.instructionCount());
+            out.println("Max degree: " + result.maxDegree());
         } catch (Exception e) {
-            resp.getWriter().println("Failed to load program:");
-            resp.getWriter().println(e.getMessage());
-            e.printStackTrace(resp.getWriter());
+            out.println("Failed to load program:");
+            out.println(e.getClass().getSimpleName() + ": " + e.getMessage());
+            e.printStackTrace(out);
         }
     }
 }
