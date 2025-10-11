@@ -12,6 +12,9 @@ import java.util.*;
 public final class QuoteUtils {
     private QuoteUtils() {}
 
+    private static final ThreadLocal<Deque<String>> CALL_STACK =
+            ThreadLocal.withInitial(ArrayDeque::new);
+
     public static long runQuotedEval(String fname,
                                      String argsCsv,
                                      ExecutionContext ctx,
@@ -19,62 +22,49 @@ public final class QuoteUtils {
                                      QuoteParser parser,
                                      VarResolver varResolver,
                                      QuoteEvaluator quoteEval) {
-        return runQuotedEval(fname, argsCsv, ctx, registry, parser, varResolver, quoteEval, Map.of());
-    }
+        if (fname == null || fname.isBlank())
+            throw new IllegalArgumentException("Empty QUOTE function name");
 
-    private static long runQuotedEval(String fname,
-                                      String argsCsv,
-                                      ExecutionContext ctx,
-                                      QuotationRegistry registry,
-                                      QuoteParser parser,
-                                      VarResolver varResolver,
-                                      QuoteEvaluator quoteEval,
-                                      Map<String, Long> outerEnv) {
+        String upper = fname.trim().toUpperCase(Locale.ROOT);
+        Deque<String> stack = CALL_STACK.get();
 
-        Program qProgram = registry.getProgramByName(fname);
-        if (qProgram == null) throw new IllegalArgumentException("Unknown function: " + fname);
+        // 🧠 מנגנון הגנה משופר — מזהה רק לולאה שחוזרת על עצמה עם אותו נתיב
+        if (!stack.isEmpty() && stack.peekFirst().equals(upper)) {
+            String path = String.join(" -> ", stack);
+            throw new IllegalStateException(
+                    "Recursive QUOTE call detected (true recursion): " + path + " -> " + upper);
+        }
 
-        List<String> argTokens = parser.parseTopLevelArgs(argsCsv);
-        List<String> paramNames = qProgram.getVariables().stream()
-                .filter(v -> v.getType() == emulator.logic.variable.VariableType.INPUT)
-                .sorted(Comparator.comparingInt(v -> v.getNumber()))
-                .map(v -> "x" + v.getNumber())
-                .toList();
+        stack.push(upper);
+        try {
+            Program qProgram = registry.getProgramByName(fname);
+            if (qProgram == null)
+                throw new IllegalArgumentException("Unknown function: " + fname);
 
-        Long[] inputs = new Long[paramNames.size()];
-        Arrays.fill(inputs, 0L);
+            List<String> args = parser.parseTopLevelArgs(argsCsv);
+            int need = requiredInputCount(qProgram);
+            Long[] inputs = new Long[need];
+            Arrays.fill(inputs, 0L);
 
-        for (int i = 0; i < argTokens.size() && i < inputs.length; i++) {
-            String token = argTokens.get(i).trim();
-            long val;
-
-            // nested call
-            if (parser.isNestedCall(token)) {
-                QuoteParser.NestedCall nc = parser.parseNestedCall(token);
-                val = runQuotedEval(nc.name(), nc.argsCsv(), ctx, registry, parser, varResolver, quoteEval, outerEnv);
-            } else if (outerEnv.containsKey(token)) {
-                val = outerEnv.get(token);
-            } else {
-                val = evalArgToValue(token, ctx, parser, registry, varResolver, quoteEval);
+            for (int i = 0; i < Math.min(need, args.size()); i++) {
+                String token = args.get(i).trim();
+                inputs[i] = evalArgToValue(token, ctx, parser, registry, varResolver, quoteEval);
             }
 
-            inputs[i] = val;
+            System.out.println(">>> Enter QUOTE: " + upper + " stack=" + stack);
+
+            ProgramExecutorImpl exec = new ProgramExecutorImpl(qProgram, quoteEval);
+            long y = exec.run(inputs);
+            int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+            registerQuoteCycles(ctx, totalCycles);
+
+            System.out.println("<<< Exit QUOTE: " + upper);
+            return y;
+
+        } finally {
+            stack.pop();
+            if (stack.isEmpty()) CALL_STACK.remove();
         }
-
-        Map<String, Long> innerEnv = new LinkedHashMap<>();
-        for (int i = 0; i < paramNames.size(); i++) {
-            innerEnv.put(paramNames.get(i), inputs[i]);
-        }
-
-        ProgramExecutorImpl exec = (quoteEval == null)
-                ? new ProgramExecutorImpl(qProgram)
-                : new ProgramExecutorImpl(qProgram, quoteEval);
-
-        long result = exec.run(inputs);
-        int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
-        registerQuoteCycles(ctx, totalCycles);
-
-        return result;
     }
 
     public static Long evalArgToValue(
