@@ -63,9 +63,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         long[] finalInputs = normalizeInputs(input, need);
         seedVariables(finalInputs);
 
-        System.out.println("current program is" + program.getName());
         executeProgram(instructions);
-//        lastExecutionCycles += baseCycles;
         lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
     }
