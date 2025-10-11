@@ -890,6 +890,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (!dbgAlive || dbgFinished) return;
         synchronized (dbgLock) {
             dbgResumeMode = true;
+            dbgStepOnce = true;
             dbgLock.notifyAll();
         }
     }

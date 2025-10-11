@@ -1,7 +1,6 @@
 package server;
 
 import emulator.api.EmulatorEngine;
-import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.RunResult;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
