@@ -52,7 +52,7 @@
                     <content>
                         <VBox fx:id="rightCol" spacing="12" minWidth="0" maxWidth="Infinity">
 
-                            <fx:include fx:id="RunButtons" source="../RunButtons/RunButtons.fxml"/>
+                            <fx:include fx:id="runButtons" source="../RunButtons/RunButtons.fxml"/>
 
                             <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10"
                                   minWidth="0" maxWidth="Infinity">

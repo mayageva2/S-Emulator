@@ -6,4 +6,96 @@
 
     <display-name>S-Emulator Web</display-name>
 
+    <!-- === LOAD & RUN SERVLETS === -->
+    <servlet>
+        <servlet-name>LoadServlet</servlet-name>
+        <servlet-class>server.LoadServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LoadServlet</servlet-name>
+        <url-pattern>/LoadServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>RunServlet</servlet-name>
+        <servlet-class>server.RunServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>RunServlet</servlet-name>
+        <url-pattern>/RunServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ProgramViewServlet</servlet-name>
+        <servlet-class>server.ProgramViewServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProgramViewServlet</servlet-name>
+        <url-pattern>/ProgramViewServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>HistoryServlet</servlet-name>
+        <servlet-class>server.HistoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>HistoryServlet</servlet-name>
+        <url-pattern>/HistoryServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ClearHistoryServlet</servlet-name>
+        <servlet-class>server.ClearHistoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ClearHistoryServlet</servlet-name>
+        <url-pattern>/ClearHistoryServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- === DEBUG SERVLETS === -->
+    <servlet>
+        <servlet-name>DebugStartServlet</servlet-name>
+        <servlet-class>server.DebugStartServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DebugStartServlet</servlet-name>
+        <url-pattern>/DebugStartServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>DebugStateServlet</servlet-name>
+        <servlet-class>server.DebugStateServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DebugStateServlet</servlet-name>
+        <url-pattern>/DebugStateServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>DebugStepServlet</servlet-name>
+        <servlet-class>server.DebugStepServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DebugStepServlet</servlet-name>
+        <url-pattern>/DebugStepServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>DebugResumeServlet</servlet-name>
+        <servlet-class>server.DebugResumeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DebugResumeServlet</servlet-name>
+        <url-pattern>/DebugResumeServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>DebugStopServlet</servlet-name>
+        <servlet-class>server.DebugStopServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DebugStopServlet</servlet-name>
+        <url-pattern>/DebugStopServlet</url-pattern>
+    </servlet-mapping>
+
 </web-app>
