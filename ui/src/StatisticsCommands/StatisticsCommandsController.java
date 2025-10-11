@@ -1,5 +1,7 @@
 package StatisticsCommands;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;
@@ -10,52 +12,70 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.Supplier;
-import java.util.function.Consumer;
 
 public class StatisticsCommandsController {
     @FXML private Button showButton, rerunButton;
 
-    private Supplier<Map<String, String>> statusSupplier;
-    private Supplier<RerunSpec> rerunSupplier;
-    private Consumer<RerunSpec> rerunPreparer;
+    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private static final Gson gson = new Gson();
 
-    public void setStatusSupplier(Supplier<Map<String, String>> supplier) {
-        this.statusSupplier = supplier;
-    }
-    public void setRerunSupplier(Supplier<RerunSpec> supplier) { this.rerunSupplier = supplier; }
-    public void setRerunPreparer(Consumer<RerunSpec> preparer) { this.rerunPreparer = preparer; }
+    private Map<String, String> lastVarsSnapshot = Map.of();
 
     @FXML
     private void initialize() {
-        if (showButton != null) {
+        if (showButton != null)
             showButton.setOnAction(e -> onShowStatus());
-        }
-        if (rerunButton != null) {
+        if (rerunButton != null)
             rerunButton.setOnAction(e -> onReRun());
-        }
+    }
+
+    public void setLastVarsSnapshot(Map<String, String> vars) {
+        this.lastVarsSnapshot = (vars != null) ? vars : Map.of();
     }
 
     private void onShowStatus() {
-        Map<String, String> vars = (statusSupplier != null) ? statusSupplier.get() : Collections.emptyMap();
-        if (vars == null || vars.isEmpty()) {
+        if (lastVarsSnapshot == null || lastVarsSnapshot.isEmpty()) {
             Alert a = new Alert(Alert.AlertType.INFORMATION, "No snapshot from last run yet.");
             a.setHeaderText("SHOW STATUS");
             a.showAndWait();
             return;
         }
-        showVarsPopup(vars);
+        showVarsPopup(lastVarsSnapshot);
     }
 
     private void onReRun() {
-        if (rerunSupplier == null || rerunPreparer == null) { return; }
-        RerunSpec spec = rerunSupplier.get();
-        if (spec == null || spec.programName() == null || spec.programName().isBlank()) { return; }
-        rerunPreparer.accept(spec);
-    }
+        TextInputDialog dlg = new TextInputDialog();
+        dlg.setTitle("Re-Run Program");
+        dlg.setHeaderText("Enter program name to re-run:");
+        dlg.setContentText("Program:");
+        Optional<String> ans = dlg.showAndWait();
+        if (ans.isEmpty() || ans.get().isBlank()) return;
 
-    // ... (showVarsPopup, rank, numSuffix כבעבר)
+        String prog = ans.get().trim();
+        try {
+            Map<String, Object> payload = Map.of("program", prog);
+            String json = gson.toJson(payload);
+            String resp = httpPost(BASE_URL + "rerun", json);
+            Map<String, Object> response = gson.fromJson(resp, new TypeToken<Map<String, Object>>(){}.getType());
+
+            Map<String, Object> vars = (Map<String, Object>) response.get("vars");
+            Number cycles = (Number) response.getOrDefault("cycles", 0);
+            Alert done = new Alert(Alert.AlertType.INFORMATION,
+                    "Re-run completed.\nCycles: " + cycles + "\nVars: " + vars);
+            done.setHeaderText("RE-RUN SUCCESS");
+            done.showAndWait();
+
+        } catch (Exception ex) {
+            new Alert(Alert.AlertType.ERROR, "Re-run failed:\n" + ex.getMessage()).showAndWait();
+        }
+    }
 
     private void showVarsPopup(Map<String, String> vars) {
         TableView<Map.Entry<String,String>> table = new TableView<>();
@@ -103,5 +123,23 @@ public class StatisticsCommandsController {
         int i = 0; while (i < s.length() && !Character.isDigit(s.charAt(i))) i++;
         if (i >= s.length()) return Integer.MAX_VALUE;
         try { return Integer.parseInt(s.substring(i)); } catch (Exception e) { return Integer.MAX_VALUE; }
+    }
+
+    // == HTTP helpers == //
+    private String httpPost(String urlStr, String json) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+        }
+        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) sb.append(line);
+        in.close();
+        conn.disconnect();
+        return sb.toString();
     }
 }
