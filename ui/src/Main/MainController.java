@@ -191,4 +191,47 @@ public class MainController {
             if (centerOutput != null) centerOutput.setText(msg);
         });
     }
+
+    public void initServerMode(String baseUrl) {
+        try {
+            if (baseUrl != null && !baseUrl.isBlank()) {
+                this.currentProgram = null;
+                this.currentDegree = 0;
+                this.maxDegree = 0;
+
+                if (headerController != null) {
+                    headerController.setOnLoaded(this::onProgramLoaded);
+                }
+
+                if (toolbarController != null) {
+                    toolbarController.setOnExpand(this::onExpandOne);
+                    toolbarController.setOnCollapse(this::onCollapseOne);
+                    toolbarController.setOnJumpToDegree(this::onJumpToDegree);
+                    toolbarController.setOnProgramSelected(this::onProgramPicked);
+                    toolbarController.setOnHighlightChanged(term -> {
+                        if (instructionsController != null)
+                            instructionsController.setHighlightTerm(term);
+                    });
+                }
+
+                if (runButtonsController != null) {
+                    runButtonsController.setInputsBoxController(inputsBoxController);
+                    runButtonsController.setVarsBoxController(varsBoxController);
+                    runButtonsController.setStatisticsTableController(statisticsTableController);
+                    runButtonsController.setProgramToolbarController(toolbarController);
+                    runButtonsController.setCurrentDegree(currentDegree);
+                }
+
+                Platform.runLater(() -> {
+                    HBox.setHgrow(contentBox, Priority.ALWAYS);
+                    HBox.setHgrow(sidePanels, Priority.ALWAYS);
+                    varsBox.prefWidthProperty().bind(sidePanels.widthProperty().divide(2));
+                    inputsBox.prefWidthProperty().bind(sidePanels.widthProperty().divide(2));
+                });
+            }
+        } catch (Exception e) {
+            showError("initServerMode failed: " + e.getMessage());
+        }
+    }
+
 }
