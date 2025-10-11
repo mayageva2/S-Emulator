@@ -10,10 +10,7 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.skin.TableViewSkin;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -346,5 +343,28 @@ public class InstructionsTableController {
             }
         }
         return "";
+    }
+
+    @SuppressWarnings("unchecked")
+    public void renderFromJson(List<Map<String, Object>> instructionsList) {
+        if (instructionsList == null || instructionsList.isEmpty()) {
+            clear();
+            return;
+        }
+        List<InstructionRow> rows = new ArrayList<>();
+        for (Map<String, Object> map : instructionsList) {
+            int index = ((Double) map.getOrDefault("index", 0)).intValue();
+            boolean basic = Boolean.TRUE.equals(map.get("basic"));
+            String label = Objects.toString(map.get("label"), "");
+            int cycles = ((Double) map.getOrDefault("cycles", 0)).intValue();
+            String opcode = Objects.toString(map.get("opcode"), "");
+            List<String> args = (List<String>) map.getOrDefault("args", List.of());
+
+            InstructionRow row = new InstructionRow(
+                    index, basic, label, cycles, opcode, args, 0, null
+            );
+            rows.add(row);
+        }
+        setItems(rows);
     }
 }
