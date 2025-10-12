@@ -7,20 +7,27 @@ import java.nio.file.*;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.LoadResult;
+import com.google.gson.Gson;
+import java.util.*;
 
 @WebServlet("/load")
 public class LoadServlet extends HttpServlet {
+
+    private static final Gson gson = new Gson();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
 
-        resp.setContentType("text/plain;charset=UTF-8");
-        PrintWriter out = resp.getWriter();
+        resp.setContentType("application/json;charset=UTF-8");
+        resp.setCharacterEncoding("UTF-8");
+
+        Map<String, Object> responseMap = new LinkedHashMap<>();
 
         String pathStr = req.getParameter("path");
         if (pathStr == null || pathStr.isBlank()) {
-            out.println("Missing 'path' parameter");
+            responseMap.put("error", "Missing 'path' parameter");
+            writeJson(resp, responseMap);
             return;
         }
 
@@ -30,14 +37,24 @@ public class LoadServlet extends HttpServlet {
             EmulatorEngine engine = EngineHolder.getEngine();
             LoadResult result = engine.loadProgram(xmlPath);
 
-            out.println("Program loaded successfully!");
-            out.println("Program name: " + result.programName());
-            out.println("Instruction count: " + result.instructionCount());
-            out.println("Max degree: " + result.maxDegree());
+            responseMap.put("status", "success");
+            responseMap.put("programName", result.programName());
+            responseMap.put("instructionCount", result.instructionCount());
+            responseMap.put("maxDegree", result.maxDegree());
+
         } catch (Exception e) {
-            out.println("Failed to load program:");
-            out.println(e.getClass().getSimpleName() + ": " + e.getMessage());
-            e.printStackTrace(out);
+            responseMap.put("status", "error");
+            responseMap.put("message", e.getMessage());
+            responseMap.put("exception", e.getClass().getSimpleName());
+        }
+
+        writeJson(resp, responseMap);
+    }
+
+    private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
+        String json = gson.toJson(data);
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(json);
         }
     }
 }

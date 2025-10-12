@@ -73,6 +73,7 @@ public class HeaderAndLoadButtonController {
 
                 try (InputStream in = conn.getInputStream()) {
                     String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                    System.out.println("LOAD RESPONSE = " + json);
                     updateMessage("Parsing response...");
                     updateProgress(0.9, 1);
 
