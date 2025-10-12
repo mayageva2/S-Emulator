@@ -13,6 +13,7 @@ public class InstructionRow {
     public final List<String> args;
     public final int depth;                 // 0 for main table, >0 for history indentation
     public final InstructionView sourceIv;  // << keep the original for callbacks
+    public String display = "";
 
     public InstructionRow(int index, boolean basic, String label, int cycles,
                           String opcode, List<String> args, int depth,

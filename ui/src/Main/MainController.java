@@ -23,6 +23,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Consumer;
@@ -87,7 +88,7 @@ public class MainController {
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String response = httpPost(BASE_URL + "load", "path=" + ev.xmlPath().toString());
+            String response = httpPostForm(BASE_URL + "load", "path=" + URLEncoder.encode(ev.xmlPath().toString(), StandardCharsets.UTF_8));
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (map.containsKey("programName")) currentProgram = String.valueOf(map.get("programName"));
             refreshProgramView(0);
@@ -96,19 +97,57 @@ public class MainController {
         }
     }
 
+    private String httpPostForm(String urlStr, String formData) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(formData.getBytes(StandardCharsets.UTF_8));
+        }
+        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) sb.append(line);
+        in.close();
+        conn.disconnect();
+        return sb.toString();
+    }
+
     private void refreshProgramView(int degree) {
         try {
             String url = BASE_URL + "view?degree=" + degree;
-            if (currentProgram != null) url += "&program=" + currentProgram;
             String response = httpGet(url);
+            System.out.println("VIEW RESPONSE = " + response);
+
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-            List<Map<String, Object>> instructionsList = (List<Map<String, Object>>) map.get("instructions");
-            if (instructionsController != null) instructionsController.renderFromJson(instructionsList);
+
+            if (!"success".equals(map.get("status"))) {
+                showError("View failed: " + map.get("message"));
+                return;
+            }
+
+            Map<String, Object> program = (Map<String, Object>) map.get("program");
+            if (program == null) {
+                showError("Missing program data in response");
+                return;
+            }
+
+            List<Map<String, Object>> instructionsList =
+                    (List<Map<String, Object>>) program.get("instructions");
+
+            if (instructionsController != null && instructionsList != null) {
+                instructionsController.renderFromJson(instructionsList);
+            }
+
             summaryLineController.refreshFromServer(null);
+
         } catch (Exception e) {
             showError("Render failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
+
 
     private void onExpandOne() {
         if (currentDegree < maxDegree) {
