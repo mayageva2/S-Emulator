@@ -55,8 +55,14 @@ public class HeaderAndLoadButtonController {
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                updateMessage("Loading...");
-                updateProgress(0.1, 1);
+
+                updateMessage("Preparing request...");
+                updateProgress(0.05, 1);
+                Thread.sleep(200);
+
+                updateMessage("Connecting to server...");
+                updateProgress(0.15, 1);
+                Thread.sleep(250);
 
                 String urlStr = "http://localhost:8080/semulator/load";
                 String postData = "path=" + URLEncoder.encode(xmlPath.toString(), StandardCharsets.UTF_8);
@@ -66,33 +72,55 @@ public class HeaderAndLoadButtonController {
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+                updateMessage("Uploading file path...");
+                updateProgress(0.30, 1);
                 conn.getOutputStream().write(postBytes);
+                Thread.sleep(250);
 
+                updateMessage("Waiting for response...");
+                updateProgress(0.45, 1);
                 int code = conn.getResponseCode();
-                if (code != 200) throw new IOException("Server returned status " + code);
+                if (code != 200)
+                    throw new IOException("Server returned status " + code);
+                Thread.sleep(300);
 
+                updateMessage("Reading response...");
+                updateProgress(0.60, 1);
+
+                String json;
                 try (InputStream in = conn.getInputStream()) {
-                    String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                    System.out.println("LOAD RESPONSE = " + json);
-                    updateMessage("Parsing response...");
-                    updateProgress(0.9, 1);
-
-                    Gson gson = new Gson();
-                    Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
-
-                    Platform.runLater(() -> {
-                        statusLabel.setText("Loaded: " + map.getOrDefault("programName", "?"));
-                        lastProgramName = (String) map.getOrDefault("programName", "");
-                        Object degObj = map.get("maxDegree");
-                        if (degObj instanceof Number n) lastMaxDegree = n.intValue();
-                        lastXmlPath = xmlPath;
-                        if (onLoaded != null)
-                            onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
-                    });
+                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
                 }
+                System.out.println("LOAD RESPONSE = " + json);
+                Thread.sleep(250);
 
-                updateMessage("Done");
+                updateMessage("Parsing JSON...");
+                updateProgress(0.80, 1);
+                Thread.sleep(250);
+
+                Gson gson = new Gson();
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>() {}.getType());
+
+                Platform.runLater(() -> {
+                    statusLabel.textProperty().unbind();
+                    statusLabel.setText("Loaded: " + map.getOrDefault("programName", "?"));
+                    lastProgramName = (String) map.getOrDefault("programName", "");
+                    Object degObj = map.get("maxDegree");
+                    if (degObj instanceof Number n) lastMaxDegree = n.intValue();
+                    lastXmlPath = xmlPath;
+                    if (onLoaded != null)
+                        onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
+                });
+
+                updateMessage("Finalizing...");
+                updateProgress(0.95, 1);
+                Thread.sleep(300);
+
+                updateMessage("✅ Done");
                 updateProgress(1, 1);
+                Thread.sleep(400);
+
                 return null;
             }
         };

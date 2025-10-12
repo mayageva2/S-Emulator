@@ -87,7 +87,7 @@ public class MainController {
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String response = httpPost(BASE_URL + "LoadServlet", "{\"path\":\"" + ev.xmlPath().toString() + "\"}");
+            String response = httpPost(BASE_URL + "load", "path=" + ev.xmlPath().toString());
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (map.containsKey("programName")) currentProgram = String.valueOf(map.get("programName"));
             refreshProgramView(0);
@@ -98,7 +98,7 @@ public class MainController {
 
     private void refreshProgramView(int degree) {
         try {
-            String url = BASE_URL + "ProgramViewServlet?degree=" + degree;
+            String url = BASE_URL + "view?degree=" + degree;
             if (currentProgram != null) url += "&program=" + currentProgram;
             String response = httpGet(url);
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
@@ -142,11 +142,9 @@ public class MainController {
     public void runProgram() {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("program", currentProgram);
-            payload.put("degree", currentDegree);
-            payload.put("inputs", inputs);
-            String response = httpPost(BASE_URL + "RunServlet", gson.toJson(payload));
+            String payload = "degree=" + currentDegree +
+                    "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
+            String response = httpPost(BASE_URL + "run", payload);
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             varsBoxController.renderAll((Map<String, Object>) map.get("vars"));
             varsBoxController.setCycles(((Double) map.get("cycles")).intValue());

@@ -1,7 +1,9 @@
 package InstructionsTable;
 
+import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
+import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
@@ -10,6 +12,10 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.skin.TableViewSkin;
 
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -366,5 +372,35 @@ public class InstructionsTableController {
             rows.add(row);
         }
         setItems(rows);
+    }
+
+    public void refreshFromServer(int degree) {
+        new Thread(() -> {
+            try {
+                String urlStr = "http://localhost:8080/semulator/view?degree=" + degree;
+                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "application/json");
+
+                if (conn.getResponseCode() != 200) {
+                    System.err.println("Server returned status " + conn.getResponseCode());
+                    return;
+                }
+
+                String json;
+                try (InputStream in = conn.getInputStream()) {
+                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                }
+
+                Gson gson = new Gson();
+                Map<String, Object> map = gson.fromJson(json, Map.class);
+                List<Map<String, Object>> instructionsList =
+                        (List<Map<String, Object>>) map.get("instructions");
+
+                Platform.runLater(() -> renderFromJson(instructionsList));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, "table-refresh").start();
     }
 }
