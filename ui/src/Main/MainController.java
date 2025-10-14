@@ -259,7 +259,13 @@ public class MainController {
                 });
             }
 
-            summaryLineController.refreshFromServer(null);
+            if (summaryLineController != null && program != null) {
+                try {
+                    summaryLineController.updateFromJson(program);
+                } catch (Exception ex) {
+                    System.err.println("Failed to update summary line: " + ex.getMessage());
+                }
+            }
 
         } catch (Exception e) {
             showError("Render failed: " + e.getMessage());

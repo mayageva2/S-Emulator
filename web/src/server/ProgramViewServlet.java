@@ -78,6 +78,7 @@ public class ProgramViewServlet extends HttpServlet {
                 insMap.put("label", ins.label());
                 insMap.put("cycles", ins.cycles());
                 insMap.put("args", ins.args());
+                insMap.put("basic", ins.basic());
                 instructions.add(insMap);
             });
 

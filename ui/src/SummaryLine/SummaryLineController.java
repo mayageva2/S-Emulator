@@ -9,6 +9,7 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 
 import java.util.List;
+import java.util.Map;
 
 public class SummaryLineController {
     @FXML private Label basicCount;
@@ -64,4 +65,34 @@ public class SummaryLineController {
     public void bindTo(ProgramView pv) {
         update(pv);
     }
+
+    public void updateFromJson(Map<String, Object> programJson) {
+        if (programJson == null) {
+            setCounts(0, 0, 0);
+            return;
+        }
+
+        try {
+            List<Map<String, Object>> instructions =
+                    (List<Map<String, Object>>) programJson.get("instructions");
+            int total = (instructions == null) ? 0 : instructions.size();
+
+            // basic / synthetic
+            int basic = 0;
+            if (instructions != null) {
+                for (Map<String, Object> ins : instructions) {
+                    Object val = ins.get("basic");
+                    if (val instanceof Boolean b && b) basic++;
+                }
+            }
+            int synthetic = Math.max(0, total - basic);
+
+            setCounts(total, basic, synthetic);
+
+        } catch (Exception e) {
+            System.err.println("Failed to update summary line from JSON: " + e.getMessage());
+            setCounts(0, 0, 0);
+        }
+    }
+
 }
