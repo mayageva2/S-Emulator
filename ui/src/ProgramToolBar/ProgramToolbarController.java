@@ -112,7 +112,6 @@ public class ProgramToolbarController {
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
                     .distinct()
-                    .sorted(String.CASE_INSENSITIVE_ORDER)
                     .forEach(items::add);
         }
         HighlightChoices.setItems(FXCollections.observableArrayList(items));

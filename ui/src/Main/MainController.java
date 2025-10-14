@@ -162,130 +162,156 @@ public class MainController {
 
     private void refreshProgramView(int degree) {
         try {
-            String programParam = (currentProgram == null || currentProgram.equalsIgnoreCase("Main Program"))
-                    ? "" : "&program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8);
-            String url = BASE_URL + "view?degree=" + degree + programParam;
-            String response = httpGet(url);
+            String json = fetchProgramViewJson(degree);
+            Map<String, Object> program = parseAndValidateResponse(json);
+            if (program == null) return;
 
-            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-
-            if (!"success".equals(map.get("status"))) {
-                showError("View failed: " + map.get("message"));
-                return;
-            }
-
-            Map<String, Object> program = (Map<String, Object>) map.get("program");
-            if (program == null) {
-                showError("Missing program data in response");
-                return;
-            }
-
-            Object maxDegObj = program.get("maxDegree");
-            if (maxDegObj instanceof Number n)
-                maxDegree = n.intValue();
-
-            Object degreeObj = program.get("degree");
-            if (degreeObj instanceof Number n)
-                currentDegree = n.intValue();
-
-            List<Map<String, Object>> instructionsList =
-                    (List<Map<String, Object>>) program.get("instructions");
-
-            if (instructionsController != null && instructionsList != null) {
-                instructionsController.renderFromJson(instructionsList);
-            }
-
-            if (toolbarController != null && instructionsList != null) {
-                Set<String> highlightSet = new LinkedHashSet<>();
-
-                for (Map<String, Object> ins : instructionsList) {
-                    String label = Objects.toString(ins.get("label"), "").trim();
-                    if (!label.isBlank()) highlightSet.add(label);
-
-                    Object argsObj = ins.get("args");
-                    if (argsObj instanceof List<?> argsList) {
-                        for (Object a : argsList) {
-                            String arg = Objects.toString(a, "").trim();
-                            if (arg.matches("(?i)[xyz]\\d*") || arg.matches("(?i)L\\d+") || arg.equalsIgnoreCase("y")) {
-                                highlightSet.add(arg);
-                            }
-                            int eq = arg.indexOf('=');
-                            if (eq > 0) {
-                                String val = arg.substring(eq + 1).trim();
-                                if (val.matches("(?i)[xyz]\\d*") || val.matches("(?i)L\\d+") || val.equalsIgnoreCase("y")) {
-                                    highlightSet.add(val);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                List<String> highlights = new ArrayList<>(highlightSet);
-                highlights.sort((a, b) -> {
-                    if (a == null) return -1;
-                    if (b == null) return 1;
-                    a = a.trim();
-                    b = b.trim();
-
-                    String prefixA = extractPrefix(a);
-                    String prefixB = extractPrefix(b);
-                    int orderA = prefixOrder(prefixA);
-                    int orderB = prefixOrder(prefixB);
-                    if (orderA != orderB) return Integer.compare(orderA, orderB);
-
-                    int numA = extractTrailingNumber(a);
-                    int numB = extractTrailingNumber(b);
-                    return Integer.compare(numA, numB);
-                });
-
-                Platform.runLater(() -> {
-                    toolbarController.bindDegree(currentDegree, maxDegree);
-                    toolbarController.setHighlightOptions(highlights);
-                    toolbarController.setHighlightEnabled(!highlights.isEmpty());
-                    toolbarController.setExpandEnabled(currentDegree < maxDegree);
-                    toolbarController.setCollapseEnabled(currentDegree > 0);
-                });
-            }
-
-            Object funcsObj = program.get("functions");
-            System.out.println("Loaded functions from server: " + funcsObj);
-            if (funcsObj instanceof List<?> funcList) {
-                List<String> programs = new ArrayList<>();
-                for (Object o : funcList) {
-                    if (o != null) {
-                        String name = o.toString().trim();
-                        if (!name.isEmpty()) programs.add(name);
-                    }
-                }
-
-                programs.sort((a, b) -> {
-                    String pa = a.replaceAll("[^A-Za-z]+.*$", "");
-                    String pb = b.replaceAll("[^A-Za-z]+.*$", "");
-                    if (pa.equalsIgnoreCase(pb)) {
-                        int na = extractTrailingNumber(a);
-                        int nb = extractTrailingNumber(b);
-                        return Integer.compare(na, nb);
-                    }
-                    return pa.compareToIgnoreCase(pb);
-                });
-
-                Platform.runLater(() -> {
-                    toolbarController.setPrograms(programs);
-                    toolbarController.setSelectedProgram(currentProgram);
-                });
-            }
-
-            if (summaryLineController != null && program != null) {
-                try {
-                    summaryLineController.updateFromJson(program);
-                } catch (Exception ex) {
-                    System.err.println("Failed to update summary line: " + ex.getMessage());
-                }
-            }
+            updateProgramDegrees(program);
+            renderInstructions(program);
+            updateToolbarHighlights(program);
+            updateToolbarPrograms(program);
+            updateSummaryLine(program);
 
         } catch (Exception e) {
             showError("Render failed: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private String fetchProgramViewJson(int degree) throws Exception {
+        String programParam = (currentProgram == null || currentProgram.equalsIgnoreCase("Main Program"))
+                ? "" : "&program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8);
+        String url = BASE_URL + "view?degree=" + degree + programParam;
+        return httpGet(url);
+    }
+
+    private Map<String, Object> parseAndValidateResponse(String response) {
+        Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>() {}.getType());
+        if (!"success".equals(map.get("status"))) {
+            showError("View failed: " + map.get("message"));
+            return null;
+        }
+
+        Map<String, Object> program = (Map<String, Object>) map.get("program");
+        if (program == null) {
+            showError("Missing program data in response");
+            return null;
+        }
+        return program;
+    }
+
+    private void renderInstructions(Map<String, Object> program) {
+        List<Map<String, Object>> instructionsList =
+                (List<Map<String, Object>>) program.get("instructions");
+
+        if (instructionsList == null) return;
+
+        if (instructionsController != null) {
+            instructionsController.renderFromJson(instructionsList);
+        }
+    }
+
+    private void updateProgramDegrees(Map<String, Object> program) {
+        Object maxDegObj = program.get("maxDegree");
+        if (maxDegObj instanceof Number n)
+            maxDegree = n.intValue();
+
+        Object degreeObj = program.get("degree");
+        if (degreeObj instanceof Number n)
+            currentDegree = n.intValue();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void updateToolbarHighlights(Map<String, Object> program) {
+        if (toolbarController == null) return;
+
+        List<Map<String, Object>> instructionsList = (List<Map<String, Object>>) program.get("instructions");
+        if (instructionsList == null) return;
+        Set<String> highlightSet = new LinkedHashSet<>();
+
+        for (Map<String, Object> ins : instructionsList) {
+            String label = Objects.toString(ins.get("label"), "").trim();
+            if (!label.isBlank()) highlightSet.add(label);
+
+            Object argsObj = ins.get("args");
+            if (argsObj instanceof List<?> argsList) {
+                for (Object a : argsList) {
+                    String arg = Objects.toString(a, "").trim();
+                    if (arg.matches("(?i)[xyz]\\d*") || arg.matches("(?i)L\\d+") || arg.equalsIgnoreCase("y")) {
+                        highlightSet.add(arg);
+                    }
+                    int eq = arg.indexOf('=');
+                    if (eq > 0) {
+                        String val = arg.substring(eq + 1).trim();
+                        if (val.matches("(?i)[xyz]\\d*") || val.matches("(?i)L\\d+") || val.equalsIgnoreCase("y")) {
+                            highlightSet.add(val);
+                        }
+                    }
+                }
+            }
+        }
+
+        List<String> highlights = new ArrayList<>(highlightSet);
+        highlights.sort((a, b) -> {
+            if (a == null) return -1;
+            if (b == null) return 1;
+            a = a.trim();
+            b = b.trim();
+            String prefixA = extractPrefix(a);
+            String prefixB = extractPrefix(b);
+            int orderA = prefixOrder(prefixA);
+            int orderB = prefixOrder(prefixB);
+            if (orderA != orderB) return Integer.compare(orderA, orderB);
+            int numA = extractTrailingNumber(a);
+            int numB = extractTrailingNumber(b);
+            return Integer.compare(numA, numB);
+        });
+
+        Platform.runLater(() -> {
+            toolbarController.bindDegree(currentDegree, maxDegree);
+            toolbarController.setHighlightOptions(highlights);
+            toolbarController.setHighlightEnabled(!highlights.isEmpty());
+            toolbarController.setExpandEnabled(currentDegree < maxDegree);
+            toolbarController.setCollapseEnabled(currentDegree > 0);
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private void updateToolbarPrograms(Map<String, Object> program) {
+        Object funcsObj = program.get("functions");
+        if (!(funcsObj instanceof List<?> funcList)) return;
+
+        List<String> programs = new ArrayList<>();
+        for (Object o : funcList) {
+            if (o != null) {
+                String name = o.toString().trim();
+                if (!name.isEmpty()) programs.add(name);
+            }
+        }
+
+        programs.sort((a, b) -> {
+            String pa = a.replaceAll("[^A-Za-z]+.*$", "");
+            String pb = b.replaceAll("[^A-Za-z]+.*$", "");
+            if (pa.equalsIgnoreCase(pb)) {
+                int na = extractTrailingNumber(a);
+                int nb = extractTrailingNumber(b);
+                return Integer.compare(na, nb);
+            }
+            return pa.compareToIgnoreCase(pb);
+        });
+
+        Platform.runLater(() -> {
+            toolbarController.setPrograms(programs);
+            toolbarController.setSelectedProgram(currentProgram);
+        });
+    }
+
+    private void updateSummaryLine(Map<String, Object> program) {
+        if (summaryLineController == null) return;
+        try {
+            summaryLineController.updateFromJson(program);
+        } catch (Exception ex) {
+            System.err.println("Failed to update summary line: " + ex.getMessage());
         }
     }
 
