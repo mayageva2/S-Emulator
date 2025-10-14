@@ -167,6 +167,7 @@ public class MainController {
             if (program == null) return;
 
             updateProgramDegrees(program);
+            updateInputsBox(program);
             renderInstructions(program);
             updateToolbarHighlights(program);
             updateToolbarPrograms(program);
@@ -220,6 +221,37 @@ public class MainController {
         if (degreeObj instanceof Number n)
             currentDegree = n.intValue();
     }
+
+    @SuppressWarnings("unchecked")
+    private void updateInputsBox(Map<String, Object> program) {
+        if (inputsBoxController == null) return;
+
+        Object inputsObj = program.get("inputs");
+        List<String> inputNames = new ArrayList<>();
+
+        if (inputsObj instanceof List<?> list) {
+            for (Object o : list) {
+                if (o != null && !o.toString().isBlank())
+                    inputNames.add(o.toString().trim());
+            }
+        }
+
+        if (inputNames.isEmpty()) {
+            Object varsObj = program.get("variables");
+            if (varsObj instanceof List<?> list) {
+                for (Object o : list) {
+                    String name = Objects.toString(o, "").trim();
+                    if (name.matches("(?i)x\\d+"))
+                        inputNames.add(name);
+                }
+            }
+        }
+
+        Platform.runLater(() -> {
+            inputsBoxController.showNames(inputNames);
+        });
+    }
+
 
     @SuppressWarnings("unchecked")
     private void updateToolbarHighlights(Map<String, Object> program) {

@@ -19,8 +19,7 @@ public class ProgramViewServlet extends HttpServlet {
     private static final Gson gson = new Gson();
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
@@ -73,6 +72,12 @@ public class ProgramViewServlet extends HttpServlet {
             programData.put("degree", pv.degree());
             programData.put("maxDegree", pv.maxDegree());
             programData.put("totalCycles", pv.totalCycles());
+            try {
+                List<String> inputs = engine.extractInputVars(pv);
+                programData.put("inputs", inputs);
+            } catch (Exception e) {
+                programData.put("inputs", List.of());
+            }
 
             // ----- Build instruction list -----
             List<Map<String, Object>> instructions = new ArrayList<>();
