@@ -13,7 +13,6 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.effect.Effect;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 
@@ -50,12 +49,12 @@ public class RunButtonsController {
         glow.setRadius(25);
         glow.setSpread(0.5);
 
-        btnNewRun.setTooltip(new Tooltip("New Run: clear state"));
+        btnNewRun.setTooltip(new Tooltip("New Run"));
         btnRun.setTooltip(new Tooltip("Run program"));
-        btnDebug.setTooltip(new Tooltip("Start debug session"));
-        btnStop.setTooltip(new Tooltip("Stop debug session"));
-        btnResume.setTooltip(new Tooltip("Resume debug session"));
-        btnStepOver.setTooltip(new Tooltip("Step over instruction"));
+        btnDebug.setTooltip(new Tooltip("Start debug"));
+        btnStop.setTooltip(new Tooltip("Stop debug"));
+        btnResume.setTooltip(new Tooltip("Resume debug"));
+        btnStepOver.setTooltip(new Tooltip("Step over"));
 
         btnRun.setEffect(glow);
         btnDebug.setEffect(glow);
@@ -81,24 +80,37 @@ public class RunButtonsController {
     private void onRun(ActionEvent e) {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
-            Map<String, Object> payload = Map.of(
-                    "program", currentProgram,
-                    "degree", currentDegree,
-                    "inputs", inputs
-            );
-            String response = httpPost(BASE_URL + "run", gson.toJson(payload));
-            Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
 
-            Map<String, Object> vars = (Map<String, Object>) result.get("vars");
+            String formData = "degree=" + currentDegree +
+                    "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
+
+            String response = httpPost(BASE_URL + "run", formData);
+            Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+
+            if (!"success".equals(outer.get("status"))) {
+                throw new RuntimeException("Run failed: " + outer.get("message"));
+            }
+
+            Map<String, Object> result = (Map<String, Object>) outer.get("result");
+            List<Map<String, Object>> varsList = (List<Map<String, Object>>) result.get("vars");
             Number cycles = (Number) result.getOrDefault("cycles", 0);
 
+            Map<String, Object> varsMap = new LinkedHashMap<>();
+            if (varsList != null) {
+                for (Map<String, Object> v : varsList) {
+                    Object name = v.get("name");
+                    Object value = v.get("value");
+                    if (name != null) varsMap.put(name.toString(), value);
+                }
+            }
+
             if (varsBoxController != null) {
-                varsBoxController.renderAll(vars);
+                varsBoxController.renderAll(varsMap);
                 varsBoxController.setCycles(cycles.intValue());
             }
 
             if (statisticsTableController != null)
-                Platform.runLater(() -> statisticsTableController.clear()); // refill later from server history
+                Platform.runLater(() -> statisticsTableController.clear());
 
         } catch (Exception ex) {
             alertError("Run failed", ex.getMessage());
@@ -109,12 +121,9 @@ public class RunButtonsController {
     private void onDebug(ActionEvent e) {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
-            Map<String, Object> payload = Map.of(
-                    "program", currentProgram,
-                    "degree", currentDegree,
-                    "inputs", inputs
-            );
-            httpPost(BASE_URL + "debug/start", gson.toJson(payload));
+            String formData = "degree=" + currentDegree +
+                    "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
+            httpPost(BASE_URL + "debug/start", formData);
             alertInfo("Debug started", "Debug session started successfully.");
         } catch (Exception ex) {
             alertError("Debug start failed", ex.getMessage());
@@ -177,13 +186,13 @@ public class RunButtonsController {
         return sb.toString();
     }
 
-    private String httpPost(String urlStr, String json) throws Exception {
+    private String httpPost(String urlStr, String body) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
         conn.setDoOutput(true);
         try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.getBytes(StandardCharsets.UTF_8));
+            os.write(body.getBytes(StandardCharsets.UTF_8));
         }
         BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
         StringBuilder sb = new StringBuilder();
