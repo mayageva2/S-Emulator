@@ -973,4 +973,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         historyByProgram.clear();
         runCountersByProgram.clear();
     }
+
+    public List<String> displayProgramNames() {
+        List<String> names = new ArrayList<>();
+        names.add("Main Program");
+
+        names.addAll(fnDisplayMap.values().stream()
+                .filter(v -> v != null && !v.isBlank())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList());
+
+        return names;
+    }
+
 }

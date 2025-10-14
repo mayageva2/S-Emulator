@@ -27,7 +27,8 @@ public class LoadServlet extends HttpServlet {
 
         String pathStr = req.getParameter("path");
         if (pathStr == null || pathStr.isBlank()) {
-            responseMap.put("error", "Missing 'path' parameter");
+            responseMap.put("status", "error");
+            responseMap.put("message", "Missing 'path' parameter");
             writeJson(resp, responseMap);
             return;
         }
@@ -44,30 +45,12 @@ public class LoadServlet extends HttpServlet {
             responseMap.put("maxDegree", result.maxDegree());
 
             List<String> functions = new ArrayList<>();
-            Map<String, String> displayMap = new LinkedHashMap<>();
             if (engine instanceof EmulatorEngineImpl impl) {
-                displayMap = impl.getDisplayNameMap();
+                functions = impl.displayProgramNames();
+            } else {
+                // Main Program
+                functions = List.of("Main Program");
             }
-
-            for (String internal : engine.getAllProgramNames()) {
-                String disp = displayMap.getOrDefault(internal, internal);
-                if (disp != null && !disp.isBlank()) {
-                    functions.add(disp);
-                }
-            }
-
-            functions = functions.stream()
-                    .distinct()
-                    .sorted(String.CASE_INSENSITIVE_ORDER)
-                    .toList();
-
-            String mainProgramName = result.programName();
-            functions = new ArrayList<>(functions);
-            functions.removeIf(fn ->
-                    fn.equalsIgnoreCase(mainProgramName)
-                            || fn.equalsIgnoreCase("main program")
-            );
-            functions.add(0, "Main Program");
 
             responseMap.put("functions", functions);
 
