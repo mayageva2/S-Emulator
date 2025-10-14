@@ -29,6 +29,14 @@ public class ProgramToolbarController {
     private int maxDegree = 0;
     private boolean degreeUiLocked = false;
 
+    public void setExpandEnabled(boolean enabled) {
+        if (ExpandButton != null) ExpandButton.setDisable(!enabled);
+    }
+
+    public void setCollapseEnabled(boolean enabled) {
+        if (CollapseButton != null) CollapseButton.setDisable(!enabled);
+    }
+
     public String getSelectedProgramName() {
         return (selectProgramChoice != null) ? selectProgramChoice.getValue() : null;
     }

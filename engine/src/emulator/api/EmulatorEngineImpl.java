@@ -141,16 +141,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     @Override
     public Map<String, Long> lastRunVars() {
-        return (lastRunVars == null)
-                ? Map.of()
+        return (lastRunVars == null) ? Map.of()
                 : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(lastRunVars));
     }
 
     @Override
     public List<Long> lastRunInputs() {
-        return (lastRunInputs == null)
-                ? java.util.List.of()
-                : java.util.List.copyOf(lastRunInputs);
+        return (lastRunInputs == null) ? java.util.List.of() : java.util.List.copyOf(lastRunInputs);
+    }
+
+    public Map<String, String> getDisplayNameMap() {
+        return Collections.unmodifiableMap(fnDisplayMap);
     }
 
     @Override
@@ -393,6 +394,24 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public List<String> availablePrograms() {
         return functionLibrary.keySet().stream().toList();
+    }
+
+    @Override
+    public List<String> getAllProgramNames() {
+        Set<String> names = new LinkedHashSet<>();
+
+        if (current != null && current.getName() != null)
+            names.add(current.getName());
+        if (functionLibrary != null)
+            names.addAll(functionLibrary.keySet());
+        if (functionsOnly != null)
+            names.addAll(functionsOnly.keySet());
+
+        return names.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
     }
 
     //This func builds maps per degree from Instruction identity
@@ -942,7 +961,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         long y = lastRunVars.getOrDefault("y", 0L);
         return new RunResult(y, debugCycles(), vars);
     }
-
 
     @Override
     public DebugService debugger() {

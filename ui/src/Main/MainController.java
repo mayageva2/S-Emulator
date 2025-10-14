@@ -88,10 +88,40 @@ public class MainController {
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String response = httpPostForm(BASE_URL + "load", "path=" + URLEncoder.encode(ev.xmlPath().toString(), StandardCharsets.UTF_8));
+            String response = httpPostForm(BASE_URL + "load",
+                    "path=" + URLEncoder.encode(ev.xmlPath().toString(), StandardCharsets.UTF_8));
+
+            System.out.println("SERVER LOAD RESPONSE:");
+            System.out.println(response);
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-            if (map.containsKey("programName")) currentProgram = String.valueOf(map.get("programName"));
+
+            if (map.containsKey("programName"))
+                currentProgram = String.valueOf(map.get("programName"));
+            if (map.containsKey("maxDegree"))
+                maxDegree = ((Double) map.get("maxDegree")).intValue();
+            else
+                maxDegree = ev.maxDegree();
+            currentDegree = 0;
+            refreshProgramView(currentDegree);
+
+            List<String> programs = new ArrayList<>();
+            Object funcsObj = map.get("functions");
+            if (funcsObj instanceof List<?> funcList) {
+                for (Object f : funcList) {
+                    if (f != null && !f.toString().isBlank()) programs.add(f.toString());
+                }
+            }
+
+            Platform.runLater(() -> {
+                toolbarController.bindDegree(currentDegree, maxDegree);
+                toolbarController.setHighlightEnabled(true);
+                toolbarController.setPrograms(programs);
+                toolbarController.setDegreeButtonEnabled(true);
+                toolbarController.setExpandEnabled(maxDegree > 0);
+                toolbarController.setCollapseEnabled(false);
+            });
             refreshProgramView(0);
+
         } catch (Exception e) {
             showError("Load failed: " + e.getMessage());
         }
@@ -118,7 +148,6 @@ public class MainController {
         try {
             String url = BASE_URL + "view?degree=" + degree;
             String response = httpGet(url);
-            System.out.println("VIEW RESPONSE = " + response);
 
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
 
@@ -133,11 +162,99 @@ public class MainController {
                 return;
             }
 
+            Object maxDegObj = program.get("maxDegree");
+            if (maxDegObj instanceof Number n)
+                maxDegree = n.intValue();
+
+            Object degreeObj = program.get("degree");
+            if (degreeObj instanceof Number n)
+                currentDegree = n.intValue();
+
             List<Map<String, Object>> instructionsList =
                     (List<Map<String, Object>>) program.get("instructions");
 
             if (instructionsController != null && instructionsList != null) {
                 instructionsController.renderFromJson(instructionsList);
+            }
+
+            if (toolbarController != null && instructionsList != null) {
+                Set<String> highlightSet = new LinkedHashSet<>();
+
+                for (Map<String, Object> ins : instructionsList) {
+                    String label = Objects.toString(ins.get("label"), "").trim();
+                    if (!label.isBlank()) highlightSet.add(label);
+
+                    Object argsObj = ins.get("args");
+                    if (argsObj instanceof List<?> argsList) {
+                        for (Object a : argsList) {
+                            String arg = Objects.toString(a, "").trim();
+                            if (arg.matches("(?i)[xyz]\\d*") || arg.matches("(?i)L\\d+") || arg.equalsIgnoreCase("y")) {
+                                highlightSet.add(arg);
+                            }
+                            int eq = arg.indexOf('=');
+                            if (eq > 0) {
+                                String val = arg.substring(eq + 1).trim();
+                                if (val.matches("(?i)[xyz]\\d*") || val.matches("(?i)L\\d+") || val.equalsIgnoreCase("y")) {
+                                    highlightSet.add(val);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                List<String> highlights = new ArrayList<>(highlightSet);
+                highlights.sort((a, b) -> {
+                    if (a == null) return -1;
+                    if (b == null) return 1;
+                    a = a.trim();
+                    b = b.trim();
+
+                    String prefixA = extractPrefix(a);
+                    String prefixB = extractPrefix(b);
+                    int orderA = prefixOrder(prefixA);
+                    int orderB = prefixOrder(prefixB);
+                    if (orderA != orderB) return Integer.compare(orderA, orderB);
+
+                    int numA = extractTrailingNumber(a);
+                    int numB = extractTrailingNumber(b);
+                    return Integer.compare(numA, numB);
+                });
+
+                Platform.runLater(() -> {
+                    toolbarController.bindDegree(currentDegree, maxDegree);
+                    toolbarController.setHighlightOptions(highlights);
+                    toolbarController.setHighlightEnabled(!highlights.isEmpty());
+                    toolbarController.setExpandEnabled(currentDegree < maxDegree);
+                    toolbarController.setCollapseEnabled(currentDegree > 0);
+                });
+            }
+
+            Object funcsObj = program.get("functions");
+            System.out.println("Loaded functions from server: " + funcsObj);
+            if (funcsObj instanceof List<?> funcList) {
+                List<String> programs = new ArrayList<>();
+                for (Object o : funcList) {
+                    if (o != null) {
+                        String name = o.toString().trim();
+                        if (!name.isEmpty()) programs.add(name);
+                    }
+                }
+
+                programs.sort((a, b) -> {
+                    String pa = a.replaceAll("[^A-Za-z]+.*$", "");
+                    String pb = b.replaceAll("[^A-Za-z]+.*$", "");
+                    if (pa.equalsIgnoreCase(pb)) {
+                        int na = extractTrailingNumber(a);
+                        int nb = extractTrailingNumber(b);
+                        return Integer.compare(na, nb);
+                    }
+                    return pa.compareToIgnoreCase(pb);
+                });
+
+                Platform.runLater(() -> {
+                    toolbarController.setPrograms(programs);
+                    toolbarController.setSelectedProgram(currentProgram);
+                });
             }
 
             summaryLineController.refreshFromServer(null);
@@ -148,6 +265,34 @@ public class MainController {
         }
     }
 
+    private static String extractPrefix(String s) {
+        if (s == null) return "";
+        var m = java.util.regex.Pattern.compile("^([A-Za-z]+)").matcher(s);
+        return m.find() ? m.group(1).toUpperCase(Locale.ROOT) : "";
+    }
+
+    private static int extractTrailingNumber(String s) {
+        if (s == null) return 0;
+        var m = java.util.regex.Pattern.compile("(\\d+)$").matcher(s);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private static int prefixOrder(String p) {
+        return switch (p.toUpperCase(Locale.ROOT)) {
+            case "X" -> 1;
+            case "Y" -> 2;
+            case "Z" -> 3;
+            case "L" -> 4;
+            default -> 5;
+        };
+    }
 
     private void onExpandOne() {
         if (currentDegree < maxDegree) {

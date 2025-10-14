@@ -1,14 +1,15 @@
 package server;
 
+import emulator.api.EmulatorEngineImpl;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.*;
 import java.io.*;
 import java.nio.file.*;
+import java.util.*;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.LoadResult;
 import com.google.gson.Gson;
-import java.util.*;
 
 @WebServlet("/load")
 public class LoadServlet extends HttpServlet {
@@ -41,6 +42,34 @@ public class LoadServlet extends HttpServlet {
             responseMap.put("programName", result.programName());
             responseMap.put("instructionCount", result.instructionCount());
             responseMap.put("maxDegree", result.maxDegree());
+
+            List<String> functions = new ArrayList<>();
+            Map<String, String> displayMap = new LinkedHashMap<>();
+            if (engine instanceof EmulatorEngineImpl impl) {
+                displayMap = impl.getDisplayNameMap();
+            }
+
+            for (String internal : engine.getAllProgramNames()) {
+                String disp = displayMap.getOrDefault(internal, internal);
+                if (disp != null && !disp.isBlank()) {
+                    functions.add(disp);
+                }
+            }
+
+            functions = functions.stream()
+                    .distinct()
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+
+            String mainProgramName = result.programName();
+            functions = new ArrayList<>(functions);
+            functions.removeIf(fn ->
+                    fn.equalsIgnoreCase(mainProgramName)
+                            || fn.equalsIgnoreCase("main program")
+            );
+            functions.add(0, "Main Program");
+
+            responseMap.put("functions", functions);
 
         } catch (Exception e) {
             responseMap.put("status", "error");
