@@ -146,7 +146,9 @@ public class MainController {
 
     private void refreshProgramView(int degree) {
         try {
-            String url = BASE_URL + "view?degree=" + degree;
+            String programParam = (currentProgram == null || currentProgram.equalsIgnoreCase("Main Program"))
+                    ? "" : "&program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8);
+            String url = BASE_URL + "view?degree=" + degree + programParam;
             String response = httpGet(url);
 
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());

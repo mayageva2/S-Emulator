@@ -8,6 +8,8 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @WebServlet("/view")
@@ -49,7 +51,18 @@ public class ProgramViewServlet extends HttpServlet {
                 }
             }
 
-            ProgramView pv = engine.programView(degree);
+            String programParam = req.getParameter("program");
+            if (programParam != null) {
+                programParam = URLDecoder.decode(programParam, StandardCharsets.UTF_8);
+            }
+
+            ProgramView pv;
+            if (programParam == null || programParam.isBlank() ||
+                    "Main Program".equalsIgnoreCase(programParam)) {
+                pv = engine.programView(degree); // Main
+            } else {
+                pv = engine.programView(programParam, degree); // Chosen Func
+            }
 
             Map<String, Object> programData = new LinkedHashMap<>();
             programData.put("programName", pv.programName());
