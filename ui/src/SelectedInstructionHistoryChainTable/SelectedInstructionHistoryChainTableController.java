@@ -29,9 +29,34 @@ public class SelectedInstructionHistoryChainTableController {
             clear();
             return;
         }
-        List<InstructionView> chain = new ArrayList<>(selected.createdFromViews());
+
+        List<InstructionView> chain = new ArrayList<>();
+        collectChainRecursive(selected, chain, new HashSet<>());
+        if (!chain.isEmpty() && chain.get(chain.size() - 1).index() == selected.index()) {
+            chain.remove(chain.size() - 1);
+        }
+        if (chain.isEmpty()) {
+            clear();
+            return;
+        }
+        Collections.reverse(chain);
+
         List<InstructionRow> items = toRows(chain);
         Platform.runLater(() -> instructionsController.setItems(items));
+    }
+
+    private void collectChainRecursive(InstructionView current, List<InstructionView> out, Set<Integer> visited) {
+        if (current == null) return;
+        if (!visited.add(current.index())) return;
+
+        List<InstructionView> prevs = current.createdFromViews();
+        if (prevs != null) {
+            for (InstructionView prev : prevs) {
+                collectChainRecursive(prev, out, visited);
+            }
+        }
+
+        out.add(current);
     }
 
     public void clear() {
@@ -76,7 +101,31 @@ public class SelectedInstructionHistoryChainTableController {
                     iv.createdFromViews()
             );
 
-            out.add(new InstructionRow(
+            String display;
+            switch (opcode.toUpperCase(Locale.ROOT)) {
+                case "INCREASE" -> display = args.isEmpty() ? "INCREASE" : args.get(0) + " ← " + args.get(0) + " + 1";
+                case "DECREASE" -> display = args.isEmpty() ? "DECREASE" : args.get(0) + " ← " + args.get(0) + " - 1";
+                case "ZERO_VARIABLE" -> display = args.isEmpty() ? "ZERO" : args.get(0) + " ← 0";
+                case "ASSIGNMENT" -> {
+                    String target = args.size() > 0 ? args.get(0) : "?";
+                    String source = extractArg(args, "assignedVariable", "assignedVar", "src");
+                    display = target + " ← " + source;
+                }
+                case "CONSTANT_ASSIGNMENT" -> {
+                    String target = args.size() > 0 ? args.get(0) : "?";
+                    String value = extractArg(args, "constantValue", "value", "val");
+                    display = target + " ← " + value;
+                }
+                case "QUOTE" -> {
+                    String dest = args.isEmpty() ? "?" : args.get(0);
+                    String fn = extractArg(args, "functionUserString", "userString", "functionName");
+                    String fargs = extractArg(args, "functionArguments");
+                    display = dest + " ← (" + fn + (fargs.isBlank() ? "" : ", " + fargs) + ")";
+                }
+                default -> display = opcode + " " + String.join(", ", args);
+            }
+
+            InstructionRow row = new InstructionRow(
                     iv.index(),
                     iv.basic(),
                     ns(iv.label()),
@@ -85,11 +134,23 @@ public class SelectedInstructionHistoryChainTableController {
                     args,
                     d,
                     patched
-            ));
+            );
+            row.display = display;
+            out.add(row);
         }
         return out;
     }
 
+    private static String extractArg(List<String> args, String... keys) {
+        for (String key : keys) {
+            for (String a : args) {
+                if (a.toLowerCase(Locale.ROOT).startsWith(key.toLowerCase(Locale.ROOT) + "=")) {
+                    return a.substring(key.length() + 1);
+                }
+            }
+        }
+        return "";
+    }
 
     private static String stripParens(String s) {
         if (s == null) return "";

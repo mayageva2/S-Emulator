@@ -362,86 +362,112 @@ public class InstructionsTableController {
         }
 
         List<InstructionRow> rows = new ArrayList<>();
-
         for (Map<String, Object> map : instructionsList) {
-            int index = ((Double) map.getOrDefault("index", 0)).intValue();
+            int index = ((Number) map.getOrDefault("index", 0)).intValue();
             boolean basic = Boolean.TRUE.equals(map.get("basic"));
             String label = Objects.toString(map.get("label"), "");
-            int cycles = ((Double) map.getOrDefault("cycles", 0)).intValue();
+            int cycles = ((Number) map.getOrDefault("cycles", 0)).intValue();
             String opcode = Objects.toString(map.get("opcode"), "");
             List<String> args = (List<String>) map.getOrDefault("args", List.of());
+
+            List<Map<String, Object>> subViewsList =
+                    (List<Map<String, Object>>) map.get("createdFromViews");
+            List<InstructionView> createdFromViews = new ArrayList<>();
+            if (subViewsList != null) {
+                for (Map<String, Object> subMap : subViewsList) {
+                    int sIndex = ((Number) subMap.getOrDefault("index", -1)).intValue();
+                    String sOpcode = Objects.toString(subMap.get("opcode"), "");
+                    String sLabel = Objects.toString(subMap.get("label"), "");
+                    int sCycles = ((Number) subMap.getOrDefault("cycles", 0)).intValue();
+                    boolean sBasic = Boolean.TRUE.equals(subMap.get("basic"));
+                    List<String> sArgs = (List<String>) subMap.getOrDefault("args", List.of());
+
+                    createdFromViews.add(new InstructionView(
+                            sIndex,
+                            sOpcode,
+                            sLabel,
+                            sBasic,
+                            sCycles,
+                            sArgs,
+                            List.of(),
+                            List.of()
+                    ));
+                }
+            }
+
+            List<Integer> createdFromChain =
+                    (List<Integer>) map.getOrDefault("createdFromChain", List.of());
+
+            InstructionView iv = new InstructionView(
+                    index,
+                    opcode,
+                    label,
+                    basic,
+                    cycles,
+                    args,
+                    createdFromChain,
+                    createdFromViews
+            );
 
             String display = switch (opcode.toUpperCase(Locale.ROOT)) {
                 case "INCREASE" -> args.isEmpty()
                         ? "INCREASE"
                         : args.get(0) + " ← " + args.get(0) + " + 1";
-
                 case "DECREASE" -> args.isEmpty()
                         ? "DECREASE"
                         : args.get(0) + " ← " + args.get(0) + " - 1";
-
                 case "ZERO_VARIABLE" -> args.isEmpty()
                         ? "ZERO"
                         : args.get(0) + " ← 0";
-
                 case "ASSIGNMENT" -> {
                     String target = args.size() > 0 ? args.get(0) : "?";
                     String source = extractArg(args, "assignedVariable", "assignedVar", "src");
                     yield target + " ← " + source;
                 }
-
                 case "CONSTANT_ASSIGNMENT" -> {
                     String target = args.size() > 0 ? args.get(0) : "?";
                     String value = extractArg(args, "constantValue", "value", "val");
                     yield target + " ← " + value;
                 }
-
                 case "JUMP_NOT_ZERO" -> {
                     String var = args.size() > 0 ? args.get(0) : "?";
                     String tgt = extractArg(args, "gotoLabel", "target", "label");
                     yield "IF " + var + " ≠ 0 GOTO " + tgt;
                 }
-
                 case "JUMP_ZERO" -> {
                     String var = args.size() > 0 ? args.get(0) : "?";
                     String tgt = extractArg(args, "gotoLabel", "target", "label");
                     yield "IF " + var + " = 0 GOTO " + tgt;
                 }
-
                 case "JUMP_EQUAL_CONSTANT" -> {
                     String var = args.size() > 0 ? args.get(0) : "?";
                     String c = extractArg(args, "constantValue");
                     String tgt = extractArg(args, "gotoLabel");
                     yield "IF " + var + " = " + c + " GOTO " + tgt;
                 }
-
                 case "JUMP_EQUAL_VARIABLE" -> {
                     String a = args.size() > 0 ? args.get(0) : "?";
                     String b = extractArg(args, "variableName", "varName");
                     String tgt = extractArg(args, "gotoLabel", "label");
                     yield "IF " + a + " = " + b + " GOTO " + tgt;
                 }
-
                 case "QUOTE" -> {
                     String dest = args.isEmpty() ? "?" : args.get(0);
                     String fn = extractArg(args, "functionUserString", "userString", "functionName");
                     String fargs = extractArg(args, "functionArguments");
                     yield dest + " ← (" + fn + (fargs.isBlank() ? "" : ", " + fargs) + ")";
                 }
-
                 case "GOTO_LABEL" -> {
                     String tgt = extractArg(args, "gotoLabel", "label", "target");
                     yield "GOTO " + tgt;
                 }
-
                 default -> opcode + " " + String.join(", ", args);
             };
 
-            InstructionRow row = new InstructionRow(index, basic, label, cycles, opcode, args, 0, null);
+            InstructionRow row = new InstructionRow(index, basic, label, cycles, opcode, args, 0, iv);
             row.display = display;
             rows.add(row);
         }
-
         setItems(rows);
     }
 

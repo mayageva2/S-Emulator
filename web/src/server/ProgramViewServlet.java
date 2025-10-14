@@ -2,6 +2,7 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
+import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -23,7 +24,6 @@ public class ProgramViewServlet extends HttpServlet {
 
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
-
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
@@ -37,6 +37,7 @@ public class ProgramViewServlet extends HttpServlet {
                 return;
             }
 
+            // Parse degree
             int degree = 0;
             String degreeParam = req.getParameter("degree");
             if (degreeParam != null && !degreeParam.isBlank()) {
@@ -51,27 +52,31 @@ public class ProgramViewServlet extends HttpServlet {
                 }
             }
 
+            // Parse program name
             String programParam = req.getParameter("program");
             if (programParam != null) {
                 programParam = URLDecoder.decode(programParam, StandardCharsets.UTF_8);
             }
 
+            // Fetch view from engine
             ProgramView pv;
-            if (programParam == null || programParam.isBlank() ||
-                    "Main Program".equalsIgnoreCase(programParam)) {
-                pv = engine.programView(degree); // Main
+            if (programParam == null || programParam.isBlank()
+                    || "Main Program".equalsIgnoreCase(programParam)) {
+                pv = engine.programView(degree);
             } else {
-                pv = engine.programView(programParam, degree); // Chosen Func
+                pv = engine.programView(programParam, degree);
             }
 
+            // Build program JSON
             Map<String, Object> programData = new LinkedHashMap<>();
             programData.put("programName", pv.programName());
             programData.put("degree", pv.degree());
             programData.put("maxDegree", pv.maxDegree());
             programData.put("totalCycles", pv.totalCycles());
 
+            // ----- Build instruction list -----
             List<Map<String, Object>> instructions = new ArrayList<>();
-            pv.instructions().forEach(ins -> {
+            for (InstructionView ins : pv.instructions()) {
                 Map<String, Object> insMap = new LinkedHashMap<>();
                 insMap.put("index", ins.index());
                 insMap.put("opcode", ins.opcode());
@@ -79,11 +84,30 @@ public class ProgramViewServlet extends HttpServlet {
                 insMap.put("cycles", ins.cycles());
                 insMap.put("args", ins.args());
                 insMap.put("basic", ins.basic());
+
+                if (ins.createdFromChain() != null && !ins.createdFromChain().isEmpty()) {
+                    insMap.put("createdFromChain", ins.createdFromChain());
+                }
+
+                if (ins.createdFromViews() != null && !ins.createdFromViews().isEmpty()) {
+                    List<Map<String, Object>> subViews = new ArrayList<>();
+                    for (InstructionView sub : ins.createdFromViews()) {
+                        Map<String, Object> subMap = new LinkedHashMap<>();
+                        subMap.put("index", sub.index());
+                        subMap.put("opcode", sub.opcode());
+                        subMap.put("label", sub.label());
+                        subMap.put("cycles", sub.cycles());
+                        subMap.put("args", sub.args());
+                        subMap.put("basic", sub.basic());
+                        subViews.add(subMap);
+                    }
+                    insMap.put("createdFromViews", subViews);
+                }
+
                 instructions.add(insMap);
-            });
+            }
 
             programData.put("instructions", instructions);
-
             responseMap.put("status", "success");
             responseMap.put("program", programData);
 

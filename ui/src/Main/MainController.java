@@ -74,12 +74,28 @@ public class MainController {
         toolbarController.setOnHighlightChanged(term -> {
             if (instructionsController != null) instructionsController.setHighlightTerm(term);
         });
+
+        instructionsController.setOnRowSelected(selected -> {
+            if (selected == null) {
+                historyChainController.clear();
+                return;
+            }
+
+            try {
+                historyChainController.showForSelected(selected, null);
+            } catch (Exception e) {
+                System.err.println("Failed to update history chain: " + e.getMessage());
+                historyChainController.clear();
+            }
+        });
+
         Platform.runLater(() -> {
             HBox.setHgrow(contentBox, Priority.ALWAYS);
             HBox.setHgrow(sidePanels, Priority.ALWAYS);
             varsBox.prefWidthProperty().bind(sidePanels.widthProperty().divide(2));
             inputsBox.prefWidthProperty().bind(sidePanels.widthProperty().divide(2));
         });
+
         runButtonsController.setStatisticsTableController(statisticsTableController);
         runButtonsController.setInputsBoxController(inputsBoxController);
         runButtonsController.setVarsBoxController(varsBoxController);

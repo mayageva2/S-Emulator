@@ -315,22 +315,35 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
 
-        //Build final views (with provenance)
+        // Build final views
         List<InstructionView> out = new ArrayList<>(real.size());
         for (int i = 0; i < real.size(); i++) {
             Instruction ins = real.get(i);
+
+            // provenance chain
             List<InstructionView> provenance = buildProvenanceForInstruction(ins, degree, indexMaps, mkViewNoIndex);
+
+            // numeric chain
+            List<Integer> createdFromChain = new ArrayList<>();
+            Instruction cur = ins.getCreatedFrom();
+            int guessDeg = degree - 1;
+            while (cur != null) {
+                int foundDeg = findDegreeForInstruction(cur, indexMaps, Math.min(guessDeg, degree - 1), degree);
+                Integer idx = (foundDeg >= 0) ? indexMaps.get(foundDeg).get(cur) : null;
+                if (idx != null) createdFromChain.add(idx);
+                cur = cur.getCreatedFrom();
+                guessDeg--;
+            }
 
             InstructionView self = mkViewNoIndex.apply(ins);
             out.add(new InstructionView(
                     i,
                     self.opcode(), self.label(),
                     self.basic(), self.cycles(), self.args(),
-                    List.of(),
+                    createdFromChain,
                     provenance
             ));
         }
-
         return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles);
     }
 
