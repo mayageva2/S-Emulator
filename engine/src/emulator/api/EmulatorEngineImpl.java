@@ -344,7 +344,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     provenance
             ));
         }
-        return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles);
+        List<String> inputs = extractInputVars(new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles, List.of()));
+        return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles,  inputs);
     }
 
     @Override

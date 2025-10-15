@@ -45,6 +45,17 @@ public class LoadServlet extends HttpServlet {
             responseMap.put("instructionCount", result.instructionCount());
             responseMap.put("maxDegree", result.maxDegree());
 
+            List<String> inputVars = List.of();
+            try {
+                if (engine instanceof EmulatorEngineImpl impl) {
+                    var pv = impl.programView();
+                    inputVars = impl.extractInputVars(pv);
+                }
+            } catch (Exception ex) {
+                inputVars = List.of();
+            }
+            responseMap.put("inputs", inputVars);
+
             List<String> functions;
             try {
                 if (engine instanceof EmulatorEngineImpl impl) {

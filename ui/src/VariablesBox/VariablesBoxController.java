@@ -187,7 +187,16 @@ public class VariablesBoxController {
     }
 
     private String valueToString(Object v) {
-        return (v == null) ? "—" : String.valueOf(v);
+        if (v == null) return "—";
+
+        if (v instanceof Number num) {
+            double d = num.doubleValue();
+            if (d == Math.rint(d)) {
+                return String.valueOf((long) d);
+            }
+            return String.valueOf(d);
+        }
+        return String.valueOf(v);
     }
 
     public void clearForNewRun() {

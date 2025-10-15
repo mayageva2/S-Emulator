@@ -37,7 +37,17 @@ public class InputsBoxController {
     }
 
     public void showForProgram(ProgramView pv) {
-        showNames(Collections.emptyList()); // fallback – real names come from MainController
+        if (pv == null) {
+            showNames(Collections.emptyList());
+            return;
+        }
+        List<String> inputs = pv.inputs();
+        if (inputs == null || inputs.isEmpty()) {
+            showNames(Collections.emptyList());
+        } else {
+            showNames(inputs);
+        }
+
     }
 
     public void showNames(List<String> names) {
