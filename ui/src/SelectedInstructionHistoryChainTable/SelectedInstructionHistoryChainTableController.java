@@ -1,5 +1,6 @@
 package SelectedInstructionHistoryChainTable;
 
+import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import InstructionsTable.InstructionsTableController;
@@ -30,8 +31,31 @@ public class SelectedInstructionHistoryChainTableController {
             return;
         }
 
+        try {
+            if (selected != null && selected.createdFromViews() != null) {
+                List<InstructionView> fixedList = new ArrayList<>();
+                for (Object o : selected.createdFromViews()) {
+                    if (o instanceof InstructionView iv) {
+                        fixedList.add(iv);
+                    } else {
+                        String json = new Gson().toJson(o);
+                        fixedList.add(new Gson().fromJson(json, InstructionView.class));
+                    }
+                }
+                selected = new Gson().fromJson(
+                        new Gson().toJson(selected),
+                        InstructionView.class
+                );
+                selected.createdFromViews().clear();
+                selected.createdFromViews().addAll(fixedList);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠ Failed to reconstruct InstructionView: " + e.getMessage());
+        }
+
         List<InstructionView> chain = new ArrayList<>();
         collectChainRecursive(selected, chain, new HashSet<>());
+
         if (!chain.isEmpty() && chain.get(chain.size() - 1).index() == selected.index()) {
             chain.remove(chain.size() - 1);
         }
@@ -39,11 +63,16 @@ public class SelectedInstructionHistoryChainTableController {
             clear();
             return;
         }
-        Collections.reverse(chain);
 
+        Collections.reverse(chain);
         List<InstructionRow> items = toRows(chain);
-        Platform.runLater(() -> instructionsController.setItems(items));
+
+        Platform.runLater(() -> {
+            instructionsController.setItems(items);
+            System.out.println("History chain updated with " + items.size() + " items");
+        });
     }
+
 
     private void collectChainRecursive(InstructionView current, List<InstructionView> out, Set<Integer> visited) {
         if (current == null) return;
@@ -103,9 +132,14 @@ public class SelectedInstructionHistoryChainTableController {
 
             String display;
             switch (opcode.toUpperCase(Locale.ROOT)) {
-                case "INCREASE" -> display = args.isEmpty() ? "INCREASE" : args.get(0) + " ← " + args.get(0) + " + 1";
-                case "DECREASE" -> display = args.isEmpty() ? "DECREASE" : args.get(0) + " ← " + args.get(0) + " - 1";
-                case "ZERO_VARIABLE" -> display = args.isEmpty() ? "ZERO" : args.get(0) + " ← 0";
+                case "INCREASE" -> display =
+                        args.isEmpty() ? "INCREASE" : args.get(0) + " ← " + args.get(0) + " + 1";
+                case "DECREASE" -> display =
+                        args.isEmpty() ? "DECREASE" : args.get(0) + " ← " + args.get(0) + " - 1";
+                case "ZERO_VARIABLE" -> display =
+                        args.isEmpty() ? "ZERO" : args.get(0) + " ← 0";
+                case "NEUTRAL" -> display =
+                        args.isEmpty() ? "V ← V" : args.get(0) + " ← " + args.get(0);
                 case "ASSIGNMENT" -> {
                     String target = args.size() > 0 ? args.get(0) : "?";
                     String source = extractArg(args, "assignedVariable", "assignedVar", "src");
@@ -115,6 +149,32 @@ public class SelectedInstructionHistoryChainTableController {
                     String target = args.size() > 0 ? args.get(0) : "?";
                     String value = extractArg(args, "constantValue", "value", "val");
                     display = target + " ← " + value;
+                }
+                case "GOTO_LABEL" -> {
+                    String label = extractArg(args, "gotoLabel", "label", "target");
+                    display = "GOTO " + (label.isBlank() ? "?" : label);
+                }
+                case "JUMP_NOT_ZERO" -> {
+                    String v = args.size() > 0 ? args.get(0) : "?";
+                    String label = extractArg(args, "JNZLabel", "label");
+                    display = "IF " + v + " ≠ 0 GOTO " + (label.isBlank() ? "?" : label);
+                }
+                case "JUMP_ZERO" -> {
+                    String v = args.size() > 0 ? args.get(0) : "?";
+                    String label = extractArg(args, "JZLabel", "label");
+                    display = "IF " + v + " = 0 GOTO " + (label.isBlank() ? "?" : label);
+                }
+                case "JUMP_EQUAL_CONSTANT" -> {
+                    String v = args.size() > 0 ? args.get(0) : "?";
+                    String k = extractArg(args, "constantValue", "value", "val");
+                    String label = extractArg(args, "JEConstantLabel", "label");
+                    display = "IF " + v + " = " + k + " GOTO " + (label.isBlank() ? "?" : label);
+                }
+                case "JUMP_EQUAL_VARIABLE" -> {
+                    String v = args.size() > 0 ? args.get(0) : "?";
+                    String v2 = extractArg(args, "variableName", "var", "secondVar");
+                    String label = extractArg(args, "JEVariableLabel", "label");
+                    display = "IF " + v + " = " + v2 + " GOTO " + (label.isBlank() ? "?" : label);
                 }
                 case "QUOTE" -> {
                     String dest = args.isEmpty() ? "?" : args.get(0);

@@ -104,8 +104,8 @@ public class MainController {
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String response = httpPostForm(BASE_URL + "load",
-                    "path=" + URLEncoder.encode(ev.xmlPath().toString(), StandardCharsets.UTF_8));
+            String jsonBody = new Gson().toJson(Map.of("path", ev.xmlPath().toString()));
+            String response = httpPost(BASE_URL + "load", jsonBody);
 
             System.out.println("SERVER LOAD RESPONSE:");
             System.out.println(response);
@@ -118,6 +118,12 @@ public class MainController {
             else
                 maxDegree = ev.maxDegree();
             currentDegree = 0;
+
+            if (runButtonsController != null) {
+                runButtonsController.setCurrentProgram(currentProgram);
+                runButtonsController.setCurrentDegree(0);
+            }
+
             refreshProgramView(currentDegree);
 
             List<String> programs = new ArrayList<>();
@@ -135,6 +141,7 @@ public class MainController {
                 toolbarController.setDegreeButtonEnabled(true);
                 toolbarController.setExpandEnabled(maxDegree > 0);
                 toolbarController.setCollapseEnabled(false);
+                runButtonsController.enableRunButtonsAfterLoad();
             });
             refreshProgramView(0);
 

@@ -21,6 +21,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -58,6 +59,7 @@ public class RunButtonsController {
 
         btnRun.setEffect(glow);
         btnDebug.setEffect(glow);
+        disableAllRunButtons(true);
     }
 
     public void setVarsBoxController(VariablesBoxController c) { this.varsBoxController = c; }
@@ -121,10 +123,32 @@ public class RunButtonsController {
     private void onDebug(ActionEvent e) {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
-            String formData = "degree=" + currentDegree +
-                    "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
-            httpPost(BASE_URL + "debug/start", formData);
-            alertInfo("Debug started", "Debug session started successfully.");
+            String formData = "program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8)
+                    + "&degree=" + currentDegree
+                    + "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
+            String response = httpPost(BASE_URL + "debug/start", formData);
+            Map<String, Object> json = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+            if (!"success".equals(json.get("status"))) {
+                throw new RuntimeException(String.valueOf(json.get("message")));
+            }
+
+            Map<String, Object> debug = (Map<String, Object>) json.get("debug");
+            if (debug != null) {
+                updateVarsFromDebug(debug);
+                Number idx = (Number) debug.getOrDefault("pc", 0);
+                boolean finished = Boolean.TRUE.equals(debug.get("finished"));
+
+                Platform.runLater(() -> {
+                    if (finished) {
+                        instructionsController.clearHighlight();
+                        disableDebugButtons(true);
+                    } else {
+                        instructionsController.highlightRow(idx.intValue());
+                        disableDebugButtons(false);
+                    }
+                });
+            }
+
         } catch (Exception ex) {
             alertError("Debug start failed", ex.getMessage());
         }
@@ -132,34 +156,41 @@ public class RunButtonsController {
 
     @FXML
     private void onStepOver(ActionEvent e) {
-        try {
-            String response = httpGet(BASE_URL + "debug/step");
-            Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-            updateVarsFromDebug(result);
-        } catch (Exception ex) {
-            alertError("Step failed", ex.getMessage());
-        }
+        handleDebugAction("debug/step", "Step failed");
     }
 
     @FXML
     private void onResume(ActionEvent e) {
-        try {
-            String response = httpGet(BASE_URL + "debug/resume");
-            Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-            updateVarsFromDebug(result);
-        } catch (Exception ex) {
-            alertError("Resume failed", ex.getMessage());
-        }
+        handleDebugAction("debug/resume", "Resume failed");
     }
 
     @FXML
     private void onStop(ActionEvent e) {
+        handleDebugAction("debug/stop", "Stop failed");
+    }
+
+    private void handleDebugAction(String endpoint, String errorTitle) {
         try {
-            String response = httpGet(BASE_URL + "debug/stop");
+            String response = httpPost(BASE_URL + endpoint, "");
             Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-            updateVarsFromDebug(result);
+            Map<String, Object> debug = (Map<String, Object>) result.get("debug");
+            updateVarsFromDebug(debug);
+
+            if (instructionsController != null && debug != null) {
+                boolean finished = Boolean.TRUE.equals(debug.get("finished"));
+                Number idx = (Number) debug.getOrDefault("pc", 0);
+
+                Platform.runLater(() -> {
+                    if (finished) {
+                        instructionsController.clearHighlight();
+                        disableDebugButtons(true);
+                    } else {
+                        instructionsController.highlightRow(idx.intValue());
+                    }
+                });
+            }
         } catch (Exception ex) {
-            alertError("Stop failed", ex.getMessage());
+            alertError(errorTitle, ex.getMessage());
         }
     }
 
@@ -171,19 +202,6 @@ public class RunButtonsController {
             varsBoxController.renderAll(vars);
             varsBoxController.setCycles(cycles.intValue());
         });
-    }
-
-    private String httpGet(String urlStr) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "application/json");
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
     }
 
     private String httpPost(String urlStr, String body) throws Exception {
@@ -212,12 +230,32 @@ public class RunButtonsController {
         });
     }
 
-    private void alertInfo(String title, String msg) {
+    private void disableDebugButtons(boolean disable) {
         Platform.runLater(() -> {
-            Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
-            a.setTitle(title);
-            a.setHeaderText(title);
-            a.showAndWait();
+            btnStop.setDisable(disable);
+            btnResume.setDisable(disable);
+            btnStepOver.setDisable(disable);
         });
     }
+
+    public void disableAllRunButtons(boolean disable) {
+        Platform.runLater(() -> {
+            btnNewRun.setDisable(disable);
+            btnRun.setDisable(disable);
+            btnDebug.setDisable(disable);
+            btnStop.setDisable(true);
+            btnResume.setDisable(true);
+            btnStepOver.setDisable(true);
+        });
+    }
+
+    public void enableRunButtonsAfterLoad() {
+        Platform.runLater(() -> {
+            btnNewRun.setDisable(false);
+            btnRun.setDisable(false);
+            btnDebug.setDisable(false);
+            disableDebugButtons(true);
+        });
+    }
+
 }

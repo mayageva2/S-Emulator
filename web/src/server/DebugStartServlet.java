@@ -16,8 +16,7 @@ public class DebugStartServlet extends HttpServlet {
     private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
@@ -27,6 +26,14 @@ public class DebugStartServlet extends HttpServlet {
         try {
             EmulatorEngine engine = EngineHolder.getEngine();
 
+            if (engine == null) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine is null (EngineHolder not initialized)");
+                writeJson(resp, responseMap);
+                return;
+            }
+
             if (!engine.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 responseMap.put("status", "error");
@@ -35,6 +42,8 @@ public class DebugStartServlet extends HttpServlet {
                 return;
             }
 
+            // Parse parameters
+            String programName = req.getParameter("program");
             String degreeStr = req.getParameter("degree");
             String inputsStr = req.getParameter("inputs");
 
@@ -61,18 +70,20 @@ public class DebugStartServlet extends HttpServlet {
                 return;
             }
 
-            impl.debugStart(inputs, degree);
+            // Start the debug session
+            System.out.println("🟡 Starting debug for program=" + programName + ", degree=" + degree);
+            impl.debugStart(programName, inputs, degree);
 
-            Map<String, Object> debugData = new LinkedHashMap<>();
-            debugData.put("degree", degree);
-            debugData.put("inputs", Arrays.asList(inputs));
-            debugData.put("finished", impl.debugIsFinished());
-            debugData.put("pc", impl.debugCurrentPC());
-            debugData.put("cycles", impl.debugCycles());
+            Map<String, String> varsSnapshot = impl.debugVarsSnapshot();
+            Map<String, Object> debug = new LinkedHashMap<>();
+            debug.put("pc", impl.debugCurrentPC());
+            debug.put("cycles", impl.debugCycles());
+            debug.put("vars", varsSnapshot);
+            debug.put("finished", impl.debugIsFinished());
 
             responseMap.put("status", "success");
             responseMap.put("message", "Debug session started successfully");
-            responseMap.put("debug", debugData);
+            responseMap.put("debug", debug);
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -84,6 +95,7 @@ public class DebugStartServlet extends HttpServlet {
         writeJson(resp, responseMap);
     }
 
+    // Parse CSV of inputs
     private Long[] parseInputs(String csv) {
         if (csv == null || csv.isBlank()) return new Long[0];
         return Arrays.stream(csv.split(","))
@@ -93,8 +105,10 @@ public class DebugStartServlet extends HttpServlet {
                 .toArray(Long[]::new);
     }
 
+    //Write JSON response to client
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
         String json = gson.toJson(data);
+        System.out.println("🟣 /debug/start RESPONSE: " + json);
         try (PrintWriter out = resp.getWriter()) {
             out.write(json);
         }

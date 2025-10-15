@@ -17,8 +17,7 @@ public class DebugStepServlet extends HttpServlet {
     private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
@@ -78,6 +77,7 @@ public class DebugStepServlet extends HttpServlet {
             responseMap.put("status", "success");
             responseMap.put("message", "Step executed successfully");
             responseMap.put("debug", debugData);
+            responseMap.put("vars", vars);
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

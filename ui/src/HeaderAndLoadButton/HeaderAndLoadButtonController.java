@@ -55,53 +55,92 @@ public class HeaderAndLoadButtonController {
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
-
                 updateMessage("Preparing request...");
+                updateProgress(0.02, 1);
+                Thread.sleep(120);
                 updateProgress(0.05, 1);
-                Thread.sleep(200);
-
-                updateMessage("Connecting to server...");
-                updateProgress(0.15, 1);
-                Thread.sleep(250);
+                Thread.sleep(120);
+                updateProgress(0.10, 1);
 
                 String urlStr = "http://localhost:8080/semulator/load";
-                String postData = "path=" + URLEncoder.encode(xmlPath.toString(), StandardCharsets.UTF_8);
-                byte[] postBytes = postData.getBytes(StandardCharsets.UTF_8);
+                Gson gson = new Gson();
+                String jsonBody = gson.toJson(Map.of("path", xmlPath.toString()));
 
+                updateMessage("Opening connection...");
+                updateProgress(0.15, 1);
                 HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(15000);
+                Thread.sleep(150);
+                updateProgress(0.25, 1);
 
-                updateMessage("Uploading file path...");
-                updateProgress(0.30, 1);
-                conn.getOutputStream().write(postBytes);
-                Thread.sleep(250);
+                updateMessage("Sending JSON to server...");
+                try (OutputStream os = conn.getOutputStream()) {
+                    byte[] payload = jsonBody.getBytes(StandardCharsets.UTF_8);
+                    int chunk = Math.max(256, payload.length / 10);
+                    int written = 0;
+                    while (written < payload.length) {
+                        int toWrite = Math.min(chunk, payload.length - written);
+                        os.write(payload, written, toWrite);
+                        os.flush();
+                        written += toWrite;
+                        double p = 0.25 + (written / (double) payload.length) * (0.45 - 0.25);
+                        updateProgress(p, 1);
+                        Thread.sleep(60);
+                    }
+                }
 
                 updateMessage("Waiting for response...");
-                updateProgress(0.45, 1);
+                Thread.sleep(200);
                 int code = conn.getResponseCode();
-                if (code != 200)
-                    throw new IOException("Server returned status " + code);
-                Thread.sleep(300);
+                updateProgress(0.55, 1);
+                if (code != 200) {
+                    String err = "";
+                    try (InputStream es = conn.getErrorStream()) {
+                        if (es != null) err = new String(es.readAllBytes(), StandardCharsets.UTF_8);
+                    }
+                    throw new IOException("Server returned status " + code + (err.isBlank() ? "" : (": " + err)));
+                }
 
                 updateMessage("Reading response...");
-                updateProgress(0.60, 1);
-
                 String json;
                 try (InputStream in = conn.getInputStream()) {
-                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                    int contentLength = conn.getContentLength();
+                    if (contentLength > 0) {
+                        ByteArrayOutputStream bos = new ByteArrayOutputStream(Math.max(1024, contentLength));
+                        byte[] buf = new byte[4096];
+                        int read;
+                        int total = 0;
+                        while ((read = in.read(buf)) != -1) {
+                            bos.write(buf, 0, read);
+                            total += read;
+                            double frac = total / (double) contentLength;
+                            double p = 0.55 + frac * (0.90 - 0.55);
+                            updateProgress(Math.min(p, 0.90), 1);
+                            Thread.sleep(20);
+                        }
+                        json = bos.toString(StandardCharsets.UTF_8);
+                    } else {
+                        Thread.sleep(120);
+                        json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                        updateProgress(0.72, 1);
+                        Thread.sleep(120);
+                        updateProgress(0.85, 1);
+                        Thread.sleep(120);
+                        updateProgress(0.90, 1);
+                    }
                 }
                 System.out.println("LOAD RESPONSE = " + json);
-                Thread.sleep(250);
 
                 updateMessage("Parsing JSON...");
-                updateProgress(0.80, 1);
-                Thread.sleep(250);
-
-                Gson gson = new Gson();
                 Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>() {}.getType());
+                Thread.sleep(150);
+                updateProgress(0.96, 1);
 
+                updateMessage("Finalizing...");
                 Platform.runLater(() -> {
                     statusLabel.textProperty().unbind();
                     statusLabel.setText("Loaded: " + map.getOrDefault("programName", "?"));
@@ -112,14 +151,10 @@ public class HeaderAndLoadButtonController {
                     if (onLoaded != null)
                         onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
                 });
-
-                updateMessage("Finalizing...");
-                updateProgress(0.95, 1);
-                Thread.sleep(300);
-
-                updateMessage("✅ Done");
-                updateProgress(1, 1);
-                Thread.sleep(400);
+                Thread.sleep(150);
+                updateProgress(1.0, 1);
+                updateMessage("Done");
+                Thread.sleep(100);
 
                 return null;
             }
@@ -142,7 +177,6 @@ public class HeaderAndLoadButtonController {
             statusLabel.textProperty().unbind();
             progress.setVisible(false);
             loadButton.setDisable(false);
-
             Throwable ex = task.getException();
             statusLabel.setText("Load failed");
             new Alert(Alert.AlertType.ERROR,
