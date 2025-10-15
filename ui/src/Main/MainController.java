@@ -100,6 +100,7 @@ public class MainController {
         runButtonsController.setInputsBoxController(inputsBoxController);
         runButtonsController.setVarsBoxController(varsBoxController);
         runButtonsController.setProgramToolbarController(toolbarController);
+        runButtonsController.setInstructionsController(instructionsController);
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
