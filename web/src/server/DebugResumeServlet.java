@@ -17,9 +17,7 @@ public class DebugResumeServlet extends HttpServlet {
     private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
-
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
@@ -45,9 +43,11 @@ public class DebugResumeServlet extends HttpServlet {
             }
 
             if (impl.debugIsFinished()) {
-                responseMap.put("status", "success");
-                responseMap.put("message", "Already finished");
+                Map<String, Object> debugData = makeDebugData(impl);
+                responseMap.put("status", "stopped");
+                responseMap.put("message", "Program already finished");
                 responseMap.put("finished", true);
+                responseMap.put("debug", debugData);
                 writeJson(resp, responseMap);
                 return;
             }
@@ -66,42 +66,27 @@ public class DebugResumeServlet extends HttpServlet {
                 try { Thread.sleep(50); } catch (InterruptedException ignored) {}
             }
 
-            if (!finished) {
-                responseMap.put("status", "running");
-                responseMap.put("message", "Still running");
+            Map<String, Object> debugData = makeDebugData(impl);
+
+            if (finished) {
+                impl.recordDebugSession(
+                        impl.lastRunProgramName(),
+                        impl.lastRunDegree(),
+                        impl.lastRunInputs().toArray(new Long[0]),
+                        impl.debugVarsSnapshot(),
+                        impl.debugCycles()
+                );
+
+                responseMap.put("status", "stopped");
+                responseMap.put("message", "Program finished");
+                responseMap.put("finished", true);
+                responseMap.put("debug", debugData);
+            } else {
+                responseMap.put("status", "resumed");
+                responseMap.put("message", "Debug resumed and still running");
                 responseMap.put("finished", false);
-                responseMap.put("pc", impl.debugCurrentPC());
-                responseMap.put("cycles", impl.debugCycles());
-                writeJson(resp, responseMap);
-                return;
+                responseMap.put("debug", debugData);
             }
-
-            Map<String, String> vars = impl.debugVarsSnapshot();
-            int cycles = impl.debugCycles();
-            long yVal = 0;
-            if (vars != null && vars.containsKey("y")) {
-                try {
-                    yVal = Long.parseLong(vars.get("y"));
-                } catch (NumberFormatException ignored) {}
-            }
-
-            impl.recordDebugSession(
-                    impl.lastRunProgramName(),
-                    impl.lastRunDegree(),
-                    impl.lastRunInputs().toArray(new Long[0]),
-                    vars,
-                    cycles
-            );
-
-            Map<String, Object> debugData = new LinkedHashMap<>();
-            debugData.put("y", yVal);
-            debugData.put("cycles", cycles);
-            debugData.put("vars", vars);
-
-            responseMap.put("status", "success");
-            responseMap.put("message", "Program finished");
-            responseMap.put("finished", true);
-            responseMap.put("debug", debugData);
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -113,10 +98,27 @@ public class DebugResumeServlet extends HttpServlet {
         writeJson(resp, responseMap);
     }
 
+    private Map<String, Object> makeDebugData(EmulatorEngineImpl impl) {
+        Map<String, Object> debugData = new LinkedHashMap<>();
+        Map<String, String> vars = impl.debugVarsSnapshot();
+
+        long yVal = 0;
+        if (vars != null && vars.containsKey("y")) {
+            try {
+                yVal = Long.parseLong(vars.get("y"));
+            } catch (NumberFormatException ignored) {}
+        }
+
+        debugData.put("y", yVal);
+        debugData.put("pc", impl.debugCurrentPC());
+        debugData.put("cycles", impl.debugCycles());
+        debugData.put("vars", vars);
+        return debugData;
+    }
+
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
-        String json = gson.toJson(data);
         try (PrintWriter out = resp.getWriter()) {
-            out.write(json);
+            out.write(gson.toJson(data));
         }
     }
 }

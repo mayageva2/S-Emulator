@@ -12,6 +12,7 @@ import SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTable
 import RunButtons.RunButtonsController;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import emulator.api.dto.RunRecord;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
@@ -27,6 +28,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class MainController {
     @FXML private HeaderAndLoadButtonController headerController;
@@ -101,6 +103,7 @@ public class MainController {
         runButtonsController.setVarsBoxController(varsBoxController);
         runButtonsController.setProgramToolbarController(toolbarController);
         runButtonsController.setInstructionsController(instructionsController);
+        runButtonsController.setMainController(this);
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
@@ -413,18 +416,49 @@ public class MainController {
         refreshProgramView(currentDegree);
     }
 
-    public void runProgram() {
+    public void refreshHistory() {
         try {
-            Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
-            String payload = "degree=" + currentDegree +
-                    "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
-            String response = httpPost(BASE_URL + "run", payload);
-            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-            varsBoxController.renderAll((Map<String, Object>) map.get("vars"));
-            varsBoxController.setCycles(((Double) map.get("cycles")).intValue());
-            statisticsTableController.clear();
+            String histJson = httpGet(BASE_URL + "history");
+            System.out.println("HISTORY RESPONSE: " + histJson);
+
+            Map<String, Object> histMap = gson.fromJson(histJson, new TypeToken<Map<String, Object>>(){}.getType());
+            List<Map<String, Object>> records = (List<Map<String, Object>>) histMap.get("history");
+
+            if (records != null && !records.isEmpty()) {
+                List<RunRecord> runRecords = new ArrayList<>();
+                for (Map<String, Object> rec : records) {
+                    String programName = Objects.toString(rec.get("programName"), "Main Program");
+                    int runNumber = ((Number) rec.get("runNumber")).intValue();
+                    int degree = ((Number) rec.get("degree")).intValue();
+                    long y = ((Number) rec.get("y")).longValue();
+                    int cycles = ((Number) rec.get("cycles")).intValue();
+
+                    Object inputsObj = rec.get("inputs");
+                    List<Long> inputsList = new ArrayList<>();
+
+                    if (inputsObj instanceof List<?> list) {
+                        for (Object val : list) {
+                            try { inputsList.add(Long.parseLong(val.toString())); } catch (Exception ignored) {}
+                        }
+                    } else if (inputsObj != null) {
+                        String csv = inputsObj.toString().trim();
+                        if (!csv.isEmpty()) {
+                            for (String part : csv.split(",")) {
+                                try { inputsList.add(Long.parseLong(part.trim())); } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+
+                    runRecords.add(new RunRecord(programName, runNumber, degree, inputsList, y, cycles));
+                }
+
+                Platform.runLater(() -> {
+                    statisticsTableController.setHistory(runRecords, (Function<String, String>) s -> s);
+                });
+            }
+
         } catch (Exception e) {
-            showError("Run failed: " + e.getMessage());
+            showError("History refresh failed: " + e.getMessage());
         }
     }
 

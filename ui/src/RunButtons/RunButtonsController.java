@@ -34,6 +34,7 @@ public class RunButtonsController {
     private StatisticsTableController statisticsTableController;
     private ProgramToolbarController toolbarController;
     private InstructionsTableController instructionsController;
+    private Main.MainController mainController;
 
     private int currentDegree = 0;
     private String currentProgram = "";
@@ -114,6 +115,10 @@ public class RunButtonsController {
             if (statisticsTableController != null)
                 Platform.runLater(() -> statisticsTableController.clear());
 
+            if (mainController != null) {
+                mainController.refreshHistory();
+            }
+
         } catch (Exception ex) {
             alertError("Run failed", ex.getMessage());
         }
@@ -142,6 +147,9 @@ public class RunButtonsController {
                     if (finished) {
                         instructionsController.clearHighlight();
                         disableDebugButtons(true);
+                        if (mainController != null) {
+                            mainController.refreshHistory();
+                        }
                     } else {
                         instructionsController.highlightRow(idx.intValue());
                         disableDebugButtons(false);
@@ -155,9 +163,7 @@ public class RunButtonsController {
     }
 
     @FXML
-    private void onStepOver(ActionEvent e) {
-        handleDebugAction("debug/step", "Step failed");
-    }
+    private void onStepOver(ActionEvent e) {handleDebugAction("debug/step", "Step failed");}
 
     @FXML
     private void onResume(ActionEvent e) {
@@ -173,26 +179,81 @@ public class RunButtonsController {
         try {
             String response = httpPost(BASE_URL + endpoint, "");
             Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+
+            String status = String.valueOf(result.getOrDefault("status", ""));
+            boolean finished = Boolean.TRUE.equals(result.get("finished"));
+
+            @SuppressWarnings("unchecked")
             Map<String, Object> debug = (Map<String, Object>) result.get("debug");
-            updateVarsFromDebug(debug);
 
-            if (instructionsController != null && debug != null) {
-                boolean finished = Boolean.TRUE.equals(debug.get("finished"));
-                Number idx = (Number) debug.getOrDefault("pc", 0);
+            if (debug != null) {
+                updateVarsFromDebug(debug);
+            }
 
-                Platform.runLater(() -> {
-                    if (finished) {
+            if (instructionsController == null) return;
+
+            int pc = 0;
+            Object pcObj =
+                    (debug != null ? debug.get("pc") : null);
+            if (!(pcObj instanceof Number)) {
+                pcObj = result.get("pc");
+            }
+            if (pcObj instanceof Number n) {
+                pc = n.intValue();
+            }
+            final int fPc = pc;
+
+            Platform.runLater(() -> {
+                switch (status) {
+                    case "stopped" -> {
                         instructionsController.clearHighlight();
                         disableDebugButtons(true);
-                    } else {
-                        instructionsController.highlightRow(idx.intValue());
+                        if (mainController != null) mainController.refreshHistory();
                     }
-                });
-            }
+                    case "resumed" -> {
+                        if (finished) {
+                            instructionsController.clearHighlight();
+                            disableDebugButtons(true);
+                            if (mainController != null) mainController.refreshHistory();
+                        } else {
+                            instructionsController.highlightRow(fPc);
+                            disableDebugButtons(false);
+                        }
+                    }
+                    case "running" -> {
+                        instructionsController.highlightRow(fPc);
+                        disableDebugButtons(false);
+                    }
+                    case "success" -> {
+                        if (finished) {
+                            instructionsController.clearHighlight();
+                            disableDebugButtons(true);
+                            if (mainController != null) mainController.refreshHistory();
+                        } else {
+                            instructionsController.highlightRow(fPc);
+                            disableDebugButtons(false);
+                        }
+                    }
+                    case "error" -> {
+                        alertError(errorTitle, String.valueOf(result.get("message")));
+                    }
+                    default -> {
+                        if (finished) {
+                            instructionsController.clearHighlight();
+                            disableDebugButtons(true);
+                            if (mainController != null) mainController.refreshHistory();
+                        } else {
+                            instructionsController.highlightRow(fPc);
+                        }
+                    }
+                }
+            });
+
         } catch (Exception ex) {
             alertError(errorTitle, ex.getMessage());
         }
     }
+
 
     private void updateVarsFromDebug(Map<String, Object> json) {
         if (json == null || varsBoxController == null) return;
@@ -258,4 +319,7 @@ public class RunButtonsController {
         });
     }
 
+    public void setMainController(Main.MainController mainController) {
+        this.mainController = mainController;
+    }
 }

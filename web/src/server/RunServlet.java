@@ -2,6 +2,8 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
+import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.RunRecord;
 import emulator.api.dto.RunResult;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -16,9 +18,7 @@ public class RunServlet extends HttpServlet {
     private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
-
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
@@ -49,8 +49,10 @@ public class RunServlet extends HttpServlet {
             int degree = Integer.parseInt(degreeStr.trim());
             Long[] inputs = parseInputs(inputsStr);
 
+            // Run the program
             RunResult result = engine.run(degree, inputs);
 
+            // Build response JSON
             Map<String, Object> resultData = new LinkedHashMap<>();
             resultData.put("y", result.y());
             resultData.put("cycles", result.cycles());

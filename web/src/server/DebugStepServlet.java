@@ -8,9 +8,7 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
+import java.util.*;
 @WebServlet("/debug/step")
 public class DebugStepServlet extends HttpServlet {
 
@@ -18,7 +16,6 @@ public class DebugStepServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
@@ -26,14 +23,6 @@ public class DebugStepServlet extends HttpServlet {
 
         try {
             EmulatorEngine engine = EngineHolder.getEngine();
-
-            if (!engine.hasProgramLoaded()) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                responseMap.put("status", "error");
-                responseMap.put("message", "No program loaded");
-                writeJson(resp, responseMap);
-                return;
-            }
 
             if (!(engine instanceof EmulatorEngineImpl impl)) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -43,41 +32,65 @@ public class DebugStepServlet extends HttpServlet {
                 return;
             }
 
-            int beforePc = impl.debugCurrentPC();
-            int beforeCycles = impl.debugCycles();
+            if (!engine.hasProgramLoaded()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No program loaded");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            if (impl.debugIsFinished()) {
+                responseMap.put("status", "success");
+                responseMap.put("message", "Already finished");
+                responseMap.put("finished", true);
+                writeJson(resp, responseMap);
+                return;
+            }
 
             impl.debugStepOver();
 
-            long deadline = System.currentTimeMillis() + 500;
-            while (System.currentTimeMillis() < deadline) {
-                if (impl.debugCurrentPC() != beforePc ||
-                        impl.debugCycles() != beforeCycles ||
-                        impl.debugIsFinished()) {
-                    break;
-                }
-                try {
-                    Thread.sleep(20);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
+            int oldCycles = impl.debugCycles();
+            long start = System.currentTimeMillis();
+            boolean finished = false;
+
+            while (System.currentTimeMillis() - start < 1000) {
+                Thread.sleep(20);
+
+                int newCycles = impl.debugCycles();
+                if (newCycles != oldCycles || impl.debugIsFinished()) {
+                    finished = impl.debugIsFinished();
                     break;
                 }
             }
 
-            int pc = impl.debugCurrentPC();
-            int cycles = impl.debugCycles();
-            boolean finished = impl.debugIsFinished();
             Map<String, String> vars = impl.debugVarsSnapshot();
+            int cycles = impl.debugCycles();
+            long yVal = 0;
+            if (vars != null && vars.containsKey("y")) {
+                try { yVal = Long.parseLong(vars.get("y")); } catch (NumberFormatException ignored) {}
+            }
+
+            if (finished) {
+                impl.recordDebugSession(
+                        impl.lastRunProgramName(),
+                        impl.lastRunDegree(),
+                        impl.lastRunInputs().toArray(new Long[0]),
+                        vars,
+                        cycles
+                );
+            }
 
             Map<String, Object> debugData = new LinkedHashMap<>();
-            debugData.put("finished", finished);
-            debugData.put("pc", pc);
+            debugData.put("y", yVal);
             debugData.put("cycles", cycles);
             debugData.put("vars", vars);
+            debugData.put("pc", impl.debugCurrentPC());
 
             responseMap.put("status", "success");
-            responseMap.put("message", "Step executed successfully");
+            responseMap.put("message", finished ? "Program finished" : "Step executed");
+            responseMap.put("finished", finished);
             responseMap.put("debug", debugData);
-            responseMap.put("vars", vars);
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -96,3 +109,4 @@ public class DebugStepServlet extends HttpServlet {
         }
     }
 }
+

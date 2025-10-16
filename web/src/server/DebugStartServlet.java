@@ -70,8 +70,6 @@ public class DebugStartServlet extends HttpServlet {
                 return;
             }
 
-            // Start the debug session
-            System.out.println("🟡 Starting debug for program=" + programName + ", degree=" + degree);
             impl.debugStart(programName, inputs, degree);
 
             Map<String, String> varsSnapshot = impl.debugVarsSnapshot();
@@ -108,7 +106,6 @@ public class DebugStartServlet extends HttpServlet {
     //Write JSON response to client
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
         String json = gson.toJson(data);
-        System.out.println("🟣 /debug/start RESPONSE: " + json);
         try (PrintWriter out = resp.getWriter()) {
             out.write(json);
         }

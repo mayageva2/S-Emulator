@@ -92,7 +92,7 @@ public class DebugStopServlet extends HttpServlet {
             debugData.put("y", yVal);
             debugData.put("vars", vars);
 
-            responseMap.put("status", "success");
+            responseMap.put("status", "stopped");
             responseMap.put("message", "Debug stopped successfully");
             responseMap.put("debug", debugData);
 
