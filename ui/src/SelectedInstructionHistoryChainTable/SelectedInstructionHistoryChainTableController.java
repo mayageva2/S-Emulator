@@ -25,6 +25,10 @@ public class SelectedInstructionHistoryChainTableController {
     @FXML
     private void initialize() {}
 
+    public void setInstructionsController(InstructionsTableController controller) {
+        this.instructionsController = controller;
+    }
+
     public void showForSelected(InstructionView selected, ProgramView pvOriginal) {
         if (selected == null) {
             clear();
@@ -50,7 +54,7 @@ public class SelectedInstructionHistoryChainTableController {
                 selected.createdFromViews().addAll(fixedList);
             }
         } catch (Exception e) {
-            System.err.println("⚠ Failed to reconstruct InstructionView: " + e.getMessage());
+            System.err.println("Failed to reconstruct InstructionView: " + e.getMessage());
         }
 
         List<InstructionView> chain = new ArrayList<>();
@@ -130,60 +134,7 @@ public class SelectedInstructionHistoryChainTableController {
                     iv.createdFromViews()
             );
 
-            String display;
-            switch (opcode.toUpperCase(Locale.ROOT)) {
-                case "INCREASE" -> display =
-                        args.isEmpty() ? "INCREASE" : args.get(0) + " ← " + args.get(0) + " + 1";
-                case "DECREASE" -> display =
-                        args.isEmpty() ? "DECREASE" : args.get(0) + " ← " + args.get(0) + " - 1";
-                case "ZERO_VARIABLE" -> display =
-                        args.isEmpty() ? "ZERO" : args.get(0) + " ← 0";
-                case "NEUTRAL" -> display =
-                        args.isEmpty() ? "V ← V" : args.get(0) + " ← " + args.get(0);
-                case "ASSIGNMENT" -> {
-                    String target = args.size() > 0 ? args.get(0) : "?";
-                    String source = extractArg(args, "assignedVariable", "assignedVar", "src");
-                    display = target + " ← " + source;
-                }
-                case "CONSTANT_ASSIGNMENT" -> {
-                    String target = args.size() > 0 ? args.get(0) : "?";
-                    String value = extractArg(args, "constantValue", "value", "val");
-                    display = target + " ← " + value;
-                }
-                case "GOTO_LABEL" -> {
-                    String label = extractArg(args, "gotoLabel", "label", "target");
-                    display = "GOTO " + (label.isBlank() ? "?" : label);
-                }
-                case "JUMP_NOT_ZERO" -> {
-                    String v = args.size() > 0 ? args.get(0) : "?";
-                    String label = extractArg(args, "JNZLabel", "label");
-                    display = "IF " + v + " ≠ 0 GOTO " + (label.isBlank() ? "?" : label);
-                }
-                case "JUMP_ZERO" -> {
-                    String v = args.size() > 0 ? args.get(0) : "?";
-                    String label = extractArg(args, "JZLabel", "label");
-                    display = "IF " + v + " = 0 GOTO " + (label.isBlank() ? "?" : label);
-                }
-                case "JUMP_EQUAL_CONSTANT" -> {
-                    String v = args.size() > 0 ? args.get(0) : "?";
-                    String k = extractArg(args, "constantValue", "value", "val");
-                    String label = extractArg(args, "JEConstantLabel", "label");
-                    display = "IF " + v + " = " + k + " GOTO " + (label.isBlank() ? "?" : label);
-                }
-                case "JUMP_EQUAL_VARIABLE" -> {
-                    String v = args.size() > 0 ? args.get(0) : "?";
-                    String v2 = extractArg(args, "variableName", "var", "secondVar");
-                    String label = extractArg(args, "JEVariableLabel", "label");
-                    display = "IF " + v + " = " + v2 + " GOTO " + (label.isBlank() ? "?" : label);
-                }
-                case "QUOTE" -> {
-                    String dest = args.isEmpty() ? "?" : args.get(0);
-                    String fn = extractArg(args, "functionUserString", "userString", "functionName");
-                    String fargs = extractArg(args, "functionArguments");
-                    display = dest + " ← (" + fn + (fargs.isBlank() ? "" : ", " + fargs) + ")";
-                }
-                default -> display = opcode + " " + String.join(", ", args);
-            }
+            String display = instructionsController.prettyCommand(patched);
 
             InstructionRow row = new InstructionRow(
                     iv.index(),

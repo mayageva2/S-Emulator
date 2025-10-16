@@ -254,7 +254,6 @@ public class RunButtonsController {
         }
     }
 
-
     private void updateVarsFromDebug(Map<String, Object> json) {
         if (json == null || varsBoxController == null) return;
         Map<String, Object> vars = (Map<String, Object>) json.get("vars");

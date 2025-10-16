@@ -180,10 +180,11 @@ public class InstructionsTableController {
     }
 
     //This func generates a readable string representation of an instruction
-    private String prettyCommand(InstructionView iv) {
+    public String prettyCommand(InstructionView iv) {
         if (iv == null) return "(no source)";
         var args = iv.args();
-        switch (iv.opcode()) {
+        String op = iv.opcode().toUpperCase(Locale.ROOT);
+        switch (op) {
             case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
             case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
             case "NEUTRAL":  return args.get(0) + "<-" + args.get(0);
@@ -409,61 +410,7 @@ public class InstructionsTableController {
                     createdFromViews
             );
 
-            String display = switch (opcode.toUpperCase(Locale.ROOT)) {
-                case "INCREASE" -> args.isEmpty()
-                        ? "INCREASE"
-                        : args.get(0) + " ← " + args.get(0) + " + 1";
-                case "DECREASE" -> args.isEmpty()
-                        ? "DECREASE"
-                        : args.get(0) + " ← " + args.get(0) + " - 1";
-                case "ZERO_VARIABLE" -> args.isEmpty()
-                        ? "ZERO"
-                        : args.get(0) + " ← 0";
-                case "ASSIGNMENT" -> {
-                    String target = args.size() > 0 ? args.get(0) : "?";
-                    String source = extractArg(args, "assignedVariable", "assignedVar", "src");
-                    yield target + " ← " + source;
-                }
-                case "CONSTANT_ASSIGNMENT" -> {
-                    String target = args.size() > 0 ? args.get(0) : "?";
-                    String value = extractArg(args, "constantValue", "value", "val");
-                    yield target + " ← " + value;
-                }
-                case "JUMP_NOT_ZERO" -> {
-                    String var = args.size() > 0 ? args.get(0) : "?";
-                    String tgt = extractArg(args, "gotoLabel", "target", "label");
-                    yield "IF " + var + " ≠ 0 GOTO " + tgt;
-                }
-                case "JUMP_ZERO" -> {
-                    String var = args.size() > 0 ? args.get(0) : "?";
-                    String tgt = extractArg(args, "gotoLabel", "target", "label");
-                    yield "IF " + var + " = 0 GOTO " + tgt;
-                }
-                case "JUMP_EQUAL_CONSTANT" -> {
-                    String var = args.size() > 0 ? args.get(0) : "?";
-                    String c = extractArg(args, "constantValue");
-                    String tgt = extractArg(args, "gotoLabel");
-                    yield "IF " + var + " = " + c + " GOTO " + tgt;
-                }
-                case "JUMP_EQUAL_VARIABLE" -> {
-                    String a = args.size() > 0 ? args.get(0) : "?";
-                    String b = extractArg(args, "variableName", "varName");
-                    String tgt = extractArg(args, "gotoLabel", "label");
-                    yield "IF " + a + " = " + b + " GOTO " + tgt;
-                }
-                case "QUOTE" -> {
-                    String dest = args.isEmpty() ? "?" : args.get(0);
-                    String fn = extractArg(args, "functionUserString", "userString", "functionName");
-                    String fargs = extractArg(args, "functionArguments");
-                    yield dest + " ← (" + fn + (fargs.isBlank() ? "" : ", " + fargs) + ")";
-                }
-                case "GOTO_LABEL" -> {
-                    String tgt = extractArg(args, "gotoLabel", "label", "target");
-                    yield "GOTO " + tgt;
-                }
-                default -> opcode + " " + String.join(", ", args);
-            };
-
+            String display = prettyCommand(iv);
             InstructionRow row = new InstructionRow(index, basic, label, cycles, opcode, args, 0, iv);
             row.display = display;
             rows.add(row);
