@@ -179,12 +179,19 @@ public class MainController {
 
     private void refreshProgramView(int degree) {
         try {
+            List<String> prevInputs = (inputsBoxController != null)
+                    ? inputsBoxController.getCurrentInputValues()
+                    : List.of();
             String json = fetchProgramViewJson(degree);
             Map<String, Object> program = parseAndValidateResponse(json);
             if (program == null) return;
 
             updateProgramDegrees(program);
             updateInputsBox(program);
+            if (inputsBoxController != null && !prevInputs.isEmpty()) {
+                Platform.runLater(() -> inputsBoxController.restoreInputValues(prevInputs));
+            }
+
             renderInstructions(program);
             updateToolbarHighlights(program);
             updateToolbarPrograms(program);

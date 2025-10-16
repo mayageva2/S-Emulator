@@ -197,4 +197,25 @@ public class InputsBoxController {
         }
         return map;
     }
+
+    public List<String> getCurrentInputValues() {
+        List<String> values = new ArrayList<>();
+        for (String name : inputNames) {
+            TextField field = fieldsByName.get(name);
+            values.add(field != null ? field.getText() : "");
+        }
+        return values;
+    }
+
+    public void restoreInputValues(List<String> prevValues) {
+        int i = 0;
+        for (String name : inputNames) {
+            if (i >= prevValues.size()) break;
+            TextField field = fieldsByName.get(name);
+            if (field != null) {
+                field.setText(prevValues.get(i));
+            }
+            i++;
+        }
+    }
 }
