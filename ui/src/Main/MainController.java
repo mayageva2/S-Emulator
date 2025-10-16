@@ -104,6 +104,9 @@ public class MainController {
         runButtonsController.setProgramToolbarController(toolbarController);
         runButtonsController.setInstructionsController(instructionsController);
         runButtonsController.setMainController(this);
+        statisticsCommandsController.setStatisticsTableController(statisticsTableController);
+        statisticsCommandsController.setToolbarController(toolbarController);
+        statisticsCommandsController.setMainController(this);
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
@@ -538,6 +541,22 @@ public class MainController {
         } catch (Exception e) {
             showError("initServerMode failed: " + e.getMessage());
         }
+    }
+
+    public VariablesBoxController getVarsBoxController() {
+        return varsBoxController;
+    }
+
+    public InputsBoxController getInputsBoxController() {
+        return inputsBoxController;
+    }
+
+    public void refreshProgramViewPublic(int degree) {
+        refreshProgramView(degree);
+    }
+
+    public String httpPostFormPublic(String urlStr, String formData) throws Exception {
+        return httpPostForm(urlStr, formData);
     }
 
 }

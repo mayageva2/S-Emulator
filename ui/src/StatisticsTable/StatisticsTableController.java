@@ -10,6 +10,7 @@ import javafx.beans.property.ReadOnlyLongWrapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
@@ -22,7 +23,7 @@ public class StatisticsTableController {
     public static final class HistoryRow {
         public final int run;
         public final int degree;
-        public final String inputs; // prettified
+        public final String inputs;
         public final long y;
         public final int cycles;
 
@@ -43,6 +44,8 @@ public class StatisticsTableController {
     @FXML private TableColumn<HistoryRow, Number> cyclesCol;
 
     private List<RunRecord> currentHistory = List.of();
+
+    public List<RunRecord> getCurrentHistory() { return currentHistory; }
 
     @FXML
     private void initialize() {
@@ -148,5 +151,13 @@ public class StatisticsTableController {
             }
             currentHistory = List.of();
         } catch (Throwable ignore) {}
+    }
+
+    public Optional<RunRecord> getSelectedRunRecord() {
+        OptionalInt idx = getSelectedHistoryIndex();
+        if (idx.isEmpty()) return Optional.empty();
+        int i = idx.getAsInt();
+        if (i < 0 || i >= currentHistory.size()) return Optional.empty();
+        return Optional.of(currentHistory.get(i));
     }
 }

@@ -2,6 +2,7 @@ package StatisticsCommands;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;
@@ -17,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -27,6 +29,19 @@ public class StatisticsCommandsController {
     private static final Gson gson = new Gson();
 
     private Map<String, String> lastVarsSnapshot = Map.of();
+    private ProgramToolBar.ProgramToolbarController toolbarController;
+    private Main.MainController mainController;
+    private StatisticsTable.StatisticsTableController statisticsTableController;
+
+    public void setToolbarController(ProgramToolBar.ProgramToolbarController c) {
+        this.toolbarController = c;
+    }
+    public void setMainController(Main.MainController c) {
+        this.mainController = c;
+    }
+    public void setStatisticsTableController(StatisticsTable.StatisticsTableController c) {
+        this.statisticsTableController = c;
+    }
 
     @FXML
     private void initialize() {
@@ -51,26 +66,61 @@ public class StatisticsCommandsController {
     }
 
     private void onReRun() {
-        TextInputDialog dlg = new TextInputDialog();
-        dlg.setTitle("Re-Run Program");
-        dlg.setHeaderText("Enter program name to re-run:");
-        dlg.setContentText("Program:");
-        Optional<String> ans = dlg.showAndWait();
-        if (ans.isEmpty() || ans.get().isBlank()) return;
-
-        String prog = ans.get().trim();
         try {
-            Map<String, Object> payload = Map.of("program", prog);
-            String json = gson.toJson(payload);
-            String resp = httpPost(BASE_URL + "rerun", json);
-            Map<String, Object> response = gson.fromJson(resp, new TypeToken<Map<String, Object>>(){}.getType());
+            if (statisticsTableController == null) {
+                new Alert(Alert.AlertType.ERROR, "Statistics table is not connected.").showAndWait();
+                return;
+            }
 
-            Map<String, Object> vars = (Map<String, Object>) response.get("vars");
-            Number cycles = (Number) response.getOrDefault("cycles", 0);
-            Alert done = new Alert(Alert.AlertType.INFORMATION,
-                    "Re-run completed.\nCycles: " + cycles + "\nVars: " + vars);
-            done.setHeaderText("RE-RUN SUCCESS");
-            done.showAndWait();
+            var optRec = statisticsTableController.getSelectedRunRecord();
+            if (optRec.isEmpty()) {
+                new Alert(Alert.AlertType.WARNING, "Please select a row in the statistics table to re-run.").showAndWait();
+                return;
+            }
+            var rec = optRec.get();
+
+            if (toolbarController != null)
+                toolbarController.setSelectedProgram(rec.programName());
+
+            String csvInputs = String.join(",", rec.inputs().stream().map(String::valueOf).toList());
+            String formData = "program=" + URLEncoder.encode(rec.programName(), StandardCharsets.UTF_8)
+                    + "&degree=" + rec.degree()
+                    + "&inputs=" + URLEncoder.encode(csvInputs, StandardCharsets.UTF_8);
+
+            String resp = mainController.httpPostFormPublic("http://localhost:8080/semulator/run", formData);
+
+            Map<String, Object> outer = new Gson().fromJson(resp, new TypeToken<Map<String, Object>>(){}.getType());
+            if (!"success".equals(outer.get("status"))) {
+                throw new RuntimeException("Run failed: " + outer.get("message"));
+            }
+
+            Map<String, Object> result = (Map<String, Object>) outer.get("result");
+            List<Map<String, Object>> varsList = (List<Map<String, Object>>) result.get("vars");
+            Number cycles = (Number) result.getOrDefault("cycles", 0);
+
+            Map<String, Object> varsMap = new LinkedHashMap<>();
+            if (varsList != null) {
+                for (Map<String, Object> v : varsList) {
+                    Object name = v.get("name");
+                    Object value = v.get("value");
+                    if (name != null) varsMap.put(name.toString(), value);
+                }
+            }
+
+            if (mainController != null) {
+                var varsBox = mainController.getVarsBoxController();
+                if (varsBox != null) {
+                    Platform.runLater(() -> {
+                        varsBox.renderAll(varsMap);
+                        varsBox.setCycles(cycles.intValue());
+                    });
+                }
+
+                Platform.runLater(() -> {
+                    mainController.refreshHistory();
+                    mainController.refreshProgramViewPublic(rec.degree());
+                });
+            }
 
         } catch (Exception ex) {
             new Alert(Alert.AlertType.ERROR, "Re-run failed:\n" + ex.getMessage()).showAndWait();
