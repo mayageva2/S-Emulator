@@ -84,10 +84,14 @@ public class RunButtonsController {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
 
-            String formData = "degree=" + currentDegree +
-                    "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("program", currentProgram);
+            data.put("degree", currentDegree);
+            data.put("inputs", inputs);
 
-            String response = httpPost(BASE_URL + "run", formData);
+            String json = gson.toJson(data);
+            String response = httpPostJson(BASE_URL + "run", json);
+
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
 
             if (!"success".equals(outer.get("status"))) {
@@ -123,6 +127,7 @@ public class RunButtonsController {
             alertError("Run failed", ex.getMessage());
         }
     }
+
 
     @FXML
     private void onDebug(ActionEvent e) {
@@ -166,9 +171,7 @@ public class RunButtonsController {
     private void onStepOver(ActionEvent e) {handleDebugAction("debug/step", "Step failed");}
 
     @FXML
-    private void onResume(ActionEvent e) {
-        handleDebugAction("debug/resume", "Resume failed");
-    }
+    private void onResume(ActionEvent e) {handleDebugAction("debug/resume", "Resume failed");}
 
     @FXML
     private void onStop(ActionEvent e) {
@@ -316,6 +319,23 @@ public class RunButtonsController {
             btnDebug.setDisable(false);
             disableDebugButtons(true);
         });
+    }
+
+    private String httpPostJson(String urlStr, String json) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+        }
+        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) sb.append(line);
+        in.close();
+        conn.disconnect();
+        return sb.toString();
     }
 
     public void setMainController(Main.MainController mainController) {

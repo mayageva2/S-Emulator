@@ -21,9 +21,11 @@ public class ProgramToolbarController {
     private Consumer<Integer> onJumpToDegree;
     private Consumer<String> onHighlightChanged;
     private Consumer<String> onProgramSelected;
+    private Consumer<Integer> onDegreeChanged;
 
     public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
     public void setOnProgramSelected(java.util.function.Consumer<String> c) { this.onProgramSelected = c; }
+    public void setOnDegreeChanged(Consumer<Integer> c) { this.onDegreeChanged = c; }
     private Runnable onSelectProgram, onCollapseClick, onExpandClick;
     private int currentDegree = 0;
     private int maxDegree = 0;
@@ -43,8 +45,14 @@ public class ProgramToolbarController {
 
     @FXML
     private void initialize() {
-        CollapseButton.setOnAction(e -> { if (onCollapseClick != null) onCollapseClick.run(); });
-        ExpandButton.setOnAction(e -> { if (onExpandClick != null) onExpandClick.run(); });
+        CollapseButton.setOnAction(e -> {
+            if (onCollapseClick != null) onCollapseClick.run();
+            if (onDegreeChanged != null) onDegreeChanged.accept(currentDegree);
+        });
+        ExpandButton.setOnAction(e -> {
+            if (onExpandClick != null) onExpandClick.run();
+            if (onDegreeChanged != null) onDegreeChanged.accept(currentDegree);
+        });
 
         if (selectProgramChoice != null) {
             selectProgramChoice.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
@@ -78,6 +86,7 @@ public class ProgramToolbarController {
         this.maxDegree = max;
         CurrentOrMaxDegreeButton.setText("Degree: " + current + "/" + max);
         updateButtons();
+        if (onDegreeChanged != null) onDegreeChanged.accept(currentDegree);
     }
 
     public void setDegreeUiLocked(boolean locked) {
@@ -177,9 +186,8 @@ public class ProgramToolbarController {
 
         Optional<Integer> res = dialog.showAndWait();
         res.ifPresent(target -> {
-            // update the toolbar label immediately
             bindDegree(target, maxDegree);
-            // let the app actually expand to that degree
+            if (onDegreeChanged != null) onDegreeChanged.accept(target);
             if (onJumpToDegree != null) onJumpToDegree.accept(target);
         });
     }

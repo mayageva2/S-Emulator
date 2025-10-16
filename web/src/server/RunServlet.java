@@ -2,15 +2,18 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
-import emulator.api.EmulatorEngineImpl;
-import emulator.api.dto.RunRecord;
 import emulator.api.dto.RunResult;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @WebServlet("/run")
 public class RunServlet extends HttpServlet {
@@ -25,8 +28,26 @@ public class RunServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineHolder.getEngine();
+            String body = req.getReader().lines().collect(Collectors.joining());
+            Map<String, Object> data = gson.fromJson(body, Map.class);
 
+            if (data == null) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Invalid JSON body");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            String program = (String) data.get("program");
+            Number degreeNum = (Number) data.getOrDefault("degree", 0);
+            int degree = degreeNum.intValue();
+
+            @SuppressWarnings("unchecked")
+            List<Double> inputsJson = (List<Double>) data.getOrDefault("inputs", List.of());
+            Long[] inputs = inputsJson.stream().map(Double::longValue).toArray(Long[]::new);
+
+            EmulatorEngine engine = EngineHolder.getEngine();
             if (!engine.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 responseMap.put("status", "error");
@@ -35,37 +56,10 @@ public class RunServlet extends HttpServlet {
                 return;
             }
 
-            String degreeStr = req.getParameter("degree");
-            String inputsStr = req.getParameter("inputs");
-
-            if (degreeStr == null || inputsStr == null) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                responseMap.put("status", "error");
-                responseMap.put("message", "Missing parameters: 'degree' or 'inputs'");
-                writeJson(resp, responseMap);
-                return;
-            }
-
-            int degree = Integer.parseInt(degreeStr.trim());
-            Long[] inputs = parseInputs(inputsStr);
-
-            // Run the program
-            RunResult result = engine.run(degree, inputs);
-
-            // Build response JSON
-            Map<String, Object> resultData = new LinkedHashMap<>();
-            resultData.put("y", result.y());
-            resultData.put("cycles", result.cycles());
-            resultData.put("varsCount", result.vars() == null ? 0 : result.vars().size());
-            resultData.put("vars", result.vars());
-
+            RunResult result = engine.run(program, degree, inputs);
             responseMap.put("status", "success");
-            responseMap.put("result", resultData);
+            responseMap.put("result", result);
 
-        } catch (NumberFormatException e) {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            responseMap.put("status", "error");
-            responseMap.put("message", "Invalid degree or input format");
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             responseMap.put("status", "error");
@@ -74,15 +68,6 @@ public class RunServlet extends HttpServlet {
         }
 
         writeJson(resp, responseMap);
-    }
-
-    private Long[] parseInputs(String csv) {
-        if (csv == null || csv.isBlank()) return new Long[0];
-        return Arrays.stream(csv.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(Long::valueOf)
-                .toArray(Long[]::new);
     }
 
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {

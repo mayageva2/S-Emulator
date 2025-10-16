@@ -76,6 +76,9 @@ public class MainController {
         toolbarController.setOnHighlightChanged(term -> {
             if (instructionsController != null) instructionsController.setHighlightTerm(term);
         });
+        toolbarController.setOnDegreeChanged(deg -> {
+            if (runButtonsController != null) {runButtonsController.setCurrentDegree(deg);}
+        });
 
         instructionsController.setOnRowSelected(selected -> {
             if (selected == null) {
