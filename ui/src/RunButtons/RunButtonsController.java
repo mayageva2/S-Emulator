@@ -75,7 +75,6 @@ public class RunButtonsController {
     @FXML
     private void onNewRun(ActionEvent e) {
         if (varsBoxController != null) varsBoxController.clearForNewRun();
-        if (statisticsTableController != null) statisticsTableController.clear();
         if (inputsBoxController != null) inputsBoxController.clearInputs();
     }
 
