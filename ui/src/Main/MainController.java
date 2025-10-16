@@ -569,4 +569,9 @@ public class MainController {
         return httpPostForm(urlStr, formData);
     }
 
+    public StatisticsCommands.StatisticsCommandsController getStatisticsCommandsController() {
+        return statisticsCommandsController;
+    }
+
+
 }

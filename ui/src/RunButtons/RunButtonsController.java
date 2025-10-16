@@ -113,6 +113,16 @@ public class RunButtonsController {
 
             if (varsBoxController != null) {
                 varsBoxController.renderAll(varsMap);
+                if (mainController != null) {
+                    var statsCmd = mainController.getStatisticsCommandsController();
+                    if (statsCmd != null) {
+                        Map<String, String> snapshot = new LinkedHashMap<>();
+                        for (var es : varsMap.entrySet()) {
+                            snapshot.put(es.getKey(), String.valueOf(es.getValue()));
+                        }
+                        statsCmd.setLastVarsSnapshot(snapshot);
+                    }
+                }
                 varsBoxController.setCycles(cycles.intValue());
             }
 
@@ -264,6 +274,16 @@ public class RunButtonsController {
         Platform.runLater(() -> {
             varsBoxController.renderAll(vars);
             varsBoxController.setCycles(cycles.intValue());
+            if (mainController != null) {
+                var statsCmd = mainController.getStatisticsCommandsController();
+                if (statsCmd != null && vars != null) {
+                    Map<String, String> snapshot = new LinkedHashMap<>();
+                    for (var e : vars.entrySet()) {
+                        snapshot.put(e.getKey(), String.valueOf(e.getValue()));
+                    }
+                    statsCmd.setLastVarsSnapshot(snapshot);
+                }
+            }
         });
     }
 

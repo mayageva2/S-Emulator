@@ -56,13 +56,64 @@ public class StatisticsCommandsController {
     }
 
     private void onShowStatus() {
-        if (lastVarsSnapshot == null || lastVarsSnapshot.isEmpty()) {
-            Alert a = new Alert(Alert.AlertType.INFORMATION, "No snapshot from last run yet.");
-            a.setHeaderText("SHOW STATUS");
-            a.showAndWait();
-            return;
+        try {
+            if (statisticsTableController != null) {
+                var optRec = statisticsTableController.getSelectedRunRecord();
+                if (optRec.isPresent()) {
+                    var rec = optRec.get();
+
+                    if (toolbarController != null) {
+                        toolbarController.setSelectedProgram(rec.programName());
+                    }
+
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("program", rec.programName());
+                    data.put("degree", rec.degree());
+                    data.put("inputs", rec.inputs());
+
+                    String json = gson.toJson(data);
+                    String resp = httpPost(BASE_URL + "run", json);
+
+                    Map<String, Object> outer = gson.fromJson(resp, new TypeToken<Map<String, Object>>(){}.getType());
+                    if (!"success".equals(outer.get("status"))) {
+                        throw new RuntimeException("Run failed: " + outer.get("message"));
+                    }
+
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> result = (Map<String, Object>) outer.get("result");
+
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> varsList = (List<Map<String, Object>>) result.get("vars");
+
+                    Map<String, String> snapshot = new LinkedHashMap<>();
+                    if (varsList != null) {
+                        for (Map<String, Object> v : varsList) {
+                            Object name = v.get("name");
+                            Object value = v.get("value");
+                            if (name != null) snapshot.put(name.toString(), String.valueOf(value));
+                        }
+                    }
+
+                    if (snapshot.isEmpty()) {
+                        new Alert(Alert.AlertType.INFORMATION, "No variables to show for this run.").showAndWait();
+                    } else {
+                        showVarsPopup(snapshot);
+                    }
+                    return;
+                }
+            }
+
+            if (lastVarsSnapshot == null || lastVarsSnapshot.isEmpty()) {
+                Alert a = new Alert(Alert.AlertType.INFORMATION, "No snapshot from last run yet.");
+                a.setHeaderText("SHOW STATUS");
+                a.showAndWait();
+                return;
+            }
+            showVarsPopup(lastVarsSnapshot);
+
+        } catch (Exception ex) {
+            new Alert(Alert.AlertType.ERROR, "Show Status failed:\n" + ex.getMessage()).showAndWait();
         }
-        showVarsPopup(lastVarsSnapshot);
     }
 
     private void onReRun() {
@@ -103,7 +154,20 @@ public class StatisticsCommandsController {
                 for (Map<String, Object> v : varsList) {
                     Object name = v.get("name");
                     Object value = v.get("value");
-                    if (name != null) varsMap.put(name.toString(), value);
+                    if (name == null) continue;
+
+                    String displayValue;
+                    if (value instanceof Number num) {
+                        double d = num.doubleValue();
+                        if (Math.floor(d) == d) {
+                            displayValue = String.valueOf((long) d);
+                        } else {
+                            displayValue = String.valueOf(d);
+                        }
+                    } else {
+                        displayValue = String.valueOf(value);
+                    }
+                    varsMap.put(name.toString(), displayValue);
                 }
             }
 
@@ -128,6 +192,16 @@ public class StatisticsCommandsController {
     }
 
     private void showVarsPopup(Map<String, String> vars) {
+        Map<String, String> fixedVars = new LinkedHashMap<>();
+        for (var entry : vars.entrySet()) {
+            String key = entry.getKey();
+            String val = entry.getValue();
+            if (val != null && val.matches("-?\\d+\\.0+")) {
+                val = val.substring(0, val.indexOf('.'));
+            }
+            fixedVars.put(key, val);
+        }
+
         TableView<Map.Entry<String,String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
@@ -137,7 +211,7 @@ public class StatisticsCommandsController {
         cVal.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getValue()));
         table.getColumns().setAll(cName, cVal);
 
-        List<Map.Entry<String,String>> rows = new ArrayList<>(vars.entrySet());
+        List<Map.Entry<String,String>> rows = new ArrayList<>(fixedVars.entrySet());
         rows.sort((a,b) -> {
             int ra = rank(a.getKey()), rb = rank(b.getKey());
             if (ra != rb) return Integer.compare(ra, rb);
