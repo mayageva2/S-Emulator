@@ -832,6 +832,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
         }
+
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
         debugStopSafe();
 
@@ -852,12 +853,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
 
-        dbgExecutor.setStepListener((pcAfter, cycles, vars, finished) -> {
-            dbgPC = pcAfter;
+        dbgExecutor.setStepListener((pc, cycles, vars, finished) -> {
+            dbgPC = pc;
             dbgCycles = cycles;
-            if (dbgExecutor instanceof ProgramExecutorImpl pei) {
-                pei.setBaseCycles(cycles);
-            }
             dbgVars = (vars == null) ? snapshotVars(dbgExecutor, inputs) : Map.copyOf(vars);
 
             synchronized (dbgLock) {
@@ -865,7 +863,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
                 if (!dbgResumeMode) {
                     while (!dbgStopRequested && !dbgStepOnce) {
-                        try { dbgLock.wait(); } catch (InterruptedException ie) {
+                        try {
+                            dbgLock.wait();
+                        } catch (InterruptedException ie) {
                             Thread.currentThread().interrupt();
                             throw new DebugAbortException();
                         }
@@ -879,40 +879,42 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         dbgThread = new Thread(() -> {
             try {
                 long y = dbgExecutor.run(inputs == null ? new Long[0] : inputs);
+
                 int cycles = dbgExecutor.getLastExecutionCycles();
-                Map<String,String> vars = snapshotVars(dbgExecutor, inputs);
-                List<VariableView> varViews = dbgExecutor.variableState().entrySet().stream()
-                        .map(e -> new VariableView(
-                                e.getKey().getRepresentation(),
-                                VarType.valueOf(e.getKey().getType().name()),
-                                e.getKey().getNumber(),
-                                e.getValue()
-                        ))
-                        .toList();
+                Map<String, String> vars = snapshotVars(dbgExecutor, inputs);
+
                 lastRunVars = dbgExecutor.variableState().entrySet().stream()
                         .collect(java.util.stream.Collectors.toMap(
                                 e -> e.getKey().getRepresentation(),
                                 Map.Entry::getValue,
-                                (a,b)->b,
+                                (a, b) -> b,
                                 LinkedHashMap::new
                         ));
-                lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+
+                lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
+                        .map(v -> v == null ? 0L : v)
+                        .toList();
                 lastRunDegree = degree;
                 lastRunProgramName = target.getName();
+
                 dbgVars = vars;
                 dbgFinished = true;
                 dbgAlive = false;
+
             } catch (DebugAbortException ignore) {
             } catch (Throwable t) {
             } finally {
                 dbgFinished = true;
                 dbgAlive = false;
-                synchronized (dbgLock) { dbgLock.notifyAll(); }
+                synchronized (dbgLock) {
+                    dbgLock.notifyAll();
+                }
                 if (dbgOnFinish != null) {
                     dbgOnFinish.run();
                 }
             }
         }, "emu-debug-thread");
+
         dbgThread.setDaemon(true);
         dbgThread.start();
     }
