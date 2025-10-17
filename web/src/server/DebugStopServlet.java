@@ -1,5 +1,6 @@
 package server;
 
+import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,27 +13,40 @@ import java.util.*;
 @WebServlet("/debug/stop")
 public class DebugStopServlet extends HttpServlet {
 
+    private static final Gson gson = new Gson();
+
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws IOException {
+
         resp.setContentType("application/json;charset=UTF-8");
-        PrintWriter out = resp.getWriter();
+        resp.setCharacterEncoding("UTF-8");
+
+        Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
             EmulatorEngine engine = EngineHolder.getEngine();
 
             if (!(engine instanceof EmulatorEngineImpl impl)) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                out.println("{\"error\":\"Engine is not EmulatorEngineImpl\"}");
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine is not EmulatorEngineImpl");
+                writeJson(resp, responseMap);
                 return;
             }
-            if (!engine.hasProgramLoaded()) {
+
+            if (!impl.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                out.println("{\"error\":\"No program loaded\"}");
+                responseMap.put("status", "error");
+                responseMap.put("message", "No program loaded");
+                writeJson(resp, responseMap);
                 return;
             }
 
             impl.debugStop();
-            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ignored) {}
 
             boolean finished = impl.debugIsFinished();
             int pc = impl.debugCurrentPC();
@@ -40,7 +54,7 @@ public class DebugStopServlet extends HttpServlet {
             Map<String, String> vars = impl.debugVarsSnapshot();
 
             List<Long> inputs = new ArrayList<>(impl.lastRunInputs());
-            if (inputs.isEmpty()) {
+            if (inputs.isEmpty() && vars != null) {
                 vars.keySet().stream()
                         .filter(k -> k.matches("x\\d+"))
                         .sorted(Comparator.comparingInt(k -> Integer.parseInt(k.substring(1))))
@@ -51,7 +65,7 @@ public class DebugStopServlet extends HttpServlet {
                         });
             }
 
-            String programName = impl.lastRunProgramName() != null ? impl.lastRunProgramName() : "UNKNOWN";
+            String programName = Optional.ofNullable(impl.lastRunProgramName()).orElse("UNKNOWN");
             int degree = impl.lastRunDegree();
 
             if (vars != null && !vars.isEmpty()) {
@@ -64,29 +78,38 @@ public class DebugStopServlet extends HttpServlet {
                 );
             }
 
-            long yVal = vars.containsKey("y") ? Long.parseLong(vars.get("y")) : 0L;
-
-            out.println("{");
-            out.println("  \"status\": \"Debug stopped successfully\",");
-            out.println("  \"finished\": " + finished + ",");
-            out.println("  \"pc\": " + pc + ",");
-            out.println("  \"cycles\": " + cycles + ",");
-            out.println("  \"y\": " + yVal + ",");
-            out.println("  \"vars\": {");
-            int i = 0, n = vars.size();
-            for (var e : vars.entrySet()) {
-                out.print("    \"" + e.getKey() + "\": \"" + e.getValue() + "\"");
-                if (++i < n) out.println(",");
-                else out.println();
+            long yVal = 0L;
+            if (vars != null && vars.containsKey("y")) {
+                try {
+                    yVal = Long.parseLong(vars.get("y"));
+                } catch (NumberFormatException ignored) {}
             }
-            out.println("  }");
-            out.println("}");
+
+            Map<String, Object> debugData = new LinkedHashMap<>();
+            debugData.put("finished", finished);
+            debugData.put("pc", pc);
+            debugData.put("cycles", cycles);
+            debugData.put("y", yVal);
+            debugData.put("vars", vars);
+
+            responseMap.put("status", "stopped");
+            responseMap.put("message", "Debug stopped successfully");
+            responseMap.put("debug", debugData);
+
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            e.printStackTrace();
-            String msg = e.getMessage();
-            if (msg == null) msg = e.getClass().getSimpleName();
-            out.println("{\"error\":\"" + msg.replace("\"", "'") + "\"}");
+            responseMap.put("status", "error");
+            responseMap.put("message", e.getMessage());
+            responseMap.put("exception", e.getClass().getSimpleName());
+        }
+
+        writeJson(resp, responseMap);
+    }
+
+    private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
+        String json = gson.toJson(data);
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(json);
         }
     }
 }

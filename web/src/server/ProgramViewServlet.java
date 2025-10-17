@@ -1,5 +1,6 @@
 package server;
 
+import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.ProgramView;
 import jakarta.servlet.annotation.WebServlet;
@@ -7,66 +8,62 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @WebServlet("/view")
 public class ProgramViewServlet extends HttpServlet {
 
+    private static final Gson gson = new Gson();
+
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
-
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
-        PrintWriter out = resp.getWriter();
+        resp.setCharacterEncoding("UTF-8");
 
-        try {
+        try (PrintWriter out = resp.getWriter()) {
             EmulatorEngine engine = EngineHolder.getEngine();
 
             if (!engine.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                out.println("{\"error\":\"No program loaded\"}");
+                out.write(gson.toJson(Map.of(
+                        "status", "error",
+                        "message", "No program loaded"
+                )));
                 return;
             }
 
-            String degreeParam = req.getParameter("degree");
+            // Parse degree
             int degree = 0;
+            String degreeParam = req.getParameter("degree");
             if (degreeParam != null && !degreeParam.isBlank()) {
-                try {
-                    degree = Integer.parseInt(degreeParam.trim());
-                } catch (NumberFormatException e) {
-                    out.println("{\"error\":\"Invalid degree parameter\"}");
-                    return;
-                }
+                degree = Integer.parseInt(degreeParam.trim());
             }
 
-            ProgramView pv = engine.programView(degree);
-            out.println("{");
-            out.println("  \"programName\": \"" + pv.programName() + "\",");
-            out.println("  \"degree\": " + pv.degree() + ",");
-            out.println("  \"maxDegree\": " + pv.maxDegree() + ",");
-            out.println("  \"totalCycles\": " + pv.totalCycles() + ",");
-            out.println("  \"instructions\": [");
+            // Parse program name
+            String programParam = req.getParameter("program");
+            if (programParam != null)
+                programParam = URLDecoder.decode(programParam, StandardCharsets.UTF_8);
 
-            var list = pv.instructions();
-            for (int i = 0; i < list.size(); i++) {
-                var ins = list.get(i);
-                out.println("    {");
-                out.println("      \"index\": " + ins.index() + ",");
-                out.println("      \"opcode\": \"" + ins.opcode() + "\",");
-                out.println("      \"label\": \"" + (ins.label() == null ? "" : ins.label()) + "\",");
-                out.println("      \"cycles\": " + ins.cycles() + ",");
-                out.println("      \"args\": \"" + ins.args() + "\"");
-                out.print("    }");
-                if (i < list.size() - 1) out.println(",");
-                else out.println();
-            }
+            // Fetch view from engine
+            ProgramView pv = (programParam == null || programParam.isBlank() || "Main Program".equalsIgnoreCase(programParam))
+                    ? engine.programView(degree)
+                    : engine.programView(programParam, degree);
 
-            out.println("  ]");
-            out.println("}");
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("status", "success");
+            response.put("program", pv);
+
+            out.write(gson.toJson(response));
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            e.printStackTrace();
-            out.println("{\"error\":\"" + e.getClass().getSimpleName() + ": " + e.getMessage() + "\"}");
+            resp.getWriter().write(gson.toJson(Map.of(
+                    "status", "error",
+                    "message", e.getMessage(),
+                    "exception", e.getClass().getSimpleName()
+            )));
         }
     }
 }

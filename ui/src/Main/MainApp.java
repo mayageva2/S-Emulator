@@ -14,12 +14,11 @@ public class MainApp extends Application {
     public void start(Stage stage) throws Exception {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/main.fxml"));
         Parent root = loader.load();
-        Main.MainController main = loader.getController();
-        EmulatorEngine engine = new EmulatorEngineImpl();
-        main.setEngine(engine);
+        MainController main = loader.getController();
+        main.initServerMode("http://localhost:8080/semulator/");
 
         Scene scene = new Scene(root);
-        stage.setTitle("S-Emulator");
+        stage.setTitle("S-Emulator (Server Mode)");
         stage.setScene(scene);
         stage.setMaximized(true);
         stage.show();

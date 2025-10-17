@@ -1,56 +1,86 @@
 package server;
 
+import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.RunResult;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @WebServlet("/run")
 public class RunServlet extends HttpServlet {
 
-    EmulatorEngine engine = EngineHolder.getEngine();
+    private static final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
-
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
-        PrintWriter out = resp.getWriter();
+        resp.setCharacterEncoding("UTF-8");
+
+        Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            String degreeStr = req.getParameter("degree");
-            String inputsStr = req.getParameter("inputs");
+            String body = req.getReader().lines().collect(Collectors.joining());
+            Map<String, Object> data = gson.fromJson(body, Map.class);
 
-            if (degreeStr == null || inputsStr == null) {
-                out.println("{\"error\":\"Missing parameters 'degree' or 'inputs'\"}");
+            if (data == null) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Invalid JSON body");
+                writeJson(resp, responseMap);
                 return;
             }
 
-            int degree = Integer.parseInt(degreeStr);
-            Long[] inputs = Arrays.stream(inputsStr.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .map(Long::valueOf)
-                    .toArray(Long[]::new);
+            String program = (String) data.get("program");
 
-            RunResult result = engine.run(degree, inputs);
+            Number degreeNum = (Number) data.getOrDefault("degree", 0);
+            int degree = degreeNum.intValue();
 
-            out.printf(
-                    "{ \"y\": %d, \"cycles\": %d, \"varsCount\": %d }",
-                    result.y(),
-                    result.cycles(),
-                    result.vars() == null ? 0 : result.vars().size()
-            );
+            @SuppressWarnings("unchecked")
+            List<Double> inputsJson = (List<Double>) data.getOrDefault("inputs", List.of());
+            Long[] inputs = inputsJson.stream().map(Double::longValue).toArray(Long[]::new);
+
+            EmulatorEngine engine = EngineHolder.getEngine();
+            if (!engine.hasProgramLoaded()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No program loaded");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            RunResult result;
+            if (program == null || program.isEmpty()) {
+                result = engine.run(degree, inputs);
+            }
+            else {
+                result = engine.run(program, degree, inputs);
+            }
+            responseMap.put("status", "success");
+            responseMap.put("result", result);
 
         } catch (Exception e) {
-            out.printf("{\"error\": \"%s: %s\"}",
-                    e.getClass().getSimpleName(),
-                    e.getMessage().replace("\"", "'"));
-            e.printStackTrace(out);
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            responseMap.put("status", "error");
+            responseMap.put("message", e.getMessage());
+            responseMap.put("exception", e.getClass().getSimpleName());
+        }
+
+        writeJson(resp, responseMap);
+    }
+
+    private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
+        String json = gson.toJson(data);
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(json);
         }
     }
 }

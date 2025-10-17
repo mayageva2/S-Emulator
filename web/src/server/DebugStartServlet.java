@@ -1,5 +1,6 @@
 package server;
 
+import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import jakarta.servlet.annotation.WebServlet;
@@ -7,27 +8,42 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
+import java.util.*;
 
 @WebServlet("/debug/start")
 public class DebugStartServlet extends HttpServlet {
 
+    private static final Gson gson = new Gson();
+
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
         resp.setContentType("application/json;charset=UTF-8");
-        PrintWriter out = resp.getWriter();
+        resp.setCharacterEncoding("UTF-8");
+
+        Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
             EmulatorEngine engine = EngineHolder.getEngine();
 
-            if (!engine.hasProgramLoaded()) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                out.println("{\"error\":\"No program loaded\"}");
+            if (engine == null) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine is null (EngineHolder not initialized)");
+                writeJson(resp, responseMap);
                 return;
             }
 
+            if (!engine.hasProgramLoaded()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No program loaded");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            // Parse parameters
+            String programName = req.getParameter("program");
             String degreeStr = req.getParameter("degree");
             String inputsStr = req.getParameter("inputs");
 
@@ -36,40 +52,67 @@ public class DebugStartServlet extends HttpServlet {
                 try {
                     degree = Integer.parseInt(degreeStr.trim());
                 } catch (NumberFormatException e) {
-                    out.println("{\"error\":\"Invalid degree parameter\"}");
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    responseMap.put("status", "error");
+                    responseMap.put("message", "Invalid degree parameter");
+                    writeJson(resp, responseMap);
                     return;
                 }
             }
 
-            Long[] inputs = new Long[0];
-            if (inputsStr != null && !inputsStr.isBlank()) {
-                String[] parts = inputsStr.split(",");
-                inputs = Arrays.stream(parts)
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .map(Long::valueOf)
-                        .toArray(Long[]::new);
+            Long[] inputs = parseInputs(inputsStr);
+
+            if (!(engine instanceof EmulatorEngineImpl impl)) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine is not EmulatorEngineImpl");
+                writeJson(resp, responseMap);
+                return;
             }
 
-            if (engine instanceof EmulatorEngineImpl impl) {
+            if (programName == null || programName.isEmpty()) {
                 impl.debugStart(inputs, degree);
-
-                out.println("{");
-                out.println("  \"status\": \"Debug session started successfully\",");
-                out.println("  \"degree\": " + degree + ",");
-                out.println("  \"inputs\": \"" + Arrays.toString(inputs) + "\",");
-                out.println("  \"finished\": " + impl.debugIsFinished() + ",");
-                out.println("  \"pc\": " + impl.debugCurrentPC() + ",");
-                out.println("  \"cycles\": " + impl.debugCycles());
-                out.println("}");
-            } else {
-                out.println("{\"error\": \"Engine is not EmulatorEngineImpl\"}");
             }
+            else {
+                impl.debugStart(programName, inputs, degree);
+            }
+
+            Map<String, String> varsSnapshot = impl.debugVarsSnapshot();
+            Map<String, Object> debug = new LinkedHashMap<>();
+            debug.put("pc", impl.debugCurrentPC());
+            debug.put("cycles", impl.debugCycles());
+            debug.put("vars", varsSnapshot);
+            debug.put("finished", impl.debugIsFinished());
+
+            responseMap.put("status", "success");
+            responseMap.put("message", "Debug session started successfully");
+            responseMap.put("debug", debug);
 
         } catch (Exception e) {
-            e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            out.println("{\"error\":\"" + e.getClass().getSimpleName() + ": " + e.getMessage() + "\"}");
+            responseMap.put("status", "error");
+            responseMap.put("message", e.getMessage());
+            responseMap.put("exception", e.getClass().getSimpleName());
+        }
+
+        writeJson(resp, responseMap);
+    }
+
+    // Parse CSV of inputs
+    private Long[] parseInputs(String csv) {
+        if (csv == null || csv.isBlank()) return new Long[0];
+        return Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::valueOf)
+                .toArray(Long[]::new);
+    }
+
+    //Write JSON response to client
+    private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
+        String json = gson.toJson(data);
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(json);
         }
     }
 }

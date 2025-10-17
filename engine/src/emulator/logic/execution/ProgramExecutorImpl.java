@@ -127,6 +127,11 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     //This func executes a single instruction and returns the next instruction index
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
+
+        if (stepListener != null) {
+            stepListener.onStep(currentIndex, QuoteUtils.getCurrentCycles() + lastExecutionCycles, snapshotVarsForDebug(), false);
+        }
+
         Label next = ins.execute(context);
         lastExecutionCycles += ins.cycles();
         int dynamicIncrement = 0;
@@ -148,9 +153,6 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         }
 
         boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
-        if (stepListener != null) {
-            stepListener.onStep(nextIndex, QuoteUtils.getCurrentCycles() + lastExecutionCycles, snapshotVarsForDebug(), finished);
-        }
         return nextIndex;
     }
 

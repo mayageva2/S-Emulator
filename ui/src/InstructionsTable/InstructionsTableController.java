@@ -1,7 +1,9 @@
 package InstructionsTable;
 
+import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
+import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
@@ -10,10 +12,11 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.skin.TableViewSkin;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -56,8 +59,10 @@ public class InstructionsTableController {
         });
         instructionCol.setCellValueFactory(cd -> {
             var r = cd.getValue();
-            String text = prettyCommand(r.sourceIv);
-            return new ReadOnlyStringWrapper("  ".repeat(Math.max(0, r.depth)) + text);
+            String text = (r.display != null && !r.display.isBlank())
+                    ? r.display
+                    : r.opcode + " " + String.join(", ", r.args);
+            return new ReadOnlyStringWrapper(text);
         });
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -175,9 +180,11 @@ public class InstructionsTableController {
     }
 
     //This func generates a readable string representation of an instruction
-    private String prettyCommand(InstructionView iv) {
+    public String prettyCommand(InstructionView iv) {
+        if (iv == null) return "(no source)";
         var args = iv.args();
-        switch (iv.opcode()) {
+        String op = iv.opcode().toUpperCase(Locale.ROOT);
+        switch (op) {
             case "INCREASE": return args.get(0) + "<-" + args.get(0) + " + 1";
             case "DECREASE": return args.get(0) + "<-" + args.get(0) + " - 1";
             case "NEUTRAL":  return args.get(0) + "<-" + args.get(0);
@@ -346,5 +353,109 @@ public class InstructionsTableController {
             }
         }
         return "";
+    }
+
+    @SuppressWarnings("unchecked")
+    public void renderFromJson(List<Map<String, Object>> instructionsList) {
+        if (instructionsList == null || instructionsList.isEmpty()) {
+            clear();
+            return;
+        }
+
+        List<InstructionRow> rows = new ArrayList<>();
+        for (Map<String, Object> map : instructionsList) {
+            int index = ((Number) map.getOrDefault("index", 0)).intValue();
+            boolean basic = Boolean.TRUE.equals(map.get("basic"));
+            String label = Objects.toString(map.get("label"), "");
+            int cycles = ((Number) map.getOrDefault("cycles", 0)).intValue();
+            String opcode = Objects.toString(map.get("opcode"), "");
+            List<String> args = (List<String>) map.getOrDefault("args", List.of());
+
+            List<Map<String, Object>> subViewsList =
+                    (List<Map<String, Object>>) map.get("createdFromViews");
+            List<InstructionView> createdFromViews = new ArrayList<>();
+            if (subViewsList != null) {
+                for (Map<String, Object> subMap : subViewsList) {
+                    int sIndex = ((Number) subMap.getOrDefault("index", -1)).intValue();
+                    String sOpcode = Objects.toString(subMap.get("opcode"), "");
+                    String sLabel = Objects.toString(subMap.get("label"), "");
+                    int sCycles = ((Number) subMap.getOrDefault("cycles", 0)).intValue();
+                    boolean sBasic = Boolean.TRUE.equals(subMap.get("basic"));
+                    List<String> sArgs = (List<String>) subMap.getOrDefault("args", List.of());
+
+                    createdFromViews.add(new InstructionView(
+                            sIndex,
+                            sOpcode,
+                            sLabel,
+                            sBasic,
+                            sCycles,
+                            sArgs,
+                            List.of(),
+                            List.of()
+                    ));
+                }
+            }
+
+            List<Integer> createdFromChain =
+                    (List<Integer>) map.getOrDefault("createdFromChain", List.of());
+
+            InstructionView iv = new InstructionView(
+                    index,
+                    opcode,
+                    label,
+                    basic,
+                    cycles,
+                    args,
+                    createdFromChain,
+                    createdFromViews
+            );
+
+            String display = prettyCommand(iv);
+            InstructionRow row = new InstructionRow(index, basic, label, cycles, opcode, args, 0, iv);
+            row.display = display;
+            rows.add(row);
+        }
+        setItems(rows);
+    }
+
+    private static String extractArg(List<String> args, String... keys) {
+        for (String key : keys) {
+            for (String a : args) {
+                if (a.toLowerCase(Locale.ROOT).startsWith(key.toLowerCase(Locale.ROOT) + "=")) {
+                    return a.substring(key.length() + 1);
+                }
+            }
+        }
+        return "";
+    }
+
+    public void refreshFromServer(int degree) {
+        new Thread(() -> {
+            try {
+                String urlStr = "http://localhost:8080/semulator/view?degree=" + degree;
+                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "application/json");
+
+                if (conn.getResponseCode() != 200) {
+                    System.err.println("Server returned status " + conn.getResponseCode());
+                    return;
+                }
+
+                String json;
+                try (InputStream in = conn.getInputStream()) {
+                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                }
+
+                Gson gson = new Gson();
+                Map<String, Object> map = gson.fromJson(json, Map.class);
+                List<Map<String, Object>> instructionsList =
+                        (List<Map<String, Object>>) map.get("instructions");
+
+                Platform.runLater(() -> renderFromJson(instructionsList));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, "table-refresh").start();
     }
 }

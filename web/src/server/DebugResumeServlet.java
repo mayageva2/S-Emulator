@@ -1,5 +1,6 @@
 package server;
 
+import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import jakarta.servlet.annotation.WebServlet;
@@ -7,34 +8,52 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @WebServlet("/debug/resume")
 public class DebugResumeServlet extends HttpServlet {
 
+    private static final Gson gson = new Gson();
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
-        PrintWriter out = resp.getWriter();
+        resp.setCharacterEncoding("UTF-8");
+
+        Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
             EmulatorEngine engine = EngineHolder.getEngine();
+
             if (!(engine instanceof EmulatorEngineImpl impl)) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                out.println("{\"error\":\"Engine is not EmulatorEngineImpl\"}");
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine is not EmulatorEngineImpl");
+                writeJson(resp, responseMap);
                 return;
             }
+
             if (!engine.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                out.println("{\"error\":\"No program loaded\"}");
+                responseMap.put("status", "error");
+                responseMap.put("message", "No program loaded");
+                writeJson(resp, responseMap);
                 return;
             }
+
             if (impl.debugIsFinished()) {
-                out.println("{\"status\":\"Already finished\"}");
+                Map<String, Object> debugData = makeDebugData(impl);
+                responseMap.put("status", "stopped");
+                responseMap.put("message", "Program already finished");
+                responseMap.put("finished", true);
+                responseMap.put("debug", debugData);
+                writeJson(resp, responseMap);
                 return;
             }
 
             impl.debugResume();
+
             long start = System.currentTimeMillis();
             long timeoutMs = 3000;
             boolean finished = false;
@@ -47,43 +66,59 @@ public class DebugResumeServlet extends HttpServlet {
                 try { Thread.sleep(50); } catch (InterruptedException ignored) {}
             }
 
-            if (!finished) {
-                out.println("{\"status\":\"Still running\",\"pc\":" + impl.debugCurrentPC() +
-                        ",\"cycles\":" + impl.debugCycles() + "}");
-                return;
+            Map<String, Object> debugData = makeDebugData(impl);
+
+            if (finished) {
+                impl.recordDebugSession(
+                        impl.lastRunProgramName(),
+                        impl.lastRunDegree(),
+                        impl.lastRunInputs().toArray(new Long[0]),
+                        impl.debugVarsSnapshot(),
+                        impl.debugCycles()
+                );
+
+                responseMap.put("status", "stopped");
+                responseMap.put("message", "Program finished");
+                responseMap.put("finished", true);
+                responseMap.put("debug", debugData);
+            } else {
+                responseMap.put("status", "resumed");
+                responseMap.put("message", "Debug resumed and still running");
+                responseMap.put("finished", false);
+                responseMap.put("debug", debugData);
             }
 
-            Map<String, String> vars = impl.debugVarsSnapshot();
-            int cycles = impl.debugCycles();
-            long yVal = vars.containsKey("y") ? Long.parseLong(vars.get("y")) : 0;
-
-            impl.recordDebugSession(
-                    impl.lastRunProgramName(),
-                    impl.lastRunDegree(),
-                    impl.lastRunInputs().toArray(new Long[0]),
-                    vars,
-                    cycles
-            );
-
-            out.println("{");
-            out.println("  \"status\": \"Program finished\",");
-            out.println("  \"y\": " + yVal + ",");
-            out.println("  \"cycles\": " + cycles + ",");
-            out.println("  \"vars\": {");
-            int i = 0, n = vars.size();
-            for (var e : vars.entrySet()) {
-                out.print("    \"" + e.getKey() + "\": \"" + e.getValue() + "\"");
-                if (++i < n) out.println(",");
-                else out.println();
-            }
-            out.println("  }");
-            out.println("}");
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            e.printStackTrace();
-            String msg = e.getMessage();
-            if (msg == null) msg = e.getClass().getSimpleName();
-            out.println("{\"error\":\"" + msg.replace("\"","'") + "\"}");
+            responseMap.put("status", "error");
+            responseMap.put("message", e.getMessage());
+            responseMap.put("exception", e.getClass().getSimpleName());
+        }
+
+        writeJson(resp, responseMap);
+    }
+
+    private Map<String, Object> makeDebugData(EmulatorEngineImpl impl) {
+        Map<String, Object> debugData = new LinkedHashMap<>();
+        Map<String, String> vars = impl.debugVarsSnapshot();
+
+        long yVal = 0;
+        if (vars != null && vars.containsKey("y")) {
+            try {
+                yVal = Long.parseLong(vars.get("y"));
+            } catch (NumberFormatException ignored) {}
+        }
+
+        debugData.put("y", yVal);
+        debugData.put("pc", impl.debugCurrentPC());
+        debugData.put("cycles", impl.debugCycles());
+        debugData.put("vars", vars);
+        return debugData;
+    }
+
+    private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(gson.toJson(data));
         }
     }
 }

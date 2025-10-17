@@ -23,6 +23,7 @@ public interface EmulatorEngine {
     List<RunRecord> history();
     List<RunRecord> history(String programName);
     List<String> availablePrograms();
+    List<String> getAllProgramNames();
     boolean hasProgramLoaded();
     List<String> extractInputVars(ProgramView pv);
     LoadResult loadProgram(Path xmlPath)

@@ -1,5 +1,6 @@
 package SelectedInstructionHistoryChainTable;
 
+import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import InstructionsTable.InstructionsTableController;
@@ -24,14 +25,71 @@ public class SelectedInstructionHistoryChainTableController {
     @FXML
     private void initialize() {}
 
+    public void setInstructionsController(InstructionsTableController controller) {
+        this.instructionsController = controller;
+    }
+
     public void showForSelected(InstructionView selected, ProgramView pvOriginal) {
         if (selected == null) {
             clear();
             return;
         }
-        List<InstructionView> chain = new ArrayList<>(selected.createdFromViews());
+
+        try {
+            if (selected != null && selected.createdFromViews() != null) {
+                List<InstructionView> fixedList = new ArrayList<>();
+                for (Object o : selected.createdFromViews()) {
+                    if (o instanceof InstructionView iv) {
+                        fixedList.add(iv);
+                    } else {
+                        String json = new Gson().toJson(o);
+                        fixedList.add(new Gson().fromJson(json, InstructionView.class));
+                    }
+                }
+                selected = new Gson().fromJson(
+                        new Gson().toJson(selected),
+                        InstructionView.class
+                );
+                selected.createdFromViews().clear();
+                selected.createdFromViews().addAll(fixedList);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to reconstruct InstructionView: " + e.getMessage());
+        }
+
+        List<InstructionView> chain = new ArrayList<>();
+        collectChainRecursive(selected, chain, new HashSet<>());
+
+        if (!chain.isEmpty() && chain.get(chain.size() - 1).index() == selected.index()) {
+            chain.remove(chain.size() - 1);
+        }
+        if (chain.isEmpty()) {
+            clear();
+            return;
+        }
+
+        Collections.reverse(chain);
         List<InstructionRow> items = toRows(chain);
-        Platform.runLater(() -> instructionsController.setItems(items));
+
+        Platform.runLater(() -> {
+            instructionsController.setItems(items);
+            System.out.println("History chain updated with " + items.size() + " items");
+        });
+    }
+
+
+    private void collectChainRecursive(InstructionView current, List<InstructionView> out, Set<Integer> visited) {
+        if (current == null) return;
+        if (!visited.add(current.index())) return;
+
+        List<InstructionView> prevs = current.createdFromViews();
+        if (prevs != null) {
+            for (InstructionView prev : prevs) {
+                collectChainRecursive(prev, out, visited);
+            }
+        }
+
+        out.add(current);
     }
 
     public void clear() {
@@ -76,7 +134,9 @@ public class SelectedInstructionHistoryChainTableController {
                     iv.createdFromViews()
             );
 
-            out.add(new InstructionRow(
+            String display = instructionsController.prettyCommand(patched);
+
+            InstructionRow row = new InstructionRow(
                     iv.index(),
                     iv.basic(),
                     ns(iv.label()),
@@ -85,11 +145,23 @@ public class SelectedInstructionHistoryChainTableController {
                     args,
                     d,
                     patched
-            ));
+            );
+            row.display = display;
+            out.add(row);
         }
         return out;
     }
 
+    private static String extractArg(List<String> args, String... keys) {
+        for (String key : keys) {
+            for (String a : args) {
+                if (a.toLowerCase(Locale.ROOT).startsWith(key.toLowerCase(Locale.ROOT) + "=")) {
+                    return a.substring(key.length() + 1);
+                }
+            }
+        }
+        return "";
+    }
 
     private static String stripParens(String s) {
         if (s == null) return "";

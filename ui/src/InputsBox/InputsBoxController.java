@@ -37,7 +37,17 @@ public class InputsBoxController {
     }
 
     public void showForProgram(ProgramView pv) {
-        showNames(Collections.emptyList()); // fallback – real names come from MainController
+        if (pv == null) {
+            showNames(Collections.emptyList());
+            return;
+        }
+        List<String> inputs = pv.inputs();
+        if (inputs == null || inputs.isEmpty()) {
+            showNames(Collections.emptyList());
+        } else {
+            showNames(inputs);
+        }
+
     }
 
     public void showNames(List<String> names) {
@@ -164,6 +174,48 @@ public class InputsBoxController {
                 }
             }
             tf.setText(val);
+        }
+    }
+
+    public String collectInputsAsJson() {
+        Long[] values = collectAsLongsOrThrow();
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < values.length; i++) {
+            sb.append(values[i]);
+            if (i < values.length - 1) sb.append(",");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public Map<String, Long> collectInputsAsMap() {
+        Map<String, Long> map = new LinkedHashMap<>();
+        for (String name : inputNames) {
+            String raw = fieldsByName.get(name).getText().trim();
+            long value = raw.isEmpty() ? 0L : Long.parseLong(raw);
+            map.put(name, value);
+        }
+        return map;
+    }
+
+    public List<String> getCurrentInputValues() {
+        List<String> values = new ArrayList<>();
+        for (String name : inputNames) {
+            TextField field = fieldsByName.get(name);
+            values.add(field != null ? field.getText() : "");
+        }
+        return values;
+    }
+
+    public void restoreInputValues(List<String> prevValues) {
+        int i = 0;
+        for (String name : inputNames) {
+            if (i >= prevValues.size()) break;
+            TextField field = fieldsByName.get(name);
+            if (field != null) {
+                field.setText(prevValues.get(i));
+            }
+            i++;
         }
     }
 }

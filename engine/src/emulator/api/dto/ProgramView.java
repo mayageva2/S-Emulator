@@ -7,7 +7,8 @@ public record ProgramView(
         String programName,
         int degree,
         int maxDegree,
-        int totalCycles
+        int totalCycles,
+        List<String> inputs
 ) { }
 
 

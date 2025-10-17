@@ -141,16 +141,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     @Override
     public Map<String, Long> lastRunVars() {
-        return (lastRunVars == null)
-                ? Map.of()
+        return (lastRunVars == null) ? Map.of()
                 : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(lastRunVars));
     }
 
     @Override
     public List<Long> lastRunInputs() {
-        return (lastRunInputs == null)
-                ? java.util.List.of()
-                : java.util.List.copyOf(lastRunInputs);
+        return (lastRunInputs == null) ? java.util.List.of() : java.util.List.copyOf(lastRunInputs);
+    }
+
+    public Map<String, String> getDisplayNameMap() {
+        return Collections.unmodifiableMap(fnDisplayMap);
     }
 
     @Override
@@ -314,23 +315,37 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         List<IdentityHashMap<Instruction, Integer>> indexMaps = buildIndexMaps(byDegree, degree); // Index maps for each degree
         Function<Instruction, InstructionView> mkViewNoIndex = this::makeInstructionViewNoIndex;
 
-        //Build final views (with provenance)
+        // Build final views
         List<InstructionView> out = new ArrayList<>(real.size());
         for (int i = 0; i < real.size(); i++) {
             Instruction ins = real.get(i);
+
+            // provenance chain
             List<InstructionView> provenance = buildProvenanceForInstruction(ins, degree, indexMaps, mkViewNoIndex);
+
+            // numeric chain
+            List<Integer> createdFromChain = new ArrayList<>();
+            Instruction cur = ins.getCreatedFrom();
+            int guessDeg = degree - 1;
+            while (cur != null) {
+                int foundDeg = findDegreeForInstruction(cur, indexMaps, Math.min(guessDeg, degree - 1), degree);
+                Integer idx = (foundDeg >= 0) ? indexMaps.get(foundDeg).get(cur) : null;
+                if (idx != null) createdFromChain.add(idx);
+                cur = cur.getCreatedFrom();
+                guessDeg--;
+            }
 
             InstructionView self = mkViewNoIndex.apply(ins);
             out.add(new InstructionView(
                     i,
                     self.opcode(), self.label(),
                     self.basic(), self.cycles(), self.args(),
-                    List.of(),
+                    createdFromChain,
                     provenance
             ));
         }
-
-        return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles);
+        List<String> inputs = extractInputVars(new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles, List.of()));
+        return new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles,  inputs);
     }
 
     @Override
@@ -393,6 +408,24 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public List<String> availablePrograms() {
         return functionLibrary.keySet().stream().toList();
+    }
+
+    @Override
+    public List<String> getAllProgramNames() {
+        Set<String> names = new LinkedHashSet<>();
+
+        if (current != null && current.getName() != null)
+            names.add(current.getName());
+        if (functionLibrary != null)
+            names.addAll(functionLibrary.keySet());
+        if (functionsOnly != null)
+            names.addAll(functionsOnly.keySet());
+
+        return names.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
     }
 
     //This func builds maps per degree from Instruction identity
@@ -799,6 +832,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
         }
+
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
         debugStopSafe();
 
@@ -819,12 +853,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
 
-        dbgExecutor.setStepListener((pcAfter, cycles, vars, finished) -> {
-            dbgPC = pcAfter;
+        dbgExecutor.setStepListener((pc, cycles, vars, finished) -> {
+            dbgPC = pc;
             dbgCycles = cycles;
-            if (dbgExecutor instanceof ProgramExecutorImpl pei) {
-                pei.setBaseCycles(cycles);
-            }
             dbgVars = (vars == null) ? snapshotVars(dbgExecutor, inputs) : Map.copyOf(vars);
 
             synchronized (dbgLock) {
@@ -832,7 +863,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
                 if (!dbgResumeMode) {
                     while (!dbgStopRequested && !dbgStepOnce) {
-                        try { dbgLock.wait(); } catch (InterruptedException ie) {
+                        try {
+                            dbgLock.wait();
+                        } catch (InterruptedException ie) {
                             Thread.currentThread().interrupt();
                             throw new DebugAbortException();
                         }
@@ -846,40 +879,42 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         dbgThread = new Thread(() -> {
             try {
                 long y = dbgExecutor.run(inputs == null ? new Long[0] : inputs);
+
                 int cycles = dbgExecutor.getLastExecutionCycles();
-                Map<String,String> vars = snapshotVars(dbgExecutor, inputs);
-                List<VariableView> varViews = dbgExecutor.variableState().entrySet().stream()
-                        .map(e -> new VariableView(
-                                e.getKey().getRepresentation(),
-                                VarType.valueOf(e.getKey().getType().name()),
-                                e.getKey().getNumber(),
-                                e.getValue()
-                        ))
-                        .toList();
+                Map<String, String> vars = snapshotVars(dbgExecutor, inputs);
+
                 lastRunVars = dbgExecutor.variableState().entrySet().stream()
                         .collect(java.util.stream.Collectors.toMap(
                                 e -> e.getKey().getRepresentation(),
                                 Map.Entry::getValue,
-                                (a,b)->b,
+                                (a, b) -> b,
                                 LinkedHashMap::new
                         ));
-                lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+
+                lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
+                        .map(v -> v == null ? 0L : v)
+                        .toList();
                 lastRunDegree = degree;
                 lastRunProgramName = target.getName();
+
                 dbgVars = vars;
                 dbgFinished = true;
                 dbgAlive = false;
+
             } catch (DebugAbortException ignore) {
             } catch (Throwable t) {
             } finally {
                 dbgFinished = true;
                 dbgAlive = false;
-                synchronized (dbgLock) { dbgLock.notifyAll(); }
+                synchronized (dbgLock) {
+                    dbgLock.notifyAll();
+                }
                 if (dbgOnFinish != null) {
                     dbgOnFinish.run();
                 }
             }
         }, "emu-debug-thread");
+
         dbgThread.setDaemon(true);
         dbgThread.start();
     }
@@ -943,7 +978,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return new RunResult(y, debugCycles(), vars);
     }
 
-
     @Override
     public DebugService debugger() {
         return new EngineDebugAdapter(this);
@@ -955,4 +989,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         historyByProgram.clear();
         runCountersByProgram.clear();
     }
+
+    public List<String> displayProgramNames() {
+        List<String> names = new ArrayList<>();
+        names.add("Main Program");
+
+        names.addAll(fnDisplayMap.values().stream()
+                .filter(v -> v != null && !v.isBlank())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList());
+
+        return names;
+    }
+
 }

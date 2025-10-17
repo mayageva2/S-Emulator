@@ -10,6 +10,7 @@ import javafx.beans.property.ReadOnlyLongWrapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
@@ -18,11 +19,11 @@ import emulator.api.dto.RunRecord;
 
 public class StatisticsTableController {
 
-    /** Row model matching your console columns. */
+    // Row model matching your console columns
     public static final class HistoryRow {
         public final int run;
         public final int degree;
-        public final String inputs; // prettified
+        public final String inputs;
         public final long y;
         public final int cycles;
 
@@ -44,6 +45,8 @@ public class StatisticsTableController {
 
     private List<RunRecord> currentHistory = List.of();
 
+    public List<RunRecord> getCurrentHistory() { return currentHistory; }
+
     @FXML
     private void initialize() {
         // Value factories
@@ -52,8 +55,6 @@ public class StatisticsTableController {
         inputsCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().inputs));
         yCol.setCellValueFactory(cd -> new ReadOnlyLongWrapper(cd.getValue().y));
         cyclesCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().cycles));
-
-       // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         // Right-align numeric cells
         TableCellAlign.right(runCol);
@@ -73,7 +74,7 @@ public class StatisticsTableController {
         }
     }
 
-    /** Fill the table from your engine history using your existing formatter. */
+    // Fill the table from your engine history using your existing formatter
     public void setHistory(List<RunRecord> history, Function<String, String> formatInputsByPosition) {
         currentHistory = (history == null) ? List.of() : new ArrayList<>(history);
         if (history == null || history.isEmpty()) {
@@ -95,7 +96,7 @@ public class StatisticsTableController {
         table.getItems().setAll(rows);
     }
 
-    /** Convenience if you already precomputed pretty inputs (keeps your old flow). */
+    // Convenience if you already precomputed pretty inputs
     public void setHistory(List<RunRecord> history, List<String> prettyInputs) {
         currentHistory = (history == null) ? List.of() : new ArrayList<>(history);
         if (history == null || history.isEmpty()) {
@@ -150,5 +151,13 @@ public class StatisticsTableController {
             }
             currentHistory = List.of();
         } catch (Throwable ignore) {}
+    }
+
+    public Optional<RunRecord> getSelectedRunRecord() {
+        OptionalInt idx = getSelectedHistoryIndex();
+        if (idx.isEmpty()) return Optional.empty();
+        int i = idx.getAsInt();
+        if (i < 0 || i >= currentHistory.size()) return Optional.empty();
+        return Optional.of(currentHistory.get(i));
     }
 }
