@@ -1,5 +1,6 @@
 package StatisticsCommands;
 
+import Main.Execution.MainExecutionController;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
@@ -30,14 +31,14 @@ public class StatisticsCommandsController {
 
     private Map<String, String> lastVarsSnapshot = Map.of();
     private ProgramToolBar.ProgramToolbarController toolbarController;
-    private Main.MainController mainController;
+    private MainExecutionController mainExecutionController;
     private StatisticsTable.StatisticsTableController statisticsTableController;
 
     public void setToolbarController(ProgramToolBar.ProgramToolbarController c) {
         this.toolbarController = c;
     }
-    public void setMainController(Main.MainController c) {
-        this.mainController = c;
+    public void setMainController(MainExecutionController c) {
+        this.mainExecutionController = c;
     }
     public void setStatisticsTableController(StatisticsTable.StatisticsTableController c) {
         this.statisticsTableController = c;
@@ -138,7 +139,7 @@ public class StatisticsCommandsController {
                     + "&degree=" + rec.degree()
                     + "&inputs=" + URLEncoder.encode(csvInputs, StandardCharsets.UTF_8);
 
-            String resp = mainController.httpPostFormPublic("http://localhost:8080/semulator/run", formData);
+            String resp = mainExecutionController.httpPostFormPublic("http://localhost:8080/semulator/run", formData);
 
             Map<String, Object> outer = new Gson().fromJson(resp, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(outer.get("status"))) {
@@ -171,8 +172,8 @@ public class StatisticsCommandsController {
                 }
             }
 
-            if (mainController != null) {
-                var varsBox = mainController.getVarsBoxController();
+            if (mainExecutionController != null) {
+                var varsBox = mainExecutionController.getVarsBoxController();
                 if (varsBox != null) {
                     Platform.runLater(() -> {
                         varsBox.renderAll(varsMap);
@@ -181,8 +182,8 @@ public class StatisticsCommandsController {
                 }
 
                 Platform.runLater(() -> {
-                    mainController.refreshHistory();
-                    mainController.refreshProgramViewPublic(rec.degree());
+                    mainExecutionController.refreshHistory();
+                    mainExecutionController.refreshProgramViewPublic(rec.degree());
                 });
             }
 

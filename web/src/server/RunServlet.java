@@ -40,6 +40,7 @@ public class RunServlet extends HttpServlet {
             }
 
             String program = (String) data.get("program");
+
             Number degreeNum = (Number) data.getOrDefault("degree", 0);
             int degree = degreeNum.intValue();
 
@@ -56,7 +57,13 @@ public class RunServlet extends HttpServlet {
                 return;
             }
 
-            RunResult result = engine.run(program, degree, inputs);
+            RunResult result;
+            if (program == null || program.isEmpty()) {
+                result = engine.run(degree, inputs);
+            }
+            else {
+                result = engine.run(program, degree, inputs);
+            }
             responseMap.put("status", "success");
             responseMap.put("result", result);
 

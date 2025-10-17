@@ -1,6 +1,7 @@
 package RunButtons;
 
 import InputsBox.InputsBoxController;
+import Main.Execution.MainExecutionController;
 import VariablesBox.VariablesBoxController;
 import StatisticsTable.StatisticsTableController;
 import ProgramToolBar.ProgramToolbarController;
@@ -34,7 +35,7 @@ public class RunButtonsController {
     private StatisticsTableController statisticsTableController;
     private ProgramToolbarController toolbarController;
     private InstructionsTableController instructionsController;
-    private Main.MainController mainController;
+    private MainExecutionController mainExecutionController;
 
     private int currentDegree = 0;
     private String currentProgram = "";
@@ -66,8 +67,8 @@ public class RunButtonsController {
     public void setVarsBoxController(VariablesBoxController c) { this.varsBoxController = c; }
     public void setInputsBoxController(InputsBoxController c) { this.inputsBoxController = c; }
     public void setStatisticsTableController(StatisticsTableController c) { this.statisticsTableController = c; }
-    public void setProgramToolbarController(ProgramToolbarController c) { this.toolbarController = c; }
     public void setInstructionsController(InstructionsTableController c) { this.instructionsController = c; }
+    public void setProgramToolbarController(ProgramToolbarController c) {this.toolbarController = c;}
 
     public void setCurrentProgram(String name) { this.currentProgram = (name == null ? "" : name); }
     public void setCurrentDegree(int degree) { this.currentDegree = Math.max(0, degree); }
@@ -82,11 +83,19 @@ public class RunButtonsController {
     private void onRun(ActionEvent e) {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
+            String effectiveProgram = (currentProgram == null || currentProgram.isBlank() ||
+                            currentProgram.equalsIgnoreCase("Main Program")) ? "" : currentProgram;
 
             Map<String, Object> data = new LinkedHashMap<>();
-            data.put("program", currentProgram);
+            data.put("program", effectiveProgram);
             data.put("degree", currentDegree);
             data.put("inputs", inputs);
+
+            System.out.println("▶ Sending run request:");
+            System.out.println("  program='" + currentProgram + "'");
+            System.out.println("  effectiveProgram='" + effectiveProgram + "'");
+            System.out.println("  degree=" + currentDegree);
+            System.out.println("  inputs=" + Arrays.toString(inputs));
 
             String json = gson.toJson(data);
             String response = httpPostJson(BASE_URL + "run", json);
@@ -112,8 +121,8 @@ public class RunButtonsController {
 
             if (varsBoxController != null) {
                 varsBoxController.renderAll(varsMap);
-                if (mainController != null) {
-                    var statsCmd = mainController.getStatisticsCommandsController();
+                if (mainExecutionController != null) {
+                    var statsCmd = mainExecutionController.getStatisticsCommandsController();
                     if (statsCmd != null) {
                         Map<String, String> snapshot = new LinkedHashMap<>();
                         for (var es : varsMap.entrySet()) {
@@ -128,8 +137,8 @@ public class RunButtonsController {
             if (statisticsTableController != null)
                 Platform.runLater(() -> statisticsTableController.clear());
 
-            if (mainController != null) {
-                mainController.refreshHistory();
+            if (mainExecutionController != null) {
+                mainExecutionController.refreshHistory();
             }
 
         } catch (Exception ex) {
@@ -142,7 +151,12 @@ public class RunButtonsController {
     private void onDebug(ActionEvent e) {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
-            String formData = "program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8)
+            String effectiveProgram =
+                    (currentProgram == null || currentProgram.isBlank() ||
+                            currentProgram.equalsIgnoreCase("Main Program"))
+                            ? "" : currentProgram;
+
+            String formData = "program=" + URLEncoder.encode(effectiveProgram, StandardCharsets.UTF_8)
                     + "&degree=" + currentDegree
                     + "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
             String response = httpPost(BASE_URL + "debug/start", formData);
@@ -161,8 +175,8 @@ public class RunButtonsController {
                     if (finished) {
                         instructionsController.clearHighlight();
                         disableDebugButtons(true);
-                        if (mainController != null) {
-                            mainController.refreshHistory();
+                        if (mainExecutionController != null) {
+                            mainExecutionController.refreshHistory();
                         }
                     } else {
                         instructionsController.highlightRow(idx.intValue());
@@ -220,13 +234,13 @@ public class RunButtonsController {
                     case "stopped" -> {
                         instructionsController.clearHighlight();
                         disableDebugButtons(true);
-                        if (mainController != null) mainController.refreshHistory();
+                        if (mainExecutionController != null) mainExecutionController.refreshHistory();
                     }
                     case "resumed" -> {
                         if (finished) {
                             instructionsController.clearHighlight();
                             disableDebugButtons(true);
-                            if (mainController != null) mainController.refreshHistory();
+                            if (mainExecutionController != null) mainExecutionController.refreshHistory();
                         } else {
                             instructionsController.highlightRow(fPc);
                             disableDebugButtons(false);
@@ -240,7 +254,7 @@ public class RunButtonsController {
                         if (finished) {
                             instructionsController.clearHighlight();
                             disableDebugButtons(true);
-                            if (mainController != null) mainController.refreshHistory();
+                            if (mainExecutionController != null) mainExecutionController.refreshHistory();
                         } else {
                             instructionsController.highlightRow(fPc);
                             disableDebugButtons(false);
@@ -253,7 +267,7 @@ public class RunButtonsController {
                         if (finished) {
                             instructionsController.clearHighlight();
                             disableDebugButtons(true);
-                            if (mainController != null) mainController.refreshHistory();
+                            if (mainExecutionController != null) mainExecutionController.refreshHistory();
                         } else {
                             instructionsController.highlightRow(fPc);
                         }
@@ -273,8 +287,8 @@ public class RunButtonsController {
         Platform.runLater(() -> {
             varsBoxController.renderAll(vars);
             varsBoxController.setCycles(cycles.intValue());
-            if (mainController != null) {
-                var statsCmd = mainController.getStatisticsCommandsController();
+            if (mainExecutionController != null) {
+                var statsCmd = mainExecutionController.getStatisticsCommandsController();
                 if (statsCmd != null && vars != null) {
                     Map<String, String> snapshot = new LinkedHashMap<>();
                     for (var e : vars.entrySet()) {
@@ -357,7 +371,7 @@ public class RunButtonsController {
         return sb.toString();
     }
 
-    public void setMainController(Main.MainController mainController) {
-        this.mainController = mainController;
+    public void setMainController(MainExecutionController mainExecutionController) {
+        this.mainExecutionController = mainExecutionController;
     }
 }

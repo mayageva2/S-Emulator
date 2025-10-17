@@ -70,7 +70,12 @@ public class DebugStartServlet extends HttpServlet {
                 return;
             }
 
-            impl.debugStart(programName, inputs, degree);
+            if (programName == null || programName.isEmpty()) {
+                impl.debugStart(inputs, degree);
+            }
+            else {
+                impl.debugStart(programName, inputs, degree);
+            }
 
             Map<String, String> varsSnapshot = impl.debugVarsSnapshot();
             Map<String, Object> debug = new LinkedHashMap<>();

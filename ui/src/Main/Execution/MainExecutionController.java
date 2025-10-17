@@ -1,4 +1,4 @@
-package Main;
+package Main.Execution;
 
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
@@ -30,7 +30,7 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class MainController {
+public class MainExecutionController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
     @FXML private InstructionsTableController instructionsController;
@@ -62,6 +62,8 @@ public class MainController {
     private int currentDegree = 0;
     private int maxDegree = 0;
     private Consumer<String> onHighlightChanged;
+    private String loadedProgramName = null;
+    private String selectedFunctionName = null;
 
     @FXML
     private void initialize() {
@@ -72,7 +74,15 @@ public class MainController {
         toolbarController.bindDegree(0, 0);
         toolbarController.setHighlightEnabled(false);
         toolbarController.setDegreeButtonEnabled(false);
-        toolbarController.setOnProgramSelected(this::onProgramPicked);
+        toolbarController.setOnProgramSelected(name -> {
+            if (statisticsTableController != null)
+                statisticsTableController.clear();
+
+            selectedFunctionName = (name == null ? "" : name);
+            runButtonsController.setCurrentProgram(selectedFunctionName);
+
+            refreshProgramView(currentDegree);
+        });
         toolbarController.setOnHighlightChanged(term -> {
             if (instructionsController != null) instructionsController.setHighlightTerm(term);
         });
@@ -119,10 +129,13 @@ public class MainController {
 
             System.out.println("SERVER LOAD RESPONSE:");
             System.out.println(response);
-            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>() {
+            }.getType());
 
-            if (map.containsKey("programName"))
-                currentProgram = String.valueOf(map.get("programName"));
+            if (map.containsKey("programName")){
+                loadedProgramName = String.valueOf(map.get("programName"));
+                currentProgram = loadedProgramName;
+            }
             if (map.containsKey("maxDegree"))
                 maxDegree = ((Double) map.get("maxDegree")).intValue();
             else
@@ -426,6 +439,11 @@ public class MainController {
     private void onProgramPicked(String program) {
         currentProgram = program;
         currentDegree = 0;
+
+        if (runButtonsController != null) {
+            runButtonsController.setCurrentProgram(program);
+        }
+
         refreshProgramView(currentDegree);
     }
 
