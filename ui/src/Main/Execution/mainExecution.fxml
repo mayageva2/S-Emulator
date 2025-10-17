@@ -15,7 +15,9 @@
     </top>-->
 
     <top>
-
+        <VBox spacing="2" style="-fx-padding: 6 10 0 10">
+            <fx:include fx:id="execHeader" source="../../ExecutionHeader/ExecutionHeader.fxml"/>
+        </VBox>
     </top>
 
     <center>
