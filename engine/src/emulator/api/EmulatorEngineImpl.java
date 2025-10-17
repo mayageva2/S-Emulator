@@ -19,6 +19,7 @@ import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramCost;
+import emulator.logic.user.UserManager;
 import emulator.logic.xml.*;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
@@ -361,6 +362,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+
+        int estimatedCycles = new ProgramCost(quotationRegistry).cyclesAtDegree(target, degree);
+        if (!UserManager.charge(estimatedCycles)) {
+            throw new IllegalStateException("Not enough credits (" + estimatedCycles + " cycles required)");
+        }
+
         ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
         debugTrace.clear();
         exec.setStepListener((pcAfter, cycles, vars, finished) -> {

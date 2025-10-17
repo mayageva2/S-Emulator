@@ -16,6 +16,10 @@ public class UserService {
                 .map(u -> new UserDTO(u.getUsername(), u.getCredits()));
     }
 
+    public void addCredits(long amount) {
+        UserManager.addCredits(amount);
+    }
+
     public void logout() {
         UserManager.logout();
     }
