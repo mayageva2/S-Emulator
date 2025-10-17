@@ -24,7 +24,7 @@ public class ProgramToolbarController {
     private Consumer<Integer> onDegreeChanged;
 
     public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
-    public void setOnProgramSelected(java.util.function.Consumer<String> c) { this.onProgramSelected = c; }
+    public void setOnProgramSelected(Consumer<String> c) { this.onProgramSelected = c; }
     public void setOnDegreeChanged(Consumer<Integer> c) { this.onDegreeChanged = c; }
     private Runnable onSelectProgram, onCollapseClick, onExpandClick;
     private int currentDegree = 0;

@@ -15,7 +15,7 @@
    <top>
       <HBox alignment="CENTER" prefWidth="1200.0" prefHeight="50.0" BorderPane.alignment="CENTER">
          <children>
-            <Label alignment="TOP_CENTER" contentDisplay="CENTER" text="S-Emulator" textFill="#9a0cb2d7">
+            <Label alignment="TOP_CENTER" contentDisplay="CENTER" text="S-Emulator: Dashboard " textFill="#9a0cb2d7">
                <font>
                   <Font name="System Bold" size="30.0" />
                </font>
