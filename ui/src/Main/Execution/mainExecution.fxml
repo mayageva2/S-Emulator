@@ -8,17 +8,19 @@
 <BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="Main.Execution.MainExecutionController" maxWidth="Infinity" minWidth="0">
 
-  <!--  <top>
+    <top>
         <VBox spacing="2" style="-fx-padding: 6 10 0 10">
             <fx:include fx:id="header" source="../../HeaderAndLoadButton/headerAndLoadButton.fxml"/>
         </VBox>
-    </top>-->
+    </top>
 
+<!--
     <top>
         <VBox spacing="2" style="-fx-padding: 6 10 0 10">
             <fx:include fx:id="execHeader" source="../../ExecutionHeader/ExecutionHeader.fxml"/>
         </VBox>
     </top>
+-->
 
     <center>
         <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 12 10 12" minWidth="0">

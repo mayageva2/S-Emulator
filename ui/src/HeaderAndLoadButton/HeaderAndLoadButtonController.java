@@ -1,5 +1,7 @@
 package HeaderAndLoadButton;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -13,32 +15,74 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.function.Consumer;
-
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
 public class HeaderAndLoadButtonController {
     @FXML private Button loadButton;
+    @FXML private Button chargeButton;
     @FXML private TextField xmlPathField;
+    @FXML private TextField creditsAmount;
     @FXML private Label statusLabel;
     @FXML private ProgressBar progress;
+    @FXML private Label lblUsername;
+    @FXML private Label lblCredits;
 
     private Path lastXmlPath;
     private int lastMaxDegree = 0;
     private String lastProgramName;
     private Consumer<LoadedEvent> onLoaded;
 
+    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private final Gson gson = new Gson();
+
     public record LoadedEvent(Path xmlPath, String programName, int maxDegree) {}
 
     @FXML
     private void initialize() {
         assert xmlPathField != null;
-        assert statusLabel  != null;
-        assert loadButton   != null;
+        assert statusLabel != null;
+        assert loadButton != null;
+
+        updateUserHeader();
+
+        Timer timer = new Timer(true);
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override public void run() {
+                Platform.runLater(HeaderAndLoadButtonController.this::updateUserHeader);
+            }
+        }, 3000, 3000);
     }
 
-    public void setOnLoaded(Consumer<LoadedEvent> onLoaded) { this.onLoaded = onLoaded; }
+    private void updateUserHeader() {
+        try {
+            HttpURLConnection conn = (HttpURLConnection) new URL(BASE_URL + "user/current").openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
+            if (conn.getResponseCode() != 200) return;
+
+            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+
+            if ("success".equals(map.get("status"))) {
+                Object userObj = map.get("user");
+                if (userObj instanceof Map<?, ?> user) {
+                    String username = (String) user.get("username");
+
+                    Object creditsObj = user.get("credits");
+                    long credits = (creditsObj instanceof Number n) ? n.longValue() : 0L;
+
+                    Platform.runLater(() -> {
+                        lblUsername.setText("User: " + username);
+                        lblCredits.setText("Credits: " + credits);
+                    });
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to refresh user header: " + e.getMessage());
+        }
+    }
 
     @FXML
     private void handleLoadButtonClick() {
@@ -51,96 +95,70 @@ public class HeaderAndLoadButtonController {
         sendLoadRequest(file.toPath());
     }
 
+    @FXML
+    private void handlechargeButtonClick() {
+        String amountStr = creditsAmount.getText().trim();
+        if (amountStr.isEmpty()) {
+            showAlert("Please enter credit amount.");
+            return;
+        }
+
+        try {
+            long amount = Long.parseLong(amountStr);
+            if (amount <= 0) {
+                showAlert("Amount must be positive.");
+                return;
+            }
+
+            String formData = "amount=" + URLEncoder.encode(String.valueOf(amount), StandardCharsets.UTF_8);
+            String response = httpPost(BASE_URL + "user/charge", formData);
+
+            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+            if ("success".equals(map.get("status"))) {
+                updateUserHeader(); // רענון תצוגה
+                showAlert("Credits successfully charged!");
+            } else {
+                showAlert("Error: " + map.get("message"));
+            }
+
+        } catch (NumberFormatException e) {
+            showAlert("Invalid amount format.");
+        } catch (Exception e) {
+            showAlert("Connection failed: " + e.getMessage());
+        }
+    }
+
+    private void showAlert(String msg) {
+        Platform.runLater(() -> new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK).showAndWait());
+    }
+
     private void sendLoadRequest(Path xmlPath) {
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
                 updateMessage("Preparing request...");
-                updateProgress(0.02, 1);
-                Thread.sleep(120);
-                updateProgress(0.05, 1);
-                Thread.sleep(120);
-                updateProgress(0.10, 1);
+                updateProgress(0.1, 1);
 
-                String urlStr = "http://localhost:8080/semulator/load";
+                String urlStr = BASE_URL + "load";
                 Gson gson = new Gson();
                 String jsonBody = gson.toJson(Map.of("path", xmlPath.toString()));
 
-                updateMessage("Opening connection...");
-                updateProgress(0.15, 1);
                 HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(15000);
-                Thread.sleep(150);
-                updateProgress(0.25, 1);
 
-                updateMessage("Sending JSON to server...");
                 try (OutputStream os = conn.getOutputStream()) {
-                    byte[] payload = jsonBody.getBytes(StandardCharsets.UTF_8);
-                    int chunk = Math.max(256, payload.length / 10);
-                    int written = 0;
-                    while (written < payload.length) {
-                        int toWrite = Math.min(chunk, payload.length - written);
-                        os.write(payload, written, toWrite);
-                        os.flush();
-                        written += toWrite;
-                        double p = 0.25 + (written / (double) payload.length) * (0.45 - 0.25);
-                        updateProgress(p, 1);
-                        Thread.sleep(60);
-                    }
+                    os.write(jsonBody.getBytes(StandardCharsets.UTF_8));
                 }
 
-                updateMessage("Waiting for response...");
-                Thread.sleep(200);
-                int code = conn.getResponseCode();
-                updateProgress(0.55, 1);
-                if (code != 200) {
-                    String err = "";
-                    try (InputStream es = conn.getErrorStream()) {
-                        if (es != null) err = new String(es.readAllBytes(), StandardCharsets.UTF_8);
-                    }
-                    throw new IOException("Server returned status " + code + (err.isBlank() ? "" : (": " + err)));
-                }
-
-                updateMessage("Reading response...");
                 String json;
                 try (InputStream in = conn.getInputStream()) {
-                    int contentLength = conn.getContentLength();
-                    if (contentLength > 0) {
-                        ByteArrayOutputStream bos = new ByteArrayOutputStream(Math.max(1024, contentLength));
-                        byte[] buf = new byte[4096];
-                        int read;
-                        int total = 0;
-                        while ((read = in.read(buf)) != -1) {
-                            bos.write(buf, 0, read);
-                            total += read;
-                            double frac = total / (double) contentLength;
-                            double p = 0.55 + frac * (0.90 - 0.55);
-                            updateProgress(Math.min(p, 0.90), 1);
-                            Thread.sleep(20);
-                        }
-                        json = bos.toString(StandardCharsets.UTF_8);
-                    } else {
-                        Thread.sleep(120);
-                        json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                        updateProgress(0.72, 1);
-                        Thread.sleep(120);
-                        updateProgress(0.85, 1);
-                        Thread.sleep(120);
-                        updateProgress(0.90, 1);
-                    }
+                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
                 }
-                System.out.println("LOAD RESPONSE = " + json);
 
-                updateMessage("Parsing JSON...");
-                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>() {}.getType());
-                Thread.sleep(150);
-                updateProgress(0.96, 1);
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
-                updateMessage("Finalizing...");
                 Platform.runLater(() -> {
                     statusLabel.textProperty().unbind();
                     statusLabel.setText("Loaded: " + map.getOrDefault("programName", "?"));
@@ -151,11 +169,8 @@ public class HeaderAndLoadButtonController {
                     if (onLoaded != null)
                         onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
                 });
-                Thread.sleep(150);
-                updateProgress(1.0, 1);
+                updateProgress(1, 1);
                 updateMessage("Done");
-                Thread.sleep(100);
-
                 return null;
             }
         };
@@ -166,24 +181,35 @@ public class HeaderAndLoadButtonController {
         loadButton.setDisable(true);
 
         task.setOnSucceeded(e -> {
-            progress.progressProperty().unbind();
-            statusLabel.textProperty().unbind();
             progress.setVisible(false);
             loadButton.setDisable(false);
         });
 
         task.setOnFailed(e -> {
-            progress.progressProperty().unbind();
-            statusLabel.textProperty().unbind();
             progress.setVisible(false);
             loadButton.setDisable(false);
-            Throwable ex = task.getException();
-            statusLabel.setText("Load failed");
-            new Alert(Alert.AlertType.ERROR,
-                    "File load failed:\n" + (ex != null ? ex.getMessage() : "Unknown error"),
-                    ButtonType.OK).showAndWait();
+            new Alert(Alert.AlertType.ERROR, "File load failed.").showAndWait();
         });
 
-        new Thread(task, "load-http-task").start();
+        new Thread(task).start();
+    }
+
+    private String httpPost(String urlStr, String formData) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(formData.getBytes(StandardCharsets.UTF_8));
+        }
+
+        try (InputStream in = conn.getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    public void setOnLoaded(Consumer<LoadedEvent> onLoaded) {
+        this.onLoaded = onLoaded;
     }
 }

@@ -33,23 +33,19 @@ public class ExecutionHeaderController {
     private void updateUserHeader() {
         new Thread(() -> {
             try {
-                URL url = new URL(BASE_URL + "user/credits");
+                URL url = new URL(BASE_URL + "user/current");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "application/json");
 
                 if (conn.getResponseCode() == 200) {
                     String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                     Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
                     if ("success".equals(map.get("status"))) {
-                        long credits = ((Number) map.get("credits")).longValue();
-
-                        URL urlUser = new URL(BASE_URL + "user/current");
-                        HttpURLConnection conn2 = (HttpURLConnection) urlUser.openConnection();
-                        conn2.setRequestMethod("GET");
-                        String jsonUser = new String(conn2.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                        Map<String, Object> userMap = new Gson().fromJson(jsonUser, new TypeToken<Map<String, Object>>(){}.getType());
-                        String username = (String) userMap.getOrDefault("username", "(none)");
+                        Map<String, Object> user = (Map<String, Object>) map.get("user");
+                        String username = (String) user.get("username");
+                        long credits = ((Number) user.get("credits")).longValue();
 
                         Platform.runLater(() -> {
                             lblUsername.setText("User: " + username);
