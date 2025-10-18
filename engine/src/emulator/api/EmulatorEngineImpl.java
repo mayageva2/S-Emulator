@@ -57,6 +57,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
     private final Map<String,String> displayToInternal = new HashMap<>();
+    private record ArchitectureInfo(long creditCost, String architecture) {}
 
     // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
     private transient Thread dbgThread;
@@ -163,6 +164,21 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public String lastRunProgramName() {
         return lastRunProgramName;
+    }
+
+    private ArchitectureInfo getArchitectureInfo(InstructionData data) {
+        if (data == null) return new ArchitectureInfo(0L, "?");
+
+        long cost = data.getBaseCreditCost();
+        String arch = switch ((int) cost) {
+            case 5 -> "I";
+            case 100 -> "II";
+            case 500 -> "III";
+            case 1000 -> "IV";
+            default -> "?";
+        };
+
+        return new ArchitectureInfo(cost, arch);
     }
 
     private ProgramXml parseXmlToProgram(String xml) throws Exception {
@@ -337,12 +353,20 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             }
 
             InstructionView self = mkViewNoIndex.apply(ins);
+            InstructionData data = ins.getInstructionData();
+            ArchitectureInfo info = getArchitectureInfo(data);
+
             out.add(new InstructionView(
                     i,
-                    self.opcode(), self.label(),
-                    self.basic(), self.cycles(), self.args(),
+                    self.opcode(),
+                    self.label(),
+                    self.basic(),
+                    self.cycles(),
+                    self.args(),
                     createdFromChain,
-                    provenance
+                    provenance,
+                    info.creditCost(),
+                    info.architecture()
             ));
         }
         List<String> inputs = extractInputVars(new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles, List.of()));
@@ -458,9 +482,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         Label lbl = ins.getLabel();
         String label = (lbl == null) ? null : lbl.getLabelRepresentation();
+        ArchitectureInfo info = getArchitectureInfo(data);
 
         List<String> args = collectArgs(ins);
-        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of());
+        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of(), info.creditCost(), info.architecture());
     }
 
     private String canonicalProgramName(String programName) {
@@ -546,11 +571,16 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             InstructionView v = mkViewNoIndex.apply(cur);
             int idx = (foundDeg >= 0) ? indexMaps.get(foundDeg).get(cur) : -1;
 
+            InstructionData data = cur.getInstructionData();
+            ArchitectureInfo info = getArchitectureInfo(data);
+
             provenance.add(new InstructionView(
                     idx,
                     v.opcode(), v.label(),
                     v.basic(), v.cycles(), v.args(),
-                    List.of(), List.of()
+                    List.of(), List.of(),
+                    info.creditCost(),
+                    info.architecture()
             ));
 
             cur = cur.getCreatedFrom();

@@ -7,7 +7,7 @@ public class UserManager {
     private static User currentUser;
 
     public static void login(String username) {
-        currentUser = users.computeIfAbsent(username, u -> new User(u, 100)); // ברירת מחדל 100
+        currentUser = users.computeIfAbsent(username, u -> new User(u, 100));
     }
 
     public static void logout() { currentUser = null; }
