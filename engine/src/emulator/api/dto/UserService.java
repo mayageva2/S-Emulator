@@ -1,6 +1,9 @@
 package emulator.api.dto;
 
+import emulator.logic.user.User;
 import emulator.logic.user.UserManager;
+
+import java.util.Collection;
 import java.util.Optional;
 
 public class UserService {
@@ -14,6 +17,11 @@ public class UserService {
     public Optional<UserDTO> getCurrentUser() {
         return UserManager.getCurrentUser()
                 .map(u -> new UserDTO(u.getUsername(), u.getCredits()));
+    }
+
+    public boolean userExists(String username) {
+        Collection<User> users = UserManager.getAllUsers();
+        return users.stream().anyMatch(u -> u.getUsername().equalsIgnoreCase(username));
     }
 
     public void addCredits(long amount) {

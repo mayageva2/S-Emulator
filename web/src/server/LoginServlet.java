@@ -15,19 +15,23 @@ public class LoginServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("application/json;charset=UTF-8");
+
         String username = req.getParameter("username");
         if (username == null || username.isBlank()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing username");
+            resp.getWriter().print("{\"status\":\"error\",\"message\":\"Missing username\"}");
+            return;
+        }
+
+        if (userService.userExists(username)) {
+            resp.getWriter().print("{\"status\":\"error\",\"message\":\"Username already exists\"}");
             return;
         }
 
         UserDTO user = userService.loginUser(username);
-        resp.setContentType("application/json;charset=UTF-8");
         resp.getWriter().printf(
                 "{\"status\":\"success\",\"username\":\"%s\",\"credits\":%d}",
                 user.getUsername(), user.getCredits()
         );
     }
 }
-
-

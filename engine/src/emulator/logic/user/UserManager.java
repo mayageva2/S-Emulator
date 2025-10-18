@@ -23,4 +23,8 @@ public class UserManager {
     public static boolean charge(long amount) {
         return currentUser != null && currentUser.deductCredits(amount);
     }
+
+    public static Collection<User> getAllUsers() {
+        return users.values();
+    }
 }
