@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.LoadResult;
+import emulator.api.dto.UserService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -15,6 +16,7 @@ import java.util.*;
 @WebServlet("/load")
 public class LoadServlet extends HttpServlet {
 
+    private final UserService userService = new UserService();
     private static final Gson gson = new Gson();
 
     @Override
@@ -39,6 +41,7 @@ public class LoadServlet extends HttpServlet {
 
             EmulatorEngine engine = EngineHolder.getEngine();
             LoadResult result = engine.loadProgram(Path.of(pathStr));
+            userService.incrementMainProgramsForCurrentUser();
 
             responseMap.put("status", "success");
             responseMap.put("programName", result.programName());

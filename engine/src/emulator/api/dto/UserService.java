@@ -37,6 +37,27 @@ public class UserService {
     public List<UserStats> getAllUserStats() {
         return UserManager.getAllUsers().stream()
                 .map(u -> new UserStats(
-                        u.getUsername(), 0, 0, (int) u.getCredits(), 0, 0)).collect(Collectors.toList());
+                        u.getUsername(),
+                        u.getMainPrograms(),
+                        u.getFunctions(),
+                        (int) u.getCredits(),
+                        u.getUsedCredits(),
+                        u.getRuns()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    public void incrementMainProgramsForCurrentUser() {
+        UserManager.getCurrentUser().ifPresent(user -> {
+            try {
+                var cls = user.getClass();
+                var field = cls.getDeclaredField("mainPrograms");
+                field.setAccessible(true);
+                int current = (int) field.get(user);
+                field.set(user, current + 1);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 }

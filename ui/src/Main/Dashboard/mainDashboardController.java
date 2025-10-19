@@ -23,19 +23,11 @@ public class mainDashboardController {
     }
 
     public void initServerMode(String baseUrl) {
-        this.baseUrl = baseUrl;
+        headerController.setBaseUrl(baseUrl);
+        connectedUsersController.setBaseUrl(baseUrl);
 
-        System.out.println("Server mode initialized with base URL: " + baseUrl);
-
-        if (headerController != null) {
-            headerController.setBaseUrl(baseUrl);
-            headerController.refreshUserHeader();
-        }
-
-        if (connectedUsersController != null) {
-            connectedUsersController.setBaseUrl(baseUrl);
-            connectedUsersController.startAutoRefresh();
-        }
+        headerController.setOnLoaded(e -> connectedUsersController.refreshNow());
+        headerController.setOnCreditsChanged(() -> connectedUsersController.refreshNow());
     }
 
     public void refreshAll() {

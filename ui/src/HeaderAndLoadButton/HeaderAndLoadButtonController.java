@@ -117,8 +117,8 @@ public class HeaderAndLoadButtonController {
 
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if ("success".equals(map.get("status"))) {
-                updateUserHeader(); // רענון תצוגה
-                showAlert("Credits successfully charged!");
+                updateUserHeader();
+                if (onCreditsChanged != null) onCreditsChanged.run();
             } else {
                 showAlert("Error: " + map.get("message"));
             }
@@ -128,6 +128,11 @@ public class HeaderAndLoadButtonController {
         } catch (Exception e) {
             showAlert("Connection failed: " + e.getMessage());
         }
+    }
+
+    private Runnable onCreditsChanged;
+    public void setOnCreditsChanged(Runnable onCreditsChanged) {
+        this.onCreditsChanged = onCreditsChanged;
     }
 
     private void showAlert(String msg) {

@@ -87,4 +87,8 @@ public class ConnectedUsersTableController {
             System.err.println("Failed to refresh users: " + e.getMessage());
         }
     }
+
+    public void refreshNow() {
+        refreshUsers();
+    }
 }
