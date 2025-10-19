@@ -29,6 +29,7 @@
                             <VBox fx:id="contentBox" fillWidth="true" spacing="0"
                                   minWidth="0" maxWidth="Infinity">
                                 <fx:include fx:id="connectedUsers" source="../../ConnectedUsersTable/ConnectedUsersTable.fxml"/>
+                                <fx:include fx:id="statisticsTable" source="../../StatisticsTable/StatisticsTable.fxml"/>
                             </VBox>
 
                         </VBox>

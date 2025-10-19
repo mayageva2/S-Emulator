@@ -97,4 +97,9 @@ public class ConnectedUsersTableController {
     public void refreshNow() {
         refreshUsers();
     }
+
+    public TableView<UserRow> getUsersTable() {
+        return usersTable;
+    }
+
 }
