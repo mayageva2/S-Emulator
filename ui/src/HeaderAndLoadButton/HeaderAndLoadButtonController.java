@@ -34,7 +34,9 @@ public class HeaderAndLoadButtonController {
     private String lastProgramName;
     private Consumer<LoadedEvent> onLoaded;
 
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private String baseUrl = "http://localhost:8080/semulator/";
+    public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
+
     private final Gson gson = new Gson();
 
     public record LoadedEvent(Path xmlPath, String programName, int maxDegree) {}
@@ -57,7 +59,7 @@ public class HeaderAndLoadButtonController {
 
     private void updateUserHeader() {
         try {
-            HttpURLConnection conn = (HttpURLConnection) new URL(BASE_URL + "user/current").openConnection();
+            HttpURLConnection conn = (HttpURLConnection) new URL(baseUrl + "user/current").openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
             if (conn.getResponseCode() != 200) return;
@@ -111,7 +113,7 @@ public class HeaderAndLoadButtonController {
             }
 
             String formData = "amount=" + URLEncoder.encode(String.valueOf(amount), StandardCharsets.UTF_8);
-            String response = httpPost(BASE_URL + "user/charge", formData);
+            String response = httpPost(baseUrl + "user/charge", formData);
 
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if ("success".equals(map.get("status"))) {
@@ -139,7 +141,7 @@ public class HeaderAndLoadButtonController {
                 updateMessage("Preparing request...");
                 updateProgress(0.1, 1);
 
-                String urlStr = BASE_URL + "load";
+                String urlStr = baseUrl + "load";
                 Gson gson = new Gson();
                 String jsonBody = gson.toJson(Map.of("path", xmlPath.toString()));
 
@@ -211,5 +213,9 @@ public class HeaderAndLoadButtonController {
 
     public void setOnLoaded(Consumer<LoadedEvent> onLoaded) {
         this.onLoaded = onLoaded;
+    }
+
+    public void refreshUserHeader() {
+        updateUserHeader();
     }
 }

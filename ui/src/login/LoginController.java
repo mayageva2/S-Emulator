@@ -1,5 +1,6 @@
 package login;
 
+import Main.Dashboard.mainDashboardController;
 import com.google.gson.Gson;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -42,10 +43,10 @@ public class LoginController {
                 return;
             }
 
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();
 
-            Main.Execution.MainExecutionController main = loader.getController();
+            mainDashboardController main = loader.getController();
             main.initServerMode(BASE_URL);
 
             Stage stage = (Stage) usernameField.getScene().getWindow();

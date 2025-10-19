@@ -4,7 +4,9 @@ import emulator.logic.user.User;
 import emulator.logic.user.UserManager;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class UserService {
 
@@ -30,5 +32,11 @@ public class UserService {
 
     public void logout() {
         UserManager.logout();
+    }
+
+    public List<UserStats> getAllUserStats() {
+        return UserManager.getAllUsers().stream()
+                .map(u -> new UserStats(
+                        u.getUsername(), 0, 0, (int) u.getCredits(), 0, 0)).collect(Collectors.toList());
     }
 }

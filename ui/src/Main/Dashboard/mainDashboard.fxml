@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="Main.Dashboard.mainDashboardController" maxWidth="Infinity" minWidth="0">
+
+    <top>
+        <VBox spacing="2" style="-fx-padding: 6 10 0 10">
+            <fx:include fx:id="header" source="../../HeaderAndLoadButton/headerAndLoadButton.fxml"/>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 12 10 12" minWidth="0">
+
+            <HBox fx:id="mainSplit" spacing="24" maxWidth="Infinity" minWidth="0">
+
+                <ScrollPane fitToWidth="true" fitToHeight="true"
+                            hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
+                    <content>
+                        <VBox fx:id="leftCol" spacing="12" minWidth="0" maxWidth="Infinity">
+
+                            <VBox fx:id="contentBox" fillWidth="true" spacing="0"
+                                  minWidth="0" maxWidth="Infinity">
+                                <fx:include fx:id="connectedUsers" source="../../ConnectedUsersTable/ConnectedUsersTable.fxml"/>
+                            </VBox>
+
+                        </VBox>
+                    </content>
+                </ScrollPane>
+
+            </HBox>
+        </VBox>
+    </center>
+</BorderPane>
