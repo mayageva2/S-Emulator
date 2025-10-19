@@ -60,4 +60,12 @@ public class UserService {
             }
         });
     }
+
+    public void incrementMainProgramsAndFunctions(int functionsCount) {
+        UserManager.getCurrentUser().ifPresent(u -> {
+            u.incrementMainPrograms();
+            u.incrementFunctions(functionsCount);
+        });
+    }
+
 }

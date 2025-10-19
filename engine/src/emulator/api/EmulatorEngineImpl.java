@@ -256,8 +256,23 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return new LoadResult(
                 current.getName(),
                 current.getInstructions().size(),
-                current.calculateMaxDegree()
+                current.calculateMaxDegree(),
+                extractFunctionNames(pxml)
         );
+
+    }
+
+    private List<String> extractFunctionNames(ProgramXml pxml) {
+        try {
+            if (pxml.getFunctions() == null || pxml.getFunctions().getFunctions() == null)
+                return List.of();
+            return pxml.getFunctions().getFunctions().stream()
+                    .map(f -> (f.getName() != null) ? f.getName().trim() : "")
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private String internalOf(String maybeDisplayOrInternal) {

@@ -175,6 +175,11 @@ public class HeaderAndLoadButtonController {
                     lastXmlPath = xmlPath;
                     if (onLoaded != null)
                         onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
+                    try {
+                        URL url = new URL(baseUrl + "user/list");
+                        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                        connection.getResponseCode();
+                    } catch (Exception ignored) {}
                 });
                 updateProgress(1, 1);
                 updateMessage("Done");

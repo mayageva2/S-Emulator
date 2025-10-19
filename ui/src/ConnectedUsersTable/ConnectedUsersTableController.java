@@ -41,6 +41,12 @@ public class ConnectedUsersTableController {
 
         refreshUsers();
         startAutoRefresh();
+
+        var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
+        if (css != null) {
+            usersTable.getStylesheets().add(css.toExternalForm());
+            usersTable.getStyleClass().add("instructions");
+        }
     }
 
     public void startAutoRefresh() {

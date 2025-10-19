@@ -10,77 +10,46 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
 @WebServlet("/load")
 public class LoadServlet extends HttpServlet {
-
     private final UserService userService = new UserService();
-    private static final Gson gson = new Gson();
+    private final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.setCharacterEncoding("UTF-8");
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
-        Map<String, Object> responseMap = new LinkedHashMap<>();
-
-        try (PrintWriter out = resp.getWriter()) {
-            String body = req.getReader().lines().reduce("", (acc, line) -> acc + line);
-            Map<?, ?> json = gson.fromJson(body, Map.class);
-            String pathStr = (json == null) ? null : (String) json.get("path");
-
-            if (pathStr == null || pathStr.isBlank()) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                responseMap.put("status", "error");
-                responseMap.put("message", "Missing 'path' parameter");
-                out.write(gson.toJson(responseMap));
-                return;
-            }
+        try {
+            String json = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            Map<String, Object> body = gson.fromJson(json, Map.class);
+            Path xmlPath = Path.of((String) body.get("path"));
 
             EmulatorEngine engine = EngineHolder.getEngine();
-            LoadResult result = engine.loadProgram(Path.of(pathStr));
-            userService.incrementMainProgramsForCurrentUser();
+            LoadResult result = engine.loadProgram(xmlPath);
 
-            responseMap.put("status", "success");
-            responseMap.put("programName", result.programName());
-            responseMap.put("instructionCount", result.instructionCount());
-            responseMap.put("maxDegree", result.maxDegree());
+            int functionCount = (result.functions() != null) ? result.functions().size() : 0;
+            userService.incrementMainProgramsAndFunctions(functionCount);
 
-            List<String> inputVars = List.of();
-            try {
-                if (engine instanceof EmulatorEngineImpl impl) {
-                    var pv = impl.programView();
-                    inputVars = impl.extractInputVars(pv);
-                }
-            } catch (Exception ex) {
-                inputVars = List.of();
-            }
-            responseMap.put("inputs", inputVars);
-
-            List<String> functions;
-            try {
-                if (engine instanceof EmulatorEngineImpl impl) {
-                    functions = impl.displayProgramNames();
-                } else {
-                    functions = List.of("Main Program");
-                }
-            } catch (Exception ex) {
-                functions = List.of("Main Program");
-            }
-            responseMap.put("functions", functions);
-
-            out.write(gson.toJson(responseMap));
+            String responseJson = gson.toJson(Map.of(
+                    "status", "success",
+                    "programName", result.programName(),
+                    "instructionCount", result.instructionCount(),
+                    "maxDegree", result.maxDegree(),
+                    "functions", result.functions()
+            ));
+            resp.getWriter().write(responseJson);
 
         } catch (Exception e) {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            Map<String, Object> err = Map.of(
+            e.printStackTrace();
+            resp.getWriter().write(gson.toJson(Map.of(
                     "status", "error",
-                    "message", e.getMessage(),
-                    "exception", e.getClass().getSimpleName()
-            );
-            resp.getWriter().write(gson.toJson(err));
+                    "message", e.getMessage()
+            )));
         }
     }
 }

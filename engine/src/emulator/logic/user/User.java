@@ -3,10 +3,11 @@ package emulator.logic.user;
 public class User {
     private final String username;
     private long credits;
-    private int mainPrograms;
-    private int functions;
-    private int usedCredits;
-    private int runs;
+
+    private int mainPrograms = 0;
+    private int functions = 0;
+    private int usedCredits = 0;
+    private int runs = 0;
 
     public User(String username, long initialCredits) {
         this.username = username;
@@ -34,6 +35,10 @@ public class User {
     }
 
     public void incrementMainPrograms() { mainPrograms++; }
-    public void incrementFunctions() { functions++; }
+
+    public void incrementFunctions(int count) {
+        if (count > 0) functions += count;
+    }
+
     public void incrementRuns() { runs++; }
 }
