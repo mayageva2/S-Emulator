@@ -2,26 +2,25 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
-import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.LoadService;
 import emulator.api.dto.LoadResult;
-import emulator.api.dto.UserService;
+import emulator.logic.user.UserManager;
+import emulator.logic.user.User;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Map;
 
 @WebServlet("/load")
 public class LoadServlet extends HttpServlet {
-    private final UserService userService = new UserService();
+    private final LoadService loadService = new LoadService();
     private final Gson gson = new Gson();
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
         try {
@@ -30,17 +29,18 @@ public class LoadServlet extends HttpServlet {
             Path xmlPath = Path.of((String) body.get("path"));
 
             EmulatorEngine engine = EngineHolder.getEngine();
-            LoadResult result = engine.loadProgram(xmlPath);
 
-            int functionCount = (result.functions() != null) ? result.functions().size() : 0;
-            userService.incrementMainProgramsAndFunctions(functionCount);
+            String username = UserManager.getCurrentUser()
+                    .map(User::getUsername)
+                    .orElse("unknown");
+
+            LoadResult result = loadService.load(engine, xmlPath, username);
 
             String responseJson = gson.toJson(Map.of(
                     "status", "success",
                     "programName", result.programName(),
                     "instructionCount", result.instructionCount(),
-                    "maxDegree", result.maxDegree(),
-                    "functions", result.functions()
+                    "maxDegree", result.maxDegree()
             ));
             resp.getWriter().write(responseJson);
 

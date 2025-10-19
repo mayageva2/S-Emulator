@@ -31,7 +31,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class MainExecutionController {
-    @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
     @FXML private InstructionsTableController instructionsController;
     @FXML private SummaryLineController summaryLineController;
@@ -67,7 +66,6 @@ public class MainExecutionController {
 
     @FXML
     private void initialize() {
-        headerController.setOnLoaded(this::onProgramLoaded);
         toolbarController.setOnExpand(this::onExpandOne);
         toolbarController.setOnCollapse(this::onCollapseOne);
         toolbarController.setOnJumpToDegree(this::onJumpToDegree);
@@ -535,10 +533,6 @@ public class MainExecutionController {
                 this.currentProgram = null;
                 this.currentDegree = 0;
                 this.maxDegree = 0;
-
-                if (headerController != null) {
-                    headerController.setOnLoaded(this::onProgramLoaded);
-                }
 
                 if (toolbarController != null) {
                     toolbarController.setOnExpand(this::onExpandOne);

@@ -25,13 +25,19 @@
                             style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
                     <content>
                         <VBox fx:id="leftCol" spacing="12" minWidth="0" maxWidth="Infinity">
+                            <fx:include fx:id="connectedUsers" source="../../ConnectedUsersTable/ConnectedUsersTable.fxml"/>
+                            <fx:include fx:id="statisticsTable" source="../../StatisticsTable/StatisticsTable.fxml"/>
+                        </VBox>
+                    </content>
+                </ScrollPane>
 
-                            <VBox fx:id="contentBox" fillWidth="true" spacing="0"
-                                  minWidth="0" maxWidth="Infinity">
-                                <fx:include fx:id="connectedUsers" source="../../ConnectedUsersTable/ConnectedUsersTable.fxml"/>
-                                <fx:include fx:id="statisticsTable" source="../../StatisticsTable/StatisticsTable.fxml"/>
-                            </VBox>
-
+                <ScrollPane fitToWidth="true" fitToHeight="true"
+                            hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                            style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
+                    <content>
+                        <VBox fx:id="rightCol" spacing="12" minWidth="0" maxWidth="Infinity">
+                            <fx:include fx:id="MainPrograms" source="../../MainProgramsTable/MainProgramsTable.fxml"/>
                         </VBox>
                     </content>
                 </ScrollPane>

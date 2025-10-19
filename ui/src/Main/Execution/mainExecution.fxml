@@ -14,7 +14,6 @@
         </VBox>
     </top>
 
-
     <center>
         <VBox spacing="0" fillWidth="true" style="-fx-padding: 0 12 10 12" minWidth="0">
 

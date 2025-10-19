@@ -18,6 +18,7 @@ public class mainDashboardController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ConnectedUsersTableController connectedUsersController;
     @FXML private StatisticsTableController statisticsTableController;
+    @FXML private MainProgramsTable.MainProgramsTableController mainProgramsController;
     @FXML private VBox leftCol;
 
     private String baseUrl;
@@ -33,8 +34,18 @@ public class mainDashboardController {
 
     public void initServerMode(String baseUrl) {
         this.baseUrl = baseUrl;
-        connectedUsersController.setBaseUrl(baseUrl);
-        statisticsTableController.loadUserHistory(baseUrl, getCurrentUsername());
+
+        if (connectedUsersController != null)
+            connectedUsersController.setBaseUrl(baseUrl);
+
+        if (statisticsTableController != null)
+            statisticsTableController.loadUserHistory(baseUrl, getCurrentUsername());
+
+        if (mainProgramsController != null) {
+            mainProgramsController.setBaseUrl(baseUrl);
+            mainProgramsController.startAutoRefresh();
+        }
+
         setupSelectionListener();
     }
 
@@ -72,6 +83,9 @@ public class mainDashboardController {
         }
         if (connectedUsersController != null) {
             connectedUsersController.refreshUsers();
+        }
+        if (mainProgramsController != null) {
+            mainProgramsController.refreshPrograms();
         }
     }
 }
