@@ -111,9 +111,21 @@ public class MainProgramsTableController {
     @FXML
     private void onExecuteProgramClicked() {
         try {
+            ProgramRow selectedProgram = programsTable.getSelectionModel().getSelectedItem();
+            if (selectedProgram == null) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("No Program Selected");
+                alert.setHeaderText(null);
+                alert.setContentText("Please select a program to execute.");
+                alert.showAndWait();
+                return;
+            }
+
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController controller = loader.getController();
+
+            controller.setProgramToExecute(selectedProgram.getProgramName());
 
             Stage stage = (Stage) btnExecuteProgram.getScene().getWindow();
             Screen screen = Screen.getPrimary();

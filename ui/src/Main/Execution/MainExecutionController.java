@@ -585,5 +585,58 @@ public class MainExecutionController {
         return statisticsCommandsController;
     }
 
+    public void setProgramToExecute(String programName) {
+        this.currentProgram = programName;
+        this.loadedProgramName = programName;
 
+        System.out.println("Program selected for execution: " + programName);
+
+        Platform.runLater(() -> {
+            try {
+                String jsonBody = new Gson().toJson(Map.of("path", "C:/tomcat/programs/" + programName + ".xml"));
+                String loadResponse = httpPost(BASE_URL + "load", jsonBody);
+                System.out.println("LOAD RESPONSE = " + loadResponse);
+
+                String viewUrl = BASE_URL + "view?degree=0&program=" +
+                        URLEncoder.encode(programName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program view: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(programName);
+                        runButtonsController.setCurrentDegree(0);
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(0, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
+                    }
+                });
+
+            } catch (Exception e) {
+                showError("Program load failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
+    }
 }

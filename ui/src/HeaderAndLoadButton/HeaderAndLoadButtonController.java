@@ -13,6 +13,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Timer;
@@ -140,23 +141,30 @@ public class HeaderAndLoadButtonController {
     }
 
     private void sendLoadRequest(Path xmlPath) {
+        File file = xmlPath.toFile();
+        if (!file.exists()) {
+            showAlert("File not found: " + file.getAbsolutePath());
+            return;
+        }
+
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                updateMessage("Preparing request...");
+                updateMessage("Uploading file...");
                 updateProgress(0.1, 1);
 
-                String urlStr = baseUrl + "load";
-                Gson gson = new Gson();
-                String jsonBody = gson.toJson(Map.of("path", xmlPath.toString()));
-
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestMethod("POST");
+                String boundary = "Boundary" + System.currentTimeMillis();
+                HttpURLConnection conn = (HttpURLConnection) new URL(baseUrl + "load").openConnection();
                 conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
                 try (OutputStream os = conn.getOutputStream()) {
-                    os.write(jsonBody.getBytes(StandardCharsets.UTF_8));
+                    os.write(("--" + boundary + "\r\n").getBytes());
+                    os.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"\r\n").getBytes());
+                    os.write("Content-Type: text/xml\r\n\r\n".getBytes());
+                    Files.copy(file.toPath(), os);
+                    os.write(("\r\n--" + boundary + "--\r\n").getBytes());
                 }
 
                 String json;
@@ -165,22 +173,23 @@ public class HeaderAndLoadButtonController {
                 }
 
                 Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    String msg = (String) map.getOrDefault("message", "Upload failed");
+                    Platform.runLater(() -> showAlert("Upload failed: " + msg));
+                    return null;
+                }
 
                 Platform.runLater(() -> {
                     statusLabel.textProperty().unbind();
-                    statusLabel.setText("Loaded: " + map.getOrDefault("programName", "?"));
+                    statusLabel.setText("Uploaded: " + map.getOrDefault("programName", "?"));
                     lastProgramName = (String) map.getOrDefault("programName", "");
                     Object degObj = map.get("maxDegree");
                     if (degObj instanceof Number n) lastMaxDegree = n.intValue();
                     lastXmlPath = xmlPath;
                     if (onLoaded != null)
                         onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
-                    try {
-                        URL url = new URL(baseUrl + "user/list");
-                        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                        connection.getResponseCode();
-                    } catch (Exception ignored) {}
                 });
+
                 updateProgress(1, 1);
                 updateMessage("Done");
                 return null;
@@ -200,7 +209,7 @@ public class HeaderAndLoadButtonController {
         task.setOnFailed(e -> {
             progress.setVisible(false);
             loadButton.setDisable(false);
-            new Alert(Alert.AlertType.ERROR, "File load failed.").showAndWait();
+            new Alert(Alert.AlertType.ERROR, "File upload failed.").showAndWait();
         });
 
         new Thread(task).start();

@@ -166,6 +166,51 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return lastRunProgramName;
     }
 
+    @Override
+    public LoadResult loadProgramFromStream(InputStream xmlStream)
+            throws emulator.exception.XmlWrongExtensionException,
+            emulator.exception.XmlNotFoundException,
+            emulator.exception.XmlReadException,
+            emulator.exception.XmlInvalidContentException,
+            emulator.exception.InvalidInstructionException,
+            emulator.exception.MissingLabelException,
+            emulator.exception.ProgramException,
+            java.io.IOException {
+        try {
+            String xmlContent = new String(xmlStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            XmlProgramReader reader = new XmlProgramReader();
+            ProgramXml pxml = reader.readFromString(xmlContent);
+
+            this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
+            this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
+            functionLibrary.put(this.current.getName().toUpperCase(java.util.Locale.ROOT), this.current);
+
+            this.lastViewProgram = null;
+            this.history.clear();
+            this.historyByProgram.clear();
+            this.runCountersByProgram.clear();
+            this.lastRunVars = Map.of();
+            this.lastRunInputs = List.of();
+            this.lastRunDegree = 0;
+            this.lastRunProgramName = null;
+
+            return new LoadResult(
+                    current.getName(),
+                    current.getInstructions().size(),
+                    current.calculateMaxDegree(),
+                    extractFunctionNames(pxml)
+            );
+
+        } catch (emulator.exception.ProgramException | java.io.IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new emulator.exception.ProgramException(
+                    "Unexpected error while loading program from stream",
+                    e.getMessage()
+            );
+        }
+    }
+
     private ArchitectureInfo getArchitectureInfo(InstructionData data) {
         if (data == null) return new ArchitectureInfo(0L, "?");
 
