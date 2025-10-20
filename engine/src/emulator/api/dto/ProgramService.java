@@ -9,21 +9,23 @@ public class ProgramService {
 
     private ProgramService() {}
 
-    public static ProgramService getInstance() {
-        return instance;
-    }
+    public static ProgramService getInstance() {return instance;}
 
-    public void addProgram(String programName, String username, int instructionCount, int maxDegree) {
+    public void addProgram(String programName, String username,
+                           int instructionCount, int maxDegree) {
         programs.put(programName, new ProgramStats(
-                programName, username, instructionCount, maxDegree,
-                0, 0.0
+                programName,
+                username,
+                instructionCount,
+                maxDegree,
+                0,
+                0.0
         ));
     }
 
     public void recordRun(String programName, double creditCost) {
         ProgramStats old = programs.get(programName);
         if (old == null) return;
-
         int newRunCount = old.getRunCount() + 1;
         double newAvgCost = (old.getAvgCreditCost() * old.getRunCount() + creditCost) / newRunCount;
 
@@ -40,4 +42,6 @@ public class ProgramService {
     public List<ProgramStats> getAllPrograms() {
         return new ArrayList<>(programs.values());
     }
+
+    public void clear() {programs.clear();}
 }

@@ -9,13 +9,13 @@
 
     <center>
         <VBox spacing="10">
-            <Label text="Main Programs"
+            <Label text="Available Programs"
                    style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: purple;" />
 
             <TableView fx:id="programsTable" prefHeight="400" prefWidth="800">
                 <columns>
                     <TableColumn fx:id="colProgramName" text="Program Name" prefWidth="150"/>
-                    <TableColumn fx:id="colUsername" text="Uploader" prefWidth="150"/>
+                    <TableColumn fx:id="colUsername" text="Uploaded By" prefWidth="150"/>
                     <TableColumn fx:id="colInstructionCount" text="Instructions" prefWidth="90"/>
                     <TableColumn fx:id="colMaxDegree" text="Max Degree" prefWidth="100"/>
                     <TableColumn fx:id="colRunCount" text="Total Runs" prefWidth="90"/>

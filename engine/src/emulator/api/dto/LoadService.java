@@ -7,6 +7,7 @@ import java.nio.file.Path;
 public class LoadService {
 
     private final ProgramService programService = ProgramService.getInstance();
+    private final FunctionService functionService = FunctionService.getInstance();
     private final UserService userService = new UserService();
 
     public LoadResult load(EmulatorEngine engine, Path xmlPath, String username) throws Exception {
@@ -21,6 +22,16 @@ public class LoadService {
                 result.instructionCount(),
                 result.maxDegree()
         );
+
+        for (String func : result.functions()) {
+            functionService.addFunction(
+                    func,
+                    result.programName(),
+                    username,
+                    result.instructionCount(),
+                    result.maxDegree()
+            );
+        }
 
         return result;
     }
@@ -37,6 +48,16 @@ public class LoadService {
                 result.instructionCount(),
                 result.maxDegree()
         );
+
+        for (String func : result.functions()) {
+            functionService.addFunction(
+                    func,
+                    result.programName(),
+                    username,
+                    result.instructionCount(),
+                    result.maxDegree()
+            );
+        }
 
         return result;
     }

@@ -3,6 +3,8 @@ package Main.Dashboard;
 import ConnectedUsersTable.ConnectedUsersTableController;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import StatisticsTable.StatisticsTableController;
+import MainProgramsTable.MainProgramsTableController;
+import FunctionsTable.FunctionsTableController;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.fxml.FXML;
@@ -18,7 +20,8 @@ public class mainDashboardController {
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ConnectedUsersTableController connectedUsersController;
     @FXML private StatisticsTableController statisticsTableController;
-    @FXML private MainProgramsTable.MainProgramsTableController mainProgramsController;
+    @FXML private MainProgramsTableController mainProgramsController;
+    @FXML private FunctionsTableController functionsController;
     @FXML private VBox leftCol;
 
     private String baseUrl;
@@ -44,6 +47,11 @@ public class mainDashboardController {
         if (mainProgramsController != null) {
             mainProgramsController.setBaseUrl(baseUrl);
             mainProgramsController.startAutoRefresh();
+        }
+
+        if (functionsController != null) {
+            functionsController.setBaseUrl(baseUrl);
+            functionsController.startAutoRefresh();
         }
 
         setupSelectionListener();
@@ -86,6 +94,9 @@ public class mainDashboardController {
         }
         if (mainProgramsController != null) {
             mainProgramsController.refreshPrograms();
+        }
+        if (functionsController != null) {
+            functionsController.refreshFunctions();
         }
     }
 }

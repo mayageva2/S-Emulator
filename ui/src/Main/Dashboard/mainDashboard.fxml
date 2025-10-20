@@ -38,6 +38,7 @@
                     <content>
                         <VBox fx:id="rightCol" spacing="12" minWidth="0" maxWidth="Infinity">
                             <fx:include fx:id="MainPrograms" source="../../MainProgramsTable/MainProgramsTable.fxml"/>
+                            <fx:include fx:id="Functions" source="../../FunctionsTable/FunctionsTable.fxml"/>
                         </VBox>
                     </content>
                 </ScrollPane>

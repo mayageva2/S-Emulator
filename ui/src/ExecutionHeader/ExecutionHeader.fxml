@@ -13,7 +13,7 @@
                 <font><Font name="System Bold" size="20.0" /></font>
             </Label>
             <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="50"/>
-            <Label alignment="TOP_CENTER" text="S-Emulator: Dashboard" textFill="#9a0cb2d7">
+            <Label alignment="TOP_CENTER" text="S-Emulator: Execution" textFill="#9a0cb2d7">
                 <font><Font name="System Bold" size="30.0" /></font>
             </Label>
             <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="50"/>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/17.0.2"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="FunctionsTable.FunctionsTableController"
+      spacing="10">
+
+    <Label text="Available Functions"
+           style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: purple;" />
+
+    <TableView fx:id="functionsTable" prefHeight="400" prefWidth="800">
+        <columns>
+            <TableColumn fx:id="colFunction" text="Function Name" prefWidth="180"/>
+            <TableColumn fx:id="colProgram" text="Program Name" prefWidth="170"/>
+            <TableColumn fx:id="colUser" text="Uploaded By" prefWidth="125"/>
+            <TableColumn fx:id="colInstructions" text="Instruction Count" prefWidth="140"/>
+            <TableColumn fx:id="colMaxDegree" text="Max Degree" prefWidth="110"/>
+        </columns>
+    </TableView>
+
+    <HBox alignment="CENTER_RIGHT" spacing="10">
+        <Button fx:id="btnExecuteFunc" text="Execute Program"
+                style="-fx-background-color: purple; -fx-text-fill: white;"
+                prefWidth="150" prefHeight="40"
+                onAction="#onExecuteFuncClicked"/>
+    </HBox>
+</VBox>
