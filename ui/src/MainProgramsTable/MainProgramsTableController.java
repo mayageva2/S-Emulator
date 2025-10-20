@@ -6,10 +6,12 @@ import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -114,11 +116,19 @@ public class MainProgramsTableController {
             MainExecutionController controller = loader.getController();
 
             Stage stage = (Stage) btnExecuteProgram.getScene().getWindow();
-            double currentWidth = stage.getWidth();
-            double currentHeight = stage.getHeight();
+            Screen screen = Screen.getPrimary();
+            Rectangle2D bounds = screen.getVisualBounds();
 
-            Scene scene = new Scene(root);
+            double desiredWidth = stage.getWidth();
+            double desiredHeight = stage.getHeight();
+            if (desiredWidth > bounds.getWidth()) {desiredWidth = bounds.getWidth() - 20;}
+            if (desiredHeight > bounds.getHeight()) {desiredHeight = bounds.getHeight() - 20;}
+
+            Scene scene = new Scene(root, desiredWidth, desiredHeight);
             stage.setScene(scene);
+            stage.setX(bounds.getMinX() + (bounds.getWidth() - desiredWidth) / 2);
+            stage.setY(bounds.getMinY() + (bounds.getHeight() - desiredHeight) / 2);
+
             stage.show();
         } catch (IOException e) {
             e.printStackTrace();
