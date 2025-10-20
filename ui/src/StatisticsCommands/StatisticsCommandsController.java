@@ -63,10 +63,6 @@ public class StatisticsCommandsController {
                 if (optRec.isPresent()) {
                     var rec = optRec.get();
 
-                    if (toolbarController != null) {
-                        toolbarController.setSelectedProgram(rec.programName());
-                    }
-
                     Map<String, Object> data = new LinkedHashMap<>();
                     data.put("program", rec.programName());
                     data.put("degree", rec.degree());
@@ -130,9 +126,6 @@ public class StatisticsCommandsController {
                 return;
             }
             var rec = optRec.get();
-
-            if (toolbarController != null)
-                toolbarController.setSelectedProgram(rec.programName());
 
             String csvInputs = String.join(",", rec.inputs().stream().map(String::valueOf).toList());
             String formData = "program=" + URLEncoder.encode(rec.programName(), StandardCharsets.UTF_8)

@@ -16,7 +16,6 @@
    <center>
       <HBox maxWidth="Infinity" HBox.hgrow="ALWAYS" spacing="10.0" BorderPane.alignment="CENTER_LEFT">
          <children>
-            <ChoiceBox fx:id="selectProgramChoice" prefWidth="250" prefHeight="40.0" style="-fx-background-color: purple;"/>
             <Button fx:id="CollapseButton" text="Collapse" textFill="WHITE" prefWidth="100" prefHeight="40.0" style="-fx-background-color: purple;"/>
             <Button fx:id="CurrentOrMaxDegreeButton" prefWidth="150" prefHeight="40.0" style="-fx-background-color: transparent; -fx-text-fill: #9a0cb2; -fx-border-color: purple;"/>
             <Button fx:id="ExpandButton" text="Expand" textFill="WHITE" prefWidth="100" prefHeight="40.0" style="-fx-background-color: purple;"/>

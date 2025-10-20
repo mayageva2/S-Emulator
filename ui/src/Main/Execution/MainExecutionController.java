@@ -158,7 +158,6 @@ public class MainExecutionController {
             Platform.runLater(() -> {
                 toolbarController.bindDegree(currentDegree, maxDegree);
                 toolbarController.setHighlightEnabled(true);
-                toolbarController.setPrograms(programs);
                 toolbarController.setDegreeButtonEnabled(true);
                 toolbarController.setExpandEnabled(maxDegree > 0);
                 toolbarController.setCollapseEnabled(false);
@@ -365,11 +364,6 @@ public class MainExecutionController {
                 return Integer.compare(na, nb);
             }
             return pa.compareToIgnoreCase(pb);
-        });
-
-        Platform.runLater(() -> {
-            toolbarController.setPrograms(programs);
-            toolbarController.setSelectedProgram(currentProgram);
         });
     }
 
