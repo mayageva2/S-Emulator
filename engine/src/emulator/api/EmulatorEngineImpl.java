@@ -491,7 +491,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private void recordRun(String programName, int degree, Long[] input, long y, int cycles) {
         String canonical = canonicalProgramName(programName);
         int nextRunNumber = runCountersByProgram.merge(canonical, 1, Integer::sum);
-        RunRecord record = new RunRecord(programName, nextRunNumber, degree, Arrays.asList(input), y, cycles);
+        String currentUser = UserManager.getCurrentUser()
+                .map(u -> u.getUsername())
+                .orElse("Unknown");
+        RunRecord record = new RunRecord(currentUser, programName, nextRunNumber, degree, Arrays.asList(input), y, cycles);
         history.add(record);
         historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
     }

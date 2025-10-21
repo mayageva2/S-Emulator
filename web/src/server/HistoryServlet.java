@@ -44,9 +44,16 @@ public class HistoryServlet extends HttpServlet {
             }
 
             EmulatorEngine engine = EngineHolder.getEngine();
-            List<RunRecord> history = engine.history();
+            List<RunRecord> allHistory = engine.history();
 
-            if (history == null || history.isEmpty()) {
+            List<RunRecord> userHistory = new ArrayList<>();
+            for (RunRecord r : allHistory) {
+                if (username.equalsIgnoreCase(r.username())) {
+                    userHistory.add(r);
+                }
+            }
+
+            if (userHistory.isEmpty()) {
                 responseMap.put("status", "success");
                 responseMap.put("runs", Collections.emptyList());
                 responseMap.put("message", "No runs recorded yet for user: " + username);
@@ -55,17 +62,15 @@ public class HistoryServlet extends HttpServlet {
             }
 
             List<Map<String, Object>> runs = new ArrayList<>();
-            for (RunRecord r : history) {
+            for (RunRecord r : userHistory) {
                 Map<String, Object> record = new LinkedHashMap<>();
                 record.put("runNumber", r.runNumber());
-
                 record.put("type", r.programName().equalsIgnoreCase("Main") ? "Main Program" : "Function");
                 record.put("program", r.programName());
                 record.put("arch", detectArchitecture(r.cycles()));
                 record.put("degree", r.degree());
                 record.put("y", r.y());
                 record.put("cycles", r.cycles());
-
                 runs.add(record);
             }
 

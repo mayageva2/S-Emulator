@@ -19,7 +19,7 @@
                     <TableColumn fx:id="colFunctions" text="Functions" prefWidth="120"/>
                     <TableColumn fx:id="colCredits" text="Credits" prefWidth="100"/>
                     <TableColumn fx:id="colUsedCredits" text="Used Credits" prefWidth="120"/>
-                    <TableColumn fx:id="colRuns" text="Runs (Run+Debug)" prefWidth="150"/>
+                    <TableColumn fx:id="colRuns" text="Runs" prefWidth="150"/>
                 </columns>
             </TableView>
         </VBox>

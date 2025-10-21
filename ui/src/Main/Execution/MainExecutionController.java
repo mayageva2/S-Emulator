@@ -122,22 +122,28 @@ public class MainExecutionController {
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String jsonBody = new Gson().toJson(Map.of("path", ev.xmlPath().toString()));
-            String response = httpPost(BASE_URL + "load", jsonBody);
+            String viewUrl = BASE_URL + "view?degree=0&program=" +
+                    URLEncoder.encode(ev.programName(), StandardCharsets.UTF_8);
+            String response = httpGet(viewUrl);
 
             System.out.println("SERVER LOAD RESPONSE:");
             System.out.println(response);
-            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>() {
-            }.getType());
 
-            if (map.containsKey("programName")){
-                loadedProgramName = String.valueOf(map.get("programName"));
-                currentProgram = loadedProgramName;
+            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+            if (!"success".equals(map.get("status"))) {
+                showError("View failed: " + map.get("message"));
+                return;
             }
-            if (map.containsKey("maxDegree"))
-                maxDegree = ((Double) map.get("maxDegree")).intValue();
-            else
-                maxDegree = ev.maxDegree();
+
+            Map<String, Object> program = (Map<String, Object>) map.get("program");
+            if (program == null) {
+                showError("Missing program data in response");
+                return;
+            }
+
+            loadedProgramName = ev.programName();
+            currentProgram = loadedProgramName;
+            maxDegree = ev.maxDegree();
             currentDegree = 0;
 
             if (runButtonsController != null) {
@@ -145,17 +151,14 @@ public class MainExecutionController {
                 runButtonsController.setCurrentDegree(0);
             }
 
-            refreshProgramView(currentDegree);
-
-            List<String> programs = new ArrayList<>();
-            Object funcsObj = map.get("functions");
-            if (funcsObj instanceof List<?> funcList) {
-                for (Object f : funcList) {
-                    if (f != null && !f.toString().isBlank()) programs.add(f.toString());
-                }
-            }
-
             Platform.runLater(() -> {
+                updateProgramDegrees(program);
+                updateInputsBox(program);
+                renderInstructions(program);
+                updateToolbarHighlights(program);
+                updateToolbarPrograms(program);
+                updateSummaryLine(program);
+
                 toolbarController.bindDegree(currentDegree, maxDegree);
                 toolbarController.setHighlightEnabled(true);
                 toolbarController.setDegreeButtonEnabled(true);
@@ -163,10 +166,10 @@ public class MainExecutionController {
                 toolbarController.setCollapseEnabled(false);
                 runButtonsController.enableRunButtonsAfterLoad();
             });
-            refreshProgramView(0);
 
         } catch (Exception e) {
             showError("Load failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -450,6 +453,8 @@ public class MainExecutionController {
             if (records != null && !records.isEmpty()) {
                 List<RunRecord> runRecords = new ArrayList<>();
                 for (Map<String, Object> rec : records) {
+                    String username = Objects.toString(rec.get("username"), "Unknown");
+
                     String programName = Objects.toString(rec.get("programName"), "Main Program");
                     int runNumber = ((Number) rec.get("runNumber")).intValue();
                     int degree = ((Number) rec.get("degree")).intValue();
@@ -472,7 +477,7 @@ public class MainExecutionController {
                         }
                     }
 
-                    runRecords.add(new RunRecord(programName, runNumber, degree, inputsList, y, cycles));
+                    runRecords.add(new RunRecord(username, programName, runNumber, degree, inputsList, y, cycles));
                 }
 
                 Platform.runLater(() -> {
@@ -585,12 +590,8 @@ public class MainExecutionController {
 
         System.out.println("Program selected for execution: " + programName);
 
-        Platform.runLater(() -> {
+        new Thread(() -> {
             try {
-                String jsonBody = new Gson().toJson(Map.of("path", "C:/tomcat/programs/" + programName + ".xml"));
-                String loadResponse = httpPost(BASE_URL + "load", jsonBody);
-                System.out.println("LOAD RESPONSE = " + loadResponse);
-
                 String viewUrl = BASE_URL + "view?degree=0&program=" +
                         URLEncoder.encode(programName, StandardCharsets.UTF_8);
                 String json = httpGet(viewUrl);
@@ -618,6 +619,7 @@ public class MainExecutionController {
                     if (runButtonsController != null) {
                         runButtonsController.setCurrentProgram(programName);
                         runButtonsController.setCurrentDegree(0);
+                        runButtonsController.enableRunButtonsAfterLoad();
                     }
 
                     if (toolbarController != null) {
@@ -628,9 +630,9 @@ public class MainExecutionController {
                 });
 
             } catch (Exception e) {
-                showError("Program load failed: " + e.getMessage());
+                showError("Program view failed: " + e.getMessage());
                 e.printStackTrace();
             }
-        });
+        }).start();
     }
 }

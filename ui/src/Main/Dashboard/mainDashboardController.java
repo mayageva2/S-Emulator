@@ -54,6 +54,7 @@ public class mainDashboardController {
             functionsController.startAutoRefresh();
         }
 
+        System.out.println("connectedUsersController = " + connectedUsersController);
         setupSelectionListener();
     }
 
