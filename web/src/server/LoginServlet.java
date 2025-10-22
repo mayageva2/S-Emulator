@@ -29,6 +29,7 @@ public class LoginServlet extends HttpServlet {
         }
 
         UserDTO user = userService.loginUser(username);
+        ServerEventManager.broadcast("USER_LOGIN");
         resp.getWriter().printf(
                 "{\"status\":\"success\",\"username\":\"%s\",\"credits\":%d}",
                 user.getUsername(), user.getCredits()

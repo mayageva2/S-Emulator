@@ -5,76 +5,76 @@ import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import StatisticsTable.StatisticsTableController;
 import MainProgramsTable.MainProgramsTableController;
 import FunctionsTable.FunctionsTableController;
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.BorderPane;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class mainDashboardController {
 
     @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ConnectedUsersTableController connectedUsersController;
-    @FXML private StatisticsTableController statisticsTableController;
+    @FXML private StatisticsTableController statisticsController;
     @FXML private MainProgramsTableController mainProgramsController;
     @FXML private FunctionsTableController functionsController;
-    @FXML private VBox leftCol;
 
     private String baseUrl;
 
     @FXML
-    public void initialize() {
-        System.out.println("mainDashboardController initialized");
-
-        if (connectedUsersController != null) {
-            connectedUsersController.startAutoRefresh();
-        }
-    }
+    public void initialize() {}
 
     public void initServerMode(String baseUrl) {
         this.baseUrl = baseUrl;
+        Platform.runLater(this::safeInitAfterLoad);
+    }
 
+    private void safeInitAfterLoad() {
         if (connectedUsersController != null)
             connectedUsersController.setBaseUrl(baseUrl);
-
-        if (statisticsTableController != null)
-            statisticsTableController.loadUserHistory(baseUrl, getCurrentUsername());
-
-        if (mainProgramsController != null) {
+        if (statisticsController != null)
+            statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
+        if (mainProgramsController != null)
             mainProgramsController.setBaseUrl(baseUrl);
-            mainProgramsController.startAutoRefresh();
-        }
-
-        if (functionsController != null) {
+        if (functionsController != null)
             functionsController.setBaseUrl(baseUrl);
-            functionsController.startAutoRefresh();
+
+        if (headerController != null) {
+            headerController.setOnProgramUploaded(() -> {
+                System.out.println("Program uploaded – refreshing tables...");
+                Platform.runLater(() -> {
+                    if (mainProgramsController != null)
+                        mainProgramsController.refreshPrograms();
+                    if (functionsController != null)
+                        functionsController.refreshFunctions();
+                    if (connectedUsersController != null)
+                        connectedUsersController.refreshUsers();
+                });
+            });
         }
 
-        System.out.println("connectedUsersController = " + connectedUsersController);
+        startEventListener();
         setupSelectionListener();
     }
 
     private void setupSelectionListener() {
         connectedUsersController.getUsersTable().getSelectionModel()
                 .selectedItemProperty().addListener((obs, oldSel, newSel) -> {
-                    if (newSel != null) {
-                        statisticsTableController.loadUserHistory(baseUrl, newSel.getUsername());
-                    } else {
-                        statisticsTableController.loadUserHistory(baseUrl, getCurrentUsername());
-                    }
+                    if (newSel != null)
+                        statisticsController.loadUserHistory(baseUrl, newSel.getUsername());
+                    else
+                        statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
                 });
     }
 
     private String getCurrentUsername() {
         try {
-            HttpURLConnection conn = (HttpURLConnection) new URL(baseUrl + "user/current").openConnection();
-            conn.setRequestMethod("GET");
-            if (conn.getResponseCode() != 200) return "";
-            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String json = HttpSessionClient.get(baseUrl + "user/current");
             Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if ("success".equals(map.get("status"))) {
                 Map<String, Object> user = (Map<String, Object>) map.get("user");
@@ -86,18 +86,50 @@ public class mainDashboardController {
         return "";
     }
 
+    private void startEventListener() {
+        Timer timer = new Timer(true);
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    String json = HttpSessionClient.get(baseUrl + "events/latest");
+                    Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                    String event = (String) map.get("event");
+                    if (!"NONE".equalsIgnoreCase(event))
+                        Platform.runLater(() -> onSystemEvent(event));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }, 3000, 2000);
+    }
+
+    public void onSystemEvent(String eventType) {
+        try {
+            switch (eventType) {
+                case "USER_LOGIN", "USER_LOGOUT" -> connectedUsersController.refreshUsers();
+                case "PROGRAM_UPLOADED" -> {
+                    mainProgramsController.refreshPrograms();
+                    functionsController.refreshFunctions();
+                    connectedUsersController.refreshUsers();
+                }
+                case "PROGRAM_RUN" -> {
+                    statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
+                    connectedUsersController.refreshUsers();
+                }
+                default -> refreshAll();
+            }
+            if (headerController != null)
+                headerController.refreshUserHeader();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public void refreshAll() {
-        if (headerController != null) {
-            headerController.refreshUserHeader();
-        }
-        if (connectedUsersController != null) {
-            connectedUsersController.refreshUsers();
-        }
-        if (mainProgramsController != null) {
-            mainProgramsController.refreshPrograms();
-        }
-        if (functionsController != null) {
-            functionsController.refreshFunctions();
-        }
+        if (headerController != null) headerController.refreshUserHeader();
+        if (connectedUsersController != null) connectedUsersController.refreshUsers();
+        if (mainProgramsController != null) mainProgramsController.refreshPrograms();
+        if (functionsController != null) functionsController.refreshFunctions();
     }
 }

@@ -103,6 +103,7 @@ public class DebugStopServlet extends HttpServlet {
             responseMap.put("exception", e.getClass().getSimpleName());
         }
 
+        ServerEventManager.broadcast("PROGRAM_RUN");
         writeJson(resp, responseMap);
     }
 

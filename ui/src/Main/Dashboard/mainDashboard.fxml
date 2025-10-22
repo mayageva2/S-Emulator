@@ -5,12 +5,14 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="Main.Dashboard.mainDashboardController" maxWidth="Infinity" minWidth="0">
+<BorderPane xmlns="http://javafx.com/javafx/22.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="Main.Dashboard.mainDashboardController"
+            maxWidth="Infinity" minWidth="0">
 
     <top>
         <VBox spacing="2" style="-fx-padding: 6 10 0 10">
-            <fx:include fx:id="header" source="../../HeaderAndLoadButton/headerAndLoadButton.fxml"/>
+            <fx:include fx:id="header" source="../../HeaderAndLoadButton/HeaderAndLoadButton.fxml"/>
         </VBox>
     </top>
 
@@ -26,7 +28,7 @@
                     <content>
                         <VBox fx:id="leftCol" spacing="12" minWidth="0" maxWidth="Infinity">
                             <fx:include fx:id="connectedUsers" source="../../ConnectedUsersTable/ConnectedUsersTable.fxml"/>
-                            <fx:include fx:id="statisticsTable" source="../../StatisticsTable/StatisticsTable.fxml"/>
+                            <fx:include fx:id="statistics" source="../../StatisticsTable/StatisticsTable.fxml"/>
                         </VBox>
                     </content>
                 </ScrollPane>
@@ -37,8 +39,8 @@
                             style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
                     <content>
                         <VBox fx:id="rightCol" spacing="12" minWidth="0" maxWidth="Infinity">
-                            <fx:include fx:id="MainPrograms" source="../../MainProgramsTable/MainProgramsTable.fxml"/>
-                            <fx:include fx:id="Functions" source="../../FunctionsTable/FunctionsTable.fxml"/>
+                            <fx:include fx:id="mainPrograms" source="../../MainProgramsTable/MainProgramsTable.fxml"/>
+                            <fx:include fx:id="functions" source="../../FunctionsTable/FunctionsTable.fxml"/>
                         </VBox>
                     </content>
                 </ScrollPane>

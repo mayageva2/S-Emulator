@@ -4,6 +4,7 @@ import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
 import SummaryLine.SummaryLineController;
+import Utils.HttpSessionClient;
 import VariablesBox.VariablesBoxController;
 import InputsBox.InputsBoxController;
 import StatisticsTable.StatisticsTableController;
@@ -174,21 +175,9 @@ public class MainExecutionController {
     }
 
     private String httpPostForm(String urlStr, String formData) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(formData.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
+
 
     private void refreshProgramView(int degree) {
         try {
@@ -491,33 +480,11 @@ public class MainExecutionController {
     }
 
     private String httpGet(String urlStr) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "application/json");
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.get(urlStr);
     }
 
     private String httpPost(String urlStr, String json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, json, "application/json; charset=UTF-8");
     }
 
     private void showError(String msg) {

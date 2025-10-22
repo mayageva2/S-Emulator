@@ -44,6 +44,8 @@ public class LoadServlet extends HttpServlet {
                 result = loadService.loadFromStream(engine, fileStream, username);
             }
 
+            ServerEventManager.broadcast("PROGRAM_UPLOADED");
+
             resp.getWriter().write(gson.toJson(Map.of(
                     "status", "success",
                     "programName", result.programName(),

@@ -64,9 +64,9 @@ public class RunServlet extends HttpServlet {
             else {
                 result = engine.run(program, degree, inputs);
             }
+
             responseMap.put("status", "success");
             responseMap.put("result", result);
-
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             responseMap.put("status", "error");
@@ -74,6 +74,7 @@ public class RunServlet extends HttpServlet {
             responseMap.put("exception", e.getClass().getSimpleName());
         }
 
+        ServerEventManager.broadcast("PROGRAM_RUN");
         writeJson(resp, responseMap);
     }
 

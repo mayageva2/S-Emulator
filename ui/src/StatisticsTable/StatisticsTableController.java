@@ -1,6 +1,7 @@
 package StatisticsTable;
 
 import InstructionsTable.InstructionRow;
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
@@ -190,16 +191,13 @@ public class StatisticsTableController {
     public void loadUserHistory(String baseUrl, String username) {
         try {
             String urlStr = baseUrl + "user/history?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-            HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setRequestMethod("GET");
-            if (conn.getResponseCode() != 200) return;
-
-            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String json = HttpSessionClient.get(urlStr);
             Map<String, Object> resp = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
-            if (!"success".equals(resp.get("status"))) return;
 
+            if (!"success".equals(resp.get("status"))) return;
             List<Map<String, Object>> runs = (List<Map<String, Object>>) resp.get("runs");
             List<HistoryRow> rows = new ArrayList<>();
+
             for (Map<String, Object> r : runs) {
                 rows.add(new HistoryRow(
                         ((Number) r.get("runNumber")).intValue(),
@@ -211,6 +209,7 @@ public class StatisticsTableController {
                         ((Number) r.get("cycles")).intValue()
                 ));
             }
+
             table.getItems().setAll(rows);
         } catch (Exception e) {
             e.printStackTrace();

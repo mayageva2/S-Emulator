@@ -1,6 +1,7 @@
 package StatisticsCommands;
 
 import Main.Execution.MainExecutionController;
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
@@ -245,19 +246,6 @@ public class StatisticsCommandsController {
 
     // == HTTP helpers == //
     private String httpPost(String urlStr, String json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, json, "application/json");
     }
 }

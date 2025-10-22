@@ -81,6 +81,7 @@ public class DebugResumeServlet extends HttpServlet {
                 responseMap.put("message", "Program finished");
                 responseMap.put("finished", true);
                 responseMap.put("debug", debugData);
+                ServerEventManager.broadcast("PROGRAM_RUN");
             } else {
                 responseMap.put("status", "resumed");
                 responseMap.put("message", "Debug resumed and still running");

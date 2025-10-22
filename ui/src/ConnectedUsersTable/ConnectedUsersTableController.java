@@ -1,8 +1,8 @@
 package ConnectedUsersTable;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -12,8 +12,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class ConnectedUsersTableController {
 
@@ -24,7 +22,6 @@ public class ConnectedUsersTableController {
     @FXML private TableColumn<UserRow, Integer> colCredits;
     @FXML private TableColumn<UserRow, Integer> colUsedCredits;
     @FXML private TableColumn<UserRow, Integer> colRuns;
-    private Timer refreshTimer;
 
     private final Gson gson = new Gson();
     private String baseUrl = "http://localhost:8080/semulator/";
@@ -39,39 +36,19 @@ public class ConnectedUsersTableController {
         colUsedCredits.setCellValueFactory(new PropertyValueFactory<>("usedCredits"));
         colRuns.setCellValueFactory(new PropertyValueFactory<>("runs"));
 
-        refreshUsers();
-        startAutoRefresh();
-
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
             usersTable.getStylesheets().add(css.toExternalForm());
             usersTable.getStyleClass().add("instructions");
         }
-    }
 
-    public void startAutoRefresh() {
-        if (refreshTimer != null) {
-            refreshTimer.cancel();
-        }
-        refreshTimer = new Timer(true);
-        refreshTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                Platform.runLater(ConnectedUsersTableController.this::refreshUsers);
-            }
-        }, 3000, 3000);
+        refreshUsers();
     }
 
     public void refreshUsers() {
         try {
-            URL url = new URL(baseUrl + "user/list");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            if (conn.getResponseCode() != 200) return;
-
-            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String json = HttpSessionClient.get(baseUrl + "user/list");
             Map<String, Object> response = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
-
             if (!"success".equals(response.get("status"))) return;
 
             List<Map<String, Object>> users = (List<Map<String, Object>>) response.get("users");
@@ -94,12 +71,5 @@ public class ConnectedUsersTableController {
         }
     }
 
-    public void refreshNow() {
-        refreshUsers();
-    }
-
-    public TableView<UserRow> getUsersTable() {
-        return usersTable;
-    }
-
+    public TableView<UserRow> getUsersTable() {return usersTable;}
 }

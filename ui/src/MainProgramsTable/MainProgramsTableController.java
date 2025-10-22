@@ -1,6 +1,7 @@
 package MainProgramsTable;
 
 import Main.Execution.MainExecutionController;
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
@@ -64,28 +65,11 @@ public class MainProgramsTableController {
         }
 
         refreshPrograms();
-        startAutoRefresh();
-    }
-
-    public void startAutoRefresh() {
-        if (refreshTimer != null) refreshTimer.cancel();
-
-        refreshTimer = new Timer(true);
-        refreshTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override public void run() {
-                Platform.runLater(MainProgramsTableController.this::refreshPrograms);
-            }
-        }, 0, 5000); // every 5 seconds
     }
 
     public void refreshPrograms() {
         try {
-            URL url = new URL(baseUrl + "programs/list");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            if (conn.getResponseCode() != 200) return;
-
-            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String json = HttpSessionClient.get(baseUrl + "programs/list");
             Map<String, Object> resp = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(resp.get("status"))) return;
 

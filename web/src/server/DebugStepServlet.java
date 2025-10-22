@@ -79,6 +79,7 @@ public class DebugStepServlet extends HttpServlet {
                         vars,
                         cycles
                 );
+                ServerEventManager.broadcast("PROGRAM_RUN");
             }
 
             Map<String, Object> debugData = new LinkedHashMap<>();

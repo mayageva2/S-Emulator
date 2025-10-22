@@ -2,6 +2,7 @@ package RunButtons;
 
 import InputsBox.InputsBoxController;
 import Main.Execution.MainExecutionController;
+import Utils.HttpSessionClient;
 import VariablesBox.VariablesBoxController;
 import StatisticsTable.StatisticsTableController;
 import ProgramToolBar.ProgramToolbarController;
@@ -301,20 +302,7 @@ public class RunButtonsController {
     }
 
     private String httpPost(String urlStr, String body) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(body.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, body, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     private void alertError(String title, String msg) {
@@ -355,20 +343,7 @@ public class RunButtonsController {
     }
 
     private String httpPostJson(String urlStr, String json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, json, "application/json; charset=UTF-8");
     }
 
     public void setMainController(MainExecutionController mainExecutionController) {

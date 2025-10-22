@@ -1,5 +1,6 @@
 package InstructionsTable;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
@@ -449,26 +450,14 @@ public class InstructionsTableController {
         new Thread(() -> {
             try {
                 String urlStr = "http://localhost:8080/semulator/view?degree=" + degree;
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Accept", "application/json");
-
-                if (conn.getResponseCode() != 200) {
-                    System.err.println("Server returned status " + conn.getResponseCode());
-                    return;
-                }
-
-                String json;
-                try (InputStream in = conn.getInputStream()) {
-                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                }
+                String json = HttpSessionClient.get(urlStr);
 
                 Gson gson = new Gson();
                 Map<String, Object> map = gson.fromJson(json, Map.class);
                 List<Map<String, Object>> instructionsList =
                         (List<Map<String, Object>>) map.get("instructions");
-
                 Platform.runLater(() -> renderFromJson(instructionsList));
+
             } catch (Exception e) {
                 e.printStackTrace();
             }

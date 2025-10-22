@@ -1,5 +1,6 @@
 package HeaderAndLoadButton;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
@@ -34,6 +35,10 @@ public class HeaderAndLoadButtonController {
     private int lastMaxDegree = 0;
     private String lastProgramName;
     private Consumer<LoadedEvent> onLoaded;
+    private Runnable onProgramUploaded;
+    public void setOnProgramUploaded(Runnable onProgramUploaded) {
+        this.onProgramUploaded = onProgramUploaded;
+    }
 
     private String baseUrl = "http://localhost:8080/semulator/";
     public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
@@ -60,12 +65,7 @@ public class HeaderAndLoadButtonController {
 
     private void updateUserHeader() {
         try {
-            HttpURLConnection conn = (HttpURLConnection) new URL(baseUrl + "user/current").openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Accept", "application/json");
-            if (conn.getResponseCode() != 200) return;
-
-            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String json = HttpSessionClient.get(baseUrl + "user/current");
             Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
             if ("success".equals(map.get("status"))) {
@@ -153,26 +153,9 @@ public class HeaderAndLoadButtonController {
                 updateMessage("Uploading file...");
                 updateProgress(0.1, 1);
 
-                String boundary = "Boundary" + System.currentTimeMillis();
-                HttpURLConnection conn = (HttpURLConnection) new URL(baseUrl + "load").openConnection();
-                conn.setDoOutput(true);
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-
-                try (OutputStream os = conn.getOutputStream()) {
-                    os.write(("--" + boundary + "\r\n").getBytes());
-                    os.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"\r\n").getBytes());
-                    os.write("Content-Type: text/xml\r\n\r\n".getBytes());
-                    Files.copy(file.toPath(), os);
-                    os.write(("\r\n--" + boundary + "--\r\n").getBytes());
-                }
-
-                String json;
-                try (InputStream in = conn.getInputStream()) {
-                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                }
-
+                String json = HttpSessionClient.postMultipart(baseUrl + "load", xmlPath, "file");
                 Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+
                 if (!"success".equals(map.get("status"))) {
                     String msg = (String) map.getOrDefault("message", "Upload failed");
                     Platform.runLater(() -> showAlert("Upload failed: " + msg));
@@ -188,6 +171,9 @@ public class HeaderAndLoadButtonController {
                     lastXmlPath = xmlPath;
                     if (onLoaded != null)
                         onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
+                    if (onProgramUploaded != null) {
+                        onProgramUploaded.run();
+                    }
                 });
 
                 updateProgress(1, 1);
@@ -216,18 +202,7 @@ public class HeaderAndLoadButtonController {
     }
 
     private String httpPost(String urlStr, String formData) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setDoOutput(true);
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(formData.getBytes(StandardCharsets.UTF_8));
-        }
-
-        try (InputStream in = conn.getInputStream()) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
+        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     public void setOnLoaded(Consumer<LoadedEvent> onLoaded) {

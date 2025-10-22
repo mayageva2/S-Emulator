@@ -1,6 +1,7 @@
 package login;
 
 import Main.Dashboard.mainDashboardController;
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -75,18 +76,6 @@ public class LoginController {
     }
 
     private String httpPost(String urlStr, String formData) throws IOException {
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setDoOutput(true);
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(formData.getBytes(StandardCharsets.UTF_8));
-        }
-
-        try (InputStream in = conn.getInputStream()) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
+        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 }

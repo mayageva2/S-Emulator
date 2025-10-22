@@ -1,10 +1,9 @@
 package FunctionsTable;
 
 import Main.Execution.MainExecutionController;
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import emulator.api.dto.FunctionInfo;
-import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Rectangle2D;
@@ -21,7 +20,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Timer;
-import java.util.TimerTask;
 
 public class FunctionsTableController {
 
@@ -35,32 +33,11 @@ public class FunctionsTableController {
 
     private final Gson gson = new Gson();
     private String baseUrl = "http://localhost:8080/semulator/";
-    private Timer refreshTimer;
-
-    // --- Public setters/getters for dashboard ---
-    public void setBaseUrl(String baseUrl) {
-        this.baseUrl = baseUrl;
-    }
-
-    public void startAutoRefresh() {
-        if (refreshTimer != null) refreshTimer.cancel();
-
-        refreshTimer = new Timer(true);
-        refreshTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override public void run() {
-                Platform.runLater(FunctionsTableController.this::refreshFunctions);
-            }
-        }, 0, 5000);
-    }
+    public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
 
     public void refreshFunctions() {
         try {
-            URL url = new URL(baseUrl + "functions");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            if (conn.getResponseCode() != 200) return;
-
-            String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String json = HttpSessionClient.get(baseUrl + "functions");
             Map<String, Object> resp = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(resp.get("status"))) return;
 
@@ -75,8 +52,8 @@ public class FunctionsTableController {
                         ((Number) f.get("maxDegree")).intValue()
                 ));
             }
-
             functionsTable.getItems().setAll(rows);
+
         } catch (Exception e) {
             System.err.println("Failed to refresh functions: " + e.getMessage());
         }
@@ -91,10 +68,8 @@ public class FunctionsTableController {
         colMaxDegree.setCellValueFactory(new PropertyValueFactory<>("maxDegree"));
 
         btnExecuteFunc.setDisable(true);
-
-        functionsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
-            btnExecuteFunc.setDisable(newSel == null);
-        });
+        functionsTable.getSelectionModel().selectedItemProperty()
+                .addListener((obs, oldSel, newSel) -> btnExecuteFunc.setDisable(newSel == null));
 
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
@@ -103,7 +78,6 @@ public class FunctionsTableController {
         }
 
         refreshFunctions();
-        startAutoRefresh();
     }
 
     @FXML
@@ -111,28 +85,21 @@ public class FunctionsTableController {
         try {
             FunctionRow selected = functionsTable.getSelectionModel().getSelectedItem();
             if (selected == null) {
-                Alert alert = new Alert(Alert.AlertType.WARNING);
-                alert.setTitle("No Function Selected");
-                alert.setHeaderText(null);
-                alert.setContentText("Please select a function to execute.");
-                alert.showAndWait();
+                new Alert(Alert.AlertType.WARNING, "Please select a function to execute.").showAndWait();
                 return;
             }
 
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController controller = loader.getController();
-
             controller.setProgramToExecute(selected.getFunctionName());
 
             Stage stage = (Stage) btnExecuteFunc.getScene().getWindow();
             Screen screen = Screen.getPrimary();
             Rectangle2D bounds = screen.getVisualBounds();
 
-            double desiredWidth = stage.getWidth();
-            double desiredHeight = stage.getHeight();
-            if (desiredWidth > bounds.getWidth()) {desiredWidth = bounds.getWidth() - 20;}
-            if (desiredHeight > bounds.getHeight()) {desiredHeight = bounds.getHeight() - 20;}
+            double desiredWidth = Math.min(stage.getWidth(), bounds.getWidth() - 20);
+            double desiredHeight = Math.min(stage.getHeight(), bounds.getHeight() - 20);
 
             Scene scene = new Scene(root, desiredWidth, desiredHeight);
             stage.setScene(scene);

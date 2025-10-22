@@ -1,5 +1,6 @@
 package ExecutionHeader;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
@@ -33,30 +34,22 @@ public class ExecutionHeaderController {
     private void updateUserHeader() {
         new Thread(() -> {
             try {
-                URL url = new URL(BASE_URL + "user/current");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Accept", "application/json");
+                String json = HttpSessionClient.get(BASE_URL + "user/current");
+                Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if ("success".equals(map.get("status"))) {
+                    Map<String, Object> user = (Map<String, Object>) map.get("user");
+                    String username = (String) user.get("username");
+                    long credits = ((Number) user.get("credits")).longValue();
 
-                if (conn.getResponseCode() == 200) {
-                    String json = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                    Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
-
-                    if ("success".equals(map.get("status"))) {
-                        Map<String, Object> user = (Map<String, Object>) map.get("user");
-                        String username = (String) user.get("username");
-                        long credits = ((Number) user.get("credits")).longValue();
-
-                        Platform.runLater(() -> {
-                            lblUsername.setText("User: " + username);
-                            lblCredits.setText("Available Credits: " + credits);
-                        });
-                    } else {
-                        Platform.runLater(() -> {
-                            lblUsername.setText("User: (none)");
-                            lblCredits.setText("Available Credits: —");
-                        });
-                    }
+                    Platform.runLater(() -> {
+                        lblUsername.setText("User: " + username);
+                        lblCredits.setText("Available Credits: " + credits);
+                    });
+                } else {
+                    Platform.runLater(() -> {
+                        lblUsername.setText("User: (none)");
+                        lblCredits.setText("Available Credits: —");
+                    });
                 }
             } catch (Exception e) {
                 Platform.runLater(() -> {
