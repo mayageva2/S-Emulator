@@ -1,5 +1,6 @@
 package RunButtons;
 
+import ArchitectureChoiceBox.ArchitectureChoiceBoxController;
 import InputsBox.InputsBoxController;
 import Main.Execution.MainExecutionController;
 import Utils.HttpSessionClient;
@@ -37,6 +38,9 @@ public class RunButtonsController {
     private ProgramToolbarController toolbarController;
     private InstructionsTableController instructionsController;
     private MainExecutionController mainExecutionController;
+    private ArchitectureChoiceBoxController architectureController;
+    public void setArchitectureController(ArchitectureChoiceBoxController c) { this.architectureController = c; }
+
 
     private int currentDegree = 0;
     private String currentProgram = "";
@@ -87,16 +91,20 @@ public class RunButtonsController {
             String effectiveProgram = (currentProgram == null || currentProgram.isBlank() ||
                             currentProgram.equalsIgnoreCase("Main Program")) ? "" : currentProgram;
 
+            String architecture = (architectureController != null &&
+                    architectureController.getSelectedArchitecture() != null)
+                    ? architectureController.getSelectedArchitecture().name() : null;
+
+            if (architecture == null || architecture.isBlank()) {
+                alertError("Missing architecture", "Please select an architecture before running.");
+                return;
+            }
+
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("program", effectiveProgram);
             data.put("degree", currentDegree);
+            data.put("architecture", architecture);
             data.put("inputs", inputs);
-
-            System.out.println("▶ Sending run request:");
-            System.out.println("  program='" + currentProgram + "'");
-            System.out.println("  effectiveProgram='" + effectiveProgram + "'");
-            System.out.println("  degree=" + currentDegree);
-            System.out.println("  inputs=" + Arrays.toString(inputs));
 
             String json = gson.toJson(data);
             String response = httpPostJson(BASE_URL + "run", json);
@@ -157,8 +165,18 @@ public class RunButtonsController {
                             currentProgram.equalsIgnoreCase("Main Program"))
                             ? "" : currentProgram;
 
+            String architecture = (architectureController != null &&
+                    architectureController.getSelectedArchitecture() != null)
+                    ? architectureController.getSelectedArchitecture().name() : null;
+
+            if (architecture == null || architecture.isBlank()) {
+                alertError("Missing architecture", "Please select an architecture before debugging.");
+                return;
+            }
+
             String formData = "program=" + URLEncoder.encode(effectiveProgram, StandardCharsets.UTF_8)
                     + "&degree=" + currentDegree
+                    + "&architecture=" + URLEncoder.encode(architecture, StandardCharsets.UTF_8)
                     + "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
             String response = httpPost(BASE_URL + "debug/start", formData);
             Map<String, Object> json = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());

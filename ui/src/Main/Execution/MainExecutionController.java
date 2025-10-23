@@ -20,11 +20,6 @@ import javafx.scene.Node;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.*;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -41,6 +36,7 @@ public class MainExecutionController {
     @FXML private InputsBoxController inputsBoxController;
     @FXML private StatisticsTableController statisticsTableController;
     @FXML private StatisticsCommandsController statisticsCommandsController;
+    @FXML private ArchitectureChoiceBox.ArchitectureChoiceBoxController architectureController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private VBox statisticsBox;

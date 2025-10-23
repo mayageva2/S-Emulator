@@ -57,7 +57,10 @@
                             <HBox fx:id="sidePanels" alignment="TOP_LEFT" spacing="10"
                                   minWidth="0" maxWidth="Infinity">
                                 <fx:include fx:id="varsBox"   source="../../VariablesBox/VariablesBox.fxml"/>
-                                <fx:include fx:id="inputsBox" source="../../InputsBox/InputsBox.fxml"/>
+                                <VBox fx:id="runInputs" spacing="12" minWidth="0" maxWidth="Infinity">
+                                    <fx:include fx:id="architecture" source="../../ArchitectureChoiceBox/ArchitectureChoiceBox.fxml"/>
+                                    <fx:include fx:id="inputsBox" source="../../InputsBox/InputsBox.fxml"/>
+                                </VBox>
                             </HBox>
 
                             <VBox fx:id="statisticsBox" fillWidth="true" spacing="20"
