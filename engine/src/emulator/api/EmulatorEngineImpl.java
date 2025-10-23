@@ -500,9 +500,49 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         String currentUser = UserManager.getCurrentUser()
                 .map(u -> u.getUsername())
                 .orElse("Unknown");
-        RunRecord record = new RunRecord(currentUser, programName, nextRunNumber, degree, Arrays.asList(input), y, cycles);
+
+        RunRecord record = new RunRecord(
+                currentUser,
+                programName,
+                nextRunNumber,
+                degree,
+                Arrays.asList(input),
+                y,
+                cycles,
+                this.lastRunVars != null ? new LinkedHashMap<>(this.lastRunVars) : new LinkedHashMap<>()
+        );
+
+        if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {
+            Map<String, Long> normalizedVars = new LinkedHashMap<>();
+            if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {
+                for (var e : this.lastRunVars.entrySet()) {
+                    long value = e.getValue();
+                    normalizedVars.put(e.getKey(), (long) (int) value);
+                }
+                record.setVarsSnapshot(normalizedVars);
+            }
+        }
+
+        else {
+            LinkedHashMap<String, Long> fallback = new LinkedHashMap<>();
+            if (input != null) {
+                for (int i = 0; i < input.length; i++) {
+                    fallback.put("x" + (i + 1), input[i] != null ? input[i] : 0L);
+                }
+            }
+            fallback.putIfAbsent("y", y);
+            record.setVarsSnapshot(fallback);
+            System.out.println("recordRun(): lastRunVars empty, using fallback varsSnapshot = " + fallback);
+        }
+
         history.add(record);
         historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
+
+        System.out.println("recordRun(): Added run #" + nextRunNumber +
+                " for program=" + programName +
+                ", degree=" + degree +
+                ", inputs=" + Arrays.toString(input) +
+                ", cycles=" + cycles);
     }
 
     @Override
@@ -791,6 +831,19 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 ))
                 .toList();
 
+        this.lastRunVars = exec.variableState().entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey().getRepresentation(),
+                        Map.Entry::getValue,
+                        (a,b) -> b,
+                        LinkedHashMap::new
+                ));
+        this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
+                .map(v -> v == null ? 0L : v)
+                .toList();
+        this.lastRunDegree = degree;
+        this.lastRunProgramName = target.getName();
+
         recordRun(programName, degree, input, y, totalCycles);
         return new RunResult(y, totalCycles, vars);
     }
@@ -878,7 +931,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
     }
 
-    //This func creates heavy objects
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
@@ -892,7 +944,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             programName = (current != null ? current.getName() : "UNKNOWN");
         }
 
-        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
+                .map(v -> v == null ? 0L : v)
+                .toList();
         this.lastRunDegree = Math.max(0, degree);
         this.lastRunProgramName = programName;
 
@@ -910,9 +964,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 } catch (NumberFormatException ignore) {}
             }
         }
-        this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
 
-        recordRun(this.lastRunProgramName, this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+        this.lastRunVars = new LinkedHashMap<>(lastVars);
+        recordRun(this.lastRunProgramName, this.lastRunDegree,
+                inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
     }
 
     private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {

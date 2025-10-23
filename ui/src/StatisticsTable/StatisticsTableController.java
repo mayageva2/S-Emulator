@@ -196,25 +196,63 @@ public class StatisticsTableController {
             Map<String, Object> resp = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
             if (!"success".equals(resp.get("status"))) return;
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> runs = (List<Map<String, Object>>) resp.get("runs");
+
+            List<RunRecord> hist = new ArrayList<>();
             List<HistoryRow> rows = new ArrayList<>();
 
             for (Map<String, Object> r : runs) {
-                rows.add(new HistoryRow(
+                HistoryRow row = new HistoryRow(
                         ((Number) r.get("runNumber")).intValue(),
-                        (String) r.get("type"),
-                        (String) r.get("program"),
-                        (String) r.get("arch"),
+                        Objects.toString(r.get("type"), "Main"),
+                        Objects.toString(r.get("program"), "Unknown"),
+                        Objects.toString(r.get("arch"), "I"),
                         ((Number) r.get("degree")).intValue(),
                         ((Number) r.get("y")).longValue(),
                         ((Number) r.get("cycles")).intValue()
+                );
+                rows.add(row);
+
+                List<Long> inputs = new ArrayList<>();
+                Object inputsObj = r.get("inputs");
+                if (inputsObj instanceof List<?> list) {
+                    for (Object v : list) {
+                        try { inputs.add(Long.parseLong(v.toString())); } catch (Exception ignored) {}
+                    }
+                } else if (inputsObj != null) {
+                    for (String s : inputsObj.toString().split(",")) {
+                        try { inputs.add(Long.parseLong(s.trim())); } catch (Exception ignored) {}
+                    }
+                }
+
+                Map<String, Long> varsSnapshot = new LinkedHashMap<>();
+                Object varsObj = r.get("varsSnapshot");
+                if (varsObj instanceof Map<?,?> map) {
+                    for (var e : map.entrySet()) {
+                        try {
+                            varsSnapshot.put(e.getKey().toString(), Long.parseLong(e.getValue().toString()));
+                        } catch (Exception ignored) {}
+                    }
+                }
+
+                hist.add(new RunRecord(
+                        username,
+                        row.program,
+                        row.runNumber,
+                        row.degree,
+                        inputs,
+                        row.y,
+                        row.cycles,
+                        varsSnapshot
                 ));
             }
 
+            this.currentHistory = hist;
             table.getItems().setAll(rows);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 }

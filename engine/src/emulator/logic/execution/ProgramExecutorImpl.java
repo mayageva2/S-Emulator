@@ -64,6 +64,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         seedVariables(finalInputs);
 
         executeProgram(instructions);
+        System.out.println("variableState after execution: " + variableState());
         lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
     }

@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.RunRecord;
 import emulator.api.dto.UserService;
-import emulator.logic.user.UserManager;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 

@@ -427,16 +427,14 @@ public class MainExecutionController {
                 List<RunRecord> runRecords = new ArrayList<>();
                 for (Map<String, Object> rec : records) {
                     String username = Objects.toString(rec.get("username"), "Unknown");
-
                     String programName = Objects.toString(rec.get("programName"), "Main Program");
                     int runNumber = ((Number) rec.get("runNumber")).intValue();
                     int degree = ((Number) rec.get("degree")).intValue();
                     long y = ((Number) rec.get("y")).longValue();
                     int cycles = ((Number) rec.get("cycles")).intValue();
-
                     Object inputsObj = rec.get("inputs");
-                    List<Long> inputsList = new ArrayList<>();
 
+                    List<Long> inputsList = new ArrayList<>();
                     if (inputsObj instanceof List<?> list) {
                         for (Object val : list) {
                             try { inputsList.add(Long.parseLong(val.toString())); } catch (Exception ignored) {}
@@ -450,8 +448,29 @@ public class MainExecutionController {
                         }
                     }
 
-                    runRecords.add(new RunRecord(username, programName, runNumber, degree, inputsList, y, cycles));
+                    Map<String, Long> varsSnapshot = new LinkedHashMap<>();
+                    Object varsObj = rec.get("varsSnapshot");
+                    if (varsObj instanceof Map<?,?> map) {
+                        for (var e : map.entrySet()) {
+                            try {
+                                varsSnapshot.put(e.getKey().toString(), Long.parseLong(e.getValue().toString()));
+                            } catch (Exception ignored) {}
+                        }
+                    }
+
+                    runRecords.add(new RunRecord(
+                            username,
+                            programName,
+                            runNumber,
+                            degree,
+                            inputsList,
+                            y,
+                            cycles,
+                            varsSnapshot
+                    ));
                 }
+
+                System.out.println("Loaded " + runRecords.size() + " history records");
             }
 
         } catch (Exception e) {

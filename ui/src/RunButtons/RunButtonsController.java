@@ -39,8 +39,7 @@ public class RunButtonsController {
     private InstructionsTableController instructionsController;
     private MainExecutionController mainExecutionController;
     private ArchitectureChoiceBoxController architectureController;
-    public void setArchitectureController(ArchitectureChoiceBoxController c) { this.architectureController = c; }
-
+    private StatisticsCommands.StatisticsCommandsController statisticsCommandsController;
 
     private int currentDegree = 0;
     private String currentProgram = "";
@@ -74,6 +73,8 @@ public class RunButtonsController {
     public void setStatisticsTableController(StatisticsTableController c) { this.statisticsTableController = c; }
     public void setInstructionsController(InstructionsTableController c) { this.instructionsController = c; }
     public void setProgramToolbarController(ProgramToolbarController c) {this.toolbarController = c;}
+    public void setArchitectureController(ArchitectureChoiceBoxController c) { this.architectureController = c; }
+    public void setStatisticsCommandsController(StatisticsCommands.StatisticsCommandsController c) { this.statisticsCommandsController = c; }
 
     public void setCurrentProgram(String name) { this.currentProgram = (name == null ? "" : name); }
     public void setCurrentDegree(int degree) { this.currentDegree = Math.max(0, degree); }
@@ -125,6 +126,14 @@ public class RunButtonsController {
                     Object value = v.get("value");
                     if (name != null) varsMap.put(name.toString(), value);
                 }
+            }
+
+            Map<String, String> latestVarsSnapshot = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> entry : varsMap.entrySet()) {
+                latestVarsSnapshot.put(entry.getKey(), String.valueOf(entry.getValue()));
+            }
+            if (statisticsCommandsController != null) {
+                statisticsCommandsController.setLastVarsSnapshot(latestVarsSnapshot);
             }
 
             if (varsBoxController != null) {
