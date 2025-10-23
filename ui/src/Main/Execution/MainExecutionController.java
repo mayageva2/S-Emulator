@@ -7,8 +7,6 @@ import SummaryLine.SummaryLineController;
 import Utils.HttpSessionClient;
 import VariablesBox.VariablesBoxController;
 import InputsBox.InputsBoxController;
-import StatisticsTable.StatisticsTableController;
-import StatisticsCommands.StatisticsCommandsController;
 import SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController;
 import RunButtons.RunButtonsController;
 import com.google.gson.Gson;
@@ -24,7 +22,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class MainExecutionController {
     @FXML private ProgramToolbarController toolbarController;
@@ -34,8 +31,6 @@ public class MainExecutionController {
     @FXML private RunButtonsController runButtonsController;
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBoxController inputsBoxController;
-    @FXML private StatisticsTableController statisticsTableController;
-    @FXML private StatisticsCommandsController statisticsCommandsController;
     @FXML private ArchitectureChoiceBox.ArchitectureChoiceBoxController architectureController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
@@ -60,6 +55,7 @@ public class MainExecutionController {
     private Consumer<String> onHighlightChanged;
     private String loadedProgramName = null;
     private String selectedFunctionName = null;
+    private String predefinedInputsCsv = null;
 
     @FXML
     private void initialize() {
@@ -70,12 +66,8 @@ public class MainExecutionController {
         toolbarController.setHighlightEnabled(false);
         toolbarController.setDegreeButtonEnabled(false);
         toolbarController.setOnProgramSelected(name -> {
-            if (statisticsTableController != null)
-                statisticsTableController.clear();
-
             selectedFunctionName = (name == null ? "" : name);
             runButtonsController.setCurrentProgram(selectedFunctionName);
-
             refreshProgramView(currentDegree);
         });
         toolbarController.setOnHighlightChanged(term -> {
@@ -106,15 +98,12 @@ public class MainExecutionController {
             inputsBox.prefWidthProperty().bind(sidePanels.widthProperty().divide(2));
         });
 
-        runButtonsController.setStatisticsTableController(statisticsTableController);
         runButtonsController.setInputsBoxController(inputsBoxController);
         runButtonsController.setVarsBoxController(varsBoxController);
         runButtonsController.setProgramToolbarController(toolbarController);
         runButtonsController.setInstructionsController(instructionsController);
+        runButtonsController.setArchitectureController(architectureController);
         runButtonsController.setMainController(this);
-        statisticsCommandsController.setStatisticsTableController(statisticsTableController);
-        statisticsCommandsController.setToolbarController(toolbarController);
-        statisticsCommandsController.setMainController(this);
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
@@ -173,7 +162,6 @@ public class MainExecutionController {
     private String httpPostForm(String urlStr, String formData) throws Exception {
         return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
-
 
     private void refreshProgramView(int degree) {
         try {
@@ -464,10 +452,6 @@ public class MainExecutionController {
 
                     runRecords.add(new RunRecord(username, programName, runNumber, degree, inputsList, y, cycles));
                 }
-
-                Platform.runLater(() -> {
-                    statisticsTableController.setHistory(runRecords, (Function<String, String>) s -> s);
-                });
             }
 
         } catch (Exception e) {
@@ -510,7 +494,6 @@ public class MainExecutionController {
                 if (runButtonsController != null) {
                     runButtonsController.setInputsBoxController(inputsBoxController);
                     runButtonsController.setVarsBoxController(varsBoxController);
-                    runButtonsController.setStatisticsTableController(statisticsTableController);
                     runButtonsController.setProgramToolbarController(toolbarController);
                     runButtonsController.setCurrentDegree(currentDegree);
                 }
@@ -527,25 +510,10 @@ public class MainExecutionController {
         }
     }
 
-    public VariablesBoxController getVarsBoxController() {
-        return varsBoxController;
-    }
-
-    public InputsBoxController getInputsBoxController() {
-        return inputsBoxController;
-    }
-
-    public void refreshProgramViewPublic(int degree) {
-        refreshProgramView(degree);
-    }
-
-    public String httpPostFormPublic(String urlStr, String formData) throws Exception {
-        return httpPostForm(urlStr, formData);
-    }
-
-    public StatisticsCommands.StatisticsCommandsController getStatisticsCommandsController() {
-        return statisticsCommandsController;
-    }
+    public VariablesBoxController getVarsBoxController() {return varsBoxController;}
+    public InputsBoxController getInputsBoxController() {return inputsBoxController;}
+    public void refreshProgramViewPublic(int degree) {refreshProgramView(degree);}
+    public String httpPostFormPublic(String urlStr, String formData) throws Exception {return httpPostForm(urlStr, formData);}
 
     public void setProgramToExecute(String programName) {
         this.currentProgram = programName;
@@ -598,4 +566,64 @@ public class MainExecutionController {
             }
         }).start();
     }
+
+    public void prepareForRerun(String programName, int degree, String inputsCsv) {
+        this.currentProgram = programName;
+        this.currentDegree = degree;
+        this.predefinedInputsCsv = inputsCsv;
+        Platform.runLater(this::loadProgramAndInputs);
+    }
+
+    private void loadProgramAndInputs() {
+        loadProgramFromServer(currentProgram);
+        inputsBoxController.fillFromCsv(predefinedInputsCsv);
+    }
+
+    private void loadProgramFromServer(String programName) {
+        new Thread(() -> {
+            try {
+                String viewUrl = BASE_URL + "view?degree=0&program=" +
+                        URLEncoder.encode(programName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program view: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(programName);
+                        runButtonsController.setCurrentDegree(0);
+                        runButtonsController.enableRunButtonsAfterLoad();
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(0, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
+                    }
+                });
+
+            } catch (Exception e) {
+                showError("Program view failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
 }

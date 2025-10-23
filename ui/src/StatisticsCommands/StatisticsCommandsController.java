@@ -1,6 +1,9 @@
 package StatisticsCommands;
 
+import Main.Dashboard.mainDashboardController;
 import Main.Execution.MainExecutionController;
+import ProgramToolBar.ProgramToolbarController;
+import StatisticsTable.StatisticsTableController;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -31,9 +34,10 @@ public class StatisticsCommandsController {
     private static final Gson gson = new Gson();
 
     private Map<String, String> lastVarsSnapshot = Map.of();
-    private ProgramToolBar.ProgramToolbarController toolbarController;
+    private ProgramToolbarController toolbarController;
     private MainExecutionController mainExecutionController;
-    private StatisticsTable.StatisticsTableController statisticsTableController;
+    private StatisticsTableController statisticsTableController;
+    private mainDashboardController dashboardController;
 
     public void setToolbarController(ProgramToolBar.ProgramToolbarController c) {
         this.toolbarController = c;
@@ -43,6 +47,9 @@ public class StatisticsCommandsController {
     }
     public void setStatisticsTableController(StatisticsTable.StatisticsTableController c) {
         this.statisticsTableController = c;
+    }
+    public void setDashboardController(Main.Dashboard.mainDashboardController c) {
+        this.dashboardController = c;
     }
 
     @FXML
@@ -129,56 +136,8 @@ public class StatisticsCommandsController {
             var rec = optRec.get();
 
             String csvInputs = String.join(",", rec.inputs().stream().map(String::valueOf).toList());
-            String formData = "program=" + URLEncoder.encode(rec.programName(), StandardCharsets.UTF_8)
-                    + "&degree=" + rec.degree()
-                    + "&inputs=" + URLEncoder.encode(csvInputs, StandardCharsets.UTF_8);
-
-            String resp = mainExecutionController.httpPostFormPublic("http://localhost:8080/semulator/run", formData);
-
-            Map<String, Object> outer = new Gson().fromJson(resp, new TypeToken<Map<String, Object>>(){}.getType());
-            if (!"success".equals(outer.get("status"))) {
-                throw new RuntimeException("Run failed: " + outer.get("message"));
-            }
-
-            Map<String, Object> result = (Map<String, Object>) outer.get("result");
-            List<Map<String, Object>> varsList = (List<Map<String, Object>>) result.get("vars");
-            Number cycles = (Number) result.getOrDefault("cycles", 0);
-
-            Map<String, Object> varsMap = new LinkedHashMap<>();
-            if (varsList != null) {
-                for (Map<String, Object> v : varsList) {
-                    Object name = v.get("name");
-                    Object value = v.get("value");
-                    if (name == null) continue;
-
-                    String displayValue;
-                    if (value instanceof Number num) {
-                        double d = num.doubleValue();
-                        if (Math.floor(d) == d) {
-                            displayValue = String.valueOf((long) d);
-                        } else {
-                            displayValue = String.valueOf(d);
-                        }
-                    } else {
-                        displayValue = String.valueOf(value);
-                    }
-                    varsMap.put(name.toString(), displayValue);
-                }
-            }
-
-            if (mainExecutionController != null) {
-                var varsBox = mainExecutionController.getVarsBoxController();
-                if (varsBox != null) {
-                    Platform.runLater(() -> {
-                        varsBox.renderAll(varsMap);
-                        varsBox.setCycles(cycles.intValue());
-                    });
-                }
-
-                Platform.runLater(() -> {
-                    mainExecutionController.refreshHistory();
-                    mainExecutionController.refreshProgramViewPublic(rec.degree());
-                });
+            if (dashboardController != null) {
+                dashboardController.openExecutionScreenWithRun(rec.programName(), rec.degree(), csvInputs);
             }
 
         } catch (Exception ex) {

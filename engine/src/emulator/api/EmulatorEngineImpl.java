@@ -57,7 +57,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
     private final Map<String,String> displayToInternal = new HashMap<>();
-    private record ArchitectureInfo(long creditCost, String architecture) {}
 
     // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
     private transient Thread dbgThread;
@@ -212,18 +211,25 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     private ArchitectureInfo getArchitectureInfo(InstructionData data) {
-        if (data == null) return new ArchitectureInfo(0L, "?");
+        if (data == null)
+            return new ArchitectureInfo("?", 0, "Unknown architecture");
 
-        long cost = data.getBaseCreditCost();
-        String arch = switch ((int) cost) {
+        int cost = data.getBaseCreditCost();
+        String name = switch (cost) {
             case 5 -> "I";
             case 100 -> "II";
             case 500 -> "III";
             case 1000 -> "IV";
             default -> "?";
         };
-
-        return new ArchitectureInfo(cost, arch);
+        String description = switch (name) {
+            case "I" -> "Basic architecture";
+            case "II" -> "Optimized architecture";
+            case "III" -> "High performance architecture";
+            case "IV" -> "Ultimate architecture";
+            default -> "Unknown architecture";
+        };
+        return new ArchitectureInfo(name, cost, description);
     }
 
     private ProgramXml parseXmlToProgram(String xml) throws Exception {
@@ -425,8 +431,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     self.args(),
                     createdFromChain,
                     provenance,
-                    info.creditCost(),
-                    info.architecture()
+                    info.cost(),
+                    info.name()
             ));
         }
         List<String> inputs = extractInputVars(new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles, List.of()));
@@ -548,7 +554,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         ArchitectureInfo info = getArchitectureInfo(data);
 
         List<String> args = collectArgs(ins);
-        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of(), info.creditCost(), info.architecture());
+        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of(), info.cost(), info.name());
     }
 
     private String canonicalProgramName(String programName) {
@@ -642,8 +648,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     v.opcode(), v.label(),
                     v.basic(), v.cycles(), v.args(),
                     List.of(), List.of(),
-                    info.creditCost(),
-                    info.architecture()
+                    info.cost(),
+                    info.name()
             ));
 
             cur = cur.getCreatedFrom();
@@ -750,6 +756,42 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunProgramName = current.getName();
 
         recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
+        return new RunResult(y, totalCycles, vars);
+    }
+
+    public RunResult run(String programName, int degree, ArchitectureInfo arch, Long... input) {
+        Objects.requireNonNull(programName, "programName");
+        Program target = functionLibrary.get(programName.toUpperCase(Locale.ROOT));
+        if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+
+        int maxDegree = target.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree)
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree);
+
+        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+
+        long baseCost = emulator.logic.architecture.ProgramCreditCostCalculator.calculateTotalCost(toRun);
+        double multiplier = arch.cost() / 5.0;
+        long adjustedCost = Math.round(baseCost * multiplier);
+
+        if (!UserManager.charge(adjustedCost)) {
+            throw new IllegalStateException("Not enough credits (" + adjustedCost + " cycles required)");
+        }
+
+        ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
+        long y = exec.run(input);
+
+        int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+        var vars = exec.variableState().entrySet().stream()
+                .map(e -> new VariableView(
+                        e.getKey().getRepresentation(),
+                        VarType.valueOf(e.getKey().getType().name()),
+                        e.getKey().getNumber(),
+                        e.getValue()
+                ))
+                .toList();
+
+        recordRun(programName, degree, input, y, totalCycles);
         return new RunResult(y, totalCycles, vars);
     }
 

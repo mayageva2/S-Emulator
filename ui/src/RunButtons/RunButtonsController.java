@@ -89,7 +89,7 @@ public class RunButtonsController {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
             String effectiveProgram = (currentProgram == null || currentProgram.isBlank() ||
-                            currentProgram.equalsIgnoreCase("Main Program")) ? "" : currentProgram;
+                    currentProgram.equalsIgnoreCase("Main Program")) ? "" : currentProgram;
 
             String architecture = (architectureController != null &&
                     architectureController.getSelectedArchitecture() != null)
@@ -110,7 +110,6 @@ public class RunButtonsController {
             String response = httpPostJson(BASE_URL + "run", json);
 
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-
             if (!"success".equals(outer.get("status"))) {
                 throw new RuntimeException("Run failed: " + outer.get("message"));
             }
@@ -130,22 +129,11 @@ public class RunButtonsController {
 
             if (varsBoxController != null) {
                 varsBoxController.renderAll(varsMap);
-                if (mainExecutionController != null) {
-                    var statsCmd = mainExecutionController.getStatisticsCommandsController();
-                    if (statsCmd != null) {
-                        Map<String, String> snapshot = new LinkedHashMap<>();
-                        for (var es : varsMap.entrySet()) {
-                            snapshot.put(es.getKey(), String.valueOf(es.getValue()));
-                        }
-                        statsCmd.setLastVarsSnapshot(snapshot);
-                    }
-                }
                 varsBoxController.setCycles(cycles.intValue());
             }
-
-            if (statisticsTableController != null)
+            if (statisticsTableController != null) {
                 Platform.runLater(() -> statisticsTableController.clear());
-
+            }
             if (mainExecutionController != null) {
                 mainExecutionController.refreshHistory();
             }
@@ -154,7 +142,6 @@ public class RunButtonsController {
             alertError("Run failed", ex.getMessage());
         }
     }
-
 
     @FXML
     private void onDebug(ActionEvent e) {
@@ -301,21 +288,13 @@ public class RunButtonsController {
 
     private void updateVarsFromDebug(Map<String, Object> json) {
         if (json == null || varsBoxController == null) return;
+
         Map<String, Object> vars = (Map<String, Object>) json.get("vars");
         Number cycles = (Number) json.getOrDefault("cycles", 0);
+
         Platform.runLater(() -> {
             varsBoxController.renderAll(vars);
             varsBoxController.setCycles(cycles.intValue());
-            if (mainExecutionController != null) {
-                var statsCmd = mainExecutionController.getStatisticsCommandsController();
-                if (statsCmd != null && vars != null) {
-                    Map<String, String> snapshot = new LinkedHashMap<>();
-                    for (var e : vars.entrySet()) {
-                        snapshot.put(e.getKey(), String.valueOf(e.getValue()));
-                    }
-                    statsCmd.setLastVarsSnapshot(snapshot);
-                }
-            }
         });
     }
 

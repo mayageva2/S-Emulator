@@ -218,4 +218,20 @@ public class InputsBoxController {
             i++;
         }
     }
+
+    public void fillFromCsv(String csv) {
+        if (csv == null || csv.isBlank()) return;
+
+        String[] parts = csv.split(",");
+        int i = 0;
+        for (String name : inputNames) {
+            if (i >= parts.length) break;
+            TextField field = fieldsByName.get(name);
+            if (field != null) {
+                String value = parts[i].trim();
+                field.setText(value);
+            }
+            i++;
+        }
+    }
 }

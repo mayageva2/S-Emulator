@@ -5,7 +5,6 @@ import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.ChoiceBox;
-import javafx.scene.control.ListCell;
 import javafx.util.StringConverter;
 
 import java.lang.reflect.Type;
@@ -48,7 +47,6 @@ public class ArchitectureChoiceBoxController {
                 System.out.println("[architectures] response: " + response);
 
                 List<Architecture> architectures = parseArchitecturesResponse(response);
-
                 Platform.runLater(() -> setupChoiceBox(architectures));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -61,21 +59,18 @@ public class ArchitectureChoiceBoxController {
         if (response == null || response.isBlank()) return List.of();
 
         try {
-            Type wrappedType = new TypeToken<Map<String, Object>>(){}.getType();
-            Map<String, Object> wrapped = gson.fromJson(response, wrappedType);
-            Object arr = wrapped.get("architectures");
+            Type wrapperType = new TypeToken<Map<String, Object>>() {}.getType();
+            Map<String, Object> wrapper = gson.fromJson(response, wrapperType);
+            Object arr = wrapper.get("architectures");
+
             if (arr != null) {
                 String arrJson = gson.toJson(arr);
-                Type listType = new TypeToken<List<Architecture>>(){}.getType();
+                Type listType = new TypeToken<List<Architecture>>() {}.getType();
                 return gson.fromJson(arrJson, listType);
             }
-        } catch (Exception ignore) {}
-
-        try {
-            Type listType = new TypeToken<List<Architecture>>(){}.getType();
-            return gson.fromJson(response, listType);
-        } catch (Exception ignore) {}
-
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return List.of();
     }
 
@@ -85,11 +80,19 @@ public class ArchitectureChoiceBoxController {
         if (architectures != null) items.addAll(architectures);
 
         architectureChoiceBox.getItems().setAll(items);
-        architectureChoiceBox.getSelectionModel().select(PLACEHOLDER);
+        if (architectures != null && !architectures.isEmpty()) {
+            architectureChoiceBox.getSelectionModel().select(architectures.get(0));
+        } else {
+            architectureChoiceBox.getSelectionModel().select(PLACEHOLDER);
+        }
+        architectureChoiceBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            System.out.println("Architecture selected: " + (newVal != null ? newVal.name() : "null"));
+        });
     }
 
     public Architecture getSelectedArchitecture() {
         Architecture a = architectureChoiceBox.getValue();
+        System.out.println("getSelectedArchitecture() → " + (a != null ? a.name() : "null"));
         return (a == PLACEHOLDER) ? null : a;
     }
 

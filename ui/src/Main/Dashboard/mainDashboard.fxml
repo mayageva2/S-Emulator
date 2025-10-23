@@ -29,6 +29,7 @@
                         <VBox fx:id="leftCol" spacing="12" minWidth="0" maxWidth="Infinity">
                             <fx:include fx:id="connectedUsers" source="../../ConnectedUsersTable/ConnectedUsersTable.fxml"/>
                             <fx:include fx:id="statistics" source="../../StatisticsTable/StatisticsTable.fxml"/>
+                            <fx:include fx:id="statisticsCommands" source="../../StatisticsCommands/StatisticsCommands.fxml"/>
                         </VBox>
                     </content>
                 </ScrollPane>

@@ -2,6 +2,8 @@ package Main.Dashboard;
 
 import ConnectedUsersTable.ConnectedUsersTableController;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
+import Main.Execution.MainExecutionController;
+import StatisticsCommands.StatisticsCommandsController;
 import StatisticsTable.StatisticsTableController;
 import MainProgramsTable.MainProgramsTableController;
 import FunctionsTable.FunctionsTableController;
@@ -10,8 +12,12 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.layout.BorderPane;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -23,6 +29,7 @@ public class mainDashboardController {
     @FXML private StatisticsTableController statisticsController;
     @FXML private MainProgramsTableController mainProgramsController;
     @FXML private FunctionsTableController functionsController;
+    @FXML private StatisticsCommandsController statisticsCommandsController;
 
     private String baseUrl;
 
@@ -39,11 +46,13 @@ public class mainDashboardController {
             connectedUsersController.setBaseUrl(baseUrl);
         if (statisticsController != null)
             statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
+        if (statisticsCommandsController != null && statisticsController != null) {
+            statisticsCommandsController.setStatisticsTableController(statisticsController);
+        }
         if (mainProgramsController != null)
             mainProgramsController.setBaseUrl(baseUrl);
         if (functionsController != null)
             functionsController.setBaseUrl(baseUrl);
-
         if (headerController != null) {
             headerController.setOnProgramUploaded(() -> {
                 System.out.println("Program uploaded – refreshing tables...");
@@ -131,5 +140,22 @@ public class mainDashboardController {
         if (connectedUsersController != null) connectedUsersController.refreshUsers();
         if (mainProgramsController != null) mainProgramsController.refreshPrograms();
         if (functionsController != null) functionsController.refreshFunctions();
+    }
+
+    public void openExecutionScreenWithRun(String program, int degree, String inputsCsv) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
+            Parent root = loader.load();
+
+            MainExecutionController execController = loader.getController();
+            execController.prepareForRerun(program, degree, inputsCsv);
+
+            Stage stage = (Stage) statisticsController.getTableView().getScene().getWindow();
+            stage.setScene(new Scene(root));
+            stage.setMaximized(true);
+            stage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -62,13 +62,6 @@
                                     <fx:include fx:id="inputsBox" source="../../InputsBox/InputsBox.fxml"/>
                                 </VBox>
                             </HBox>
-
-                            <VBox fx:id="statisticsBox" fillWidth="true" spacing="20"
-                                  minWidth="0" maxWidth="Infinity">
-                                <fx:include fx:id="statisticsTable"    source="../../StatisticsTable/StatisticsTable.fxml"/>
-                                <fx:include fx:id="statisticsCommands" source="../../StatisticsCommands/StatisticsCommands.fxml"/>
-                            </VBox>
-
                         </VBox>
                     </content>
                 </ScrollPane>

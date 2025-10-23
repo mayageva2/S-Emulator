@@ -55,6 +55,7 @@ public class StatisticsTableController {
 
     private List<RunRecord> currentHistory = List.of();
     public List<RunRecord> getCurrentHistory() { return currentHistory; }
+    public TableView<?> getTableView() { return table; }
 
     @FXML
     private void initialize() {
