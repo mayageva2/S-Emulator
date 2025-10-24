@@ -625,6 +625,10 @@ public class MainExecutionController {
                     updateToolbarPrograms(program);
                     updateSummaryLine(program);
 
+                    if (predefinedInputsCsv != null && !predefinedInputsCsv.isBlank() && inputsBoxController != null) {
+                        inputsBoxController.fillFromCsv(predefinedInputsCsv);
+                    }
+
                     if (runButtonsController != null) {
                         runButtonsController.setCurrentProgram(programName);
                         runButtonsController.setCurrentDegree(0);
@@ -644,5 +648,4 @@ public class MainExecutionController {
             }
         }).start();
     }
-
 }

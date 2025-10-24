@@ -70,6 +70,7 @@ public class HistoryServlet extends HttpServlet {
                 record.put("degree", r.degree());
                 record.put("y", r.y());
                 record.put("cycles", r.cycles());
+                record.put("inputs", r.inputs());
                 runs.add(record);
             }
 

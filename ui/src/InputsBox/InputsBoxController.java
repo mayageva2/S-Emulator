@@ -223,15 +223,23 @@ public class InputsBoxController {
         if (csv == null || csv.isBlank()) return;
 
         String[] parts = csv.split(",");
-        int i = 0;
+        if (inputNames.isEmpty() || inputNames.size() < parts.length) {
+            inputNames.clear();
+            for (int j = 0; j < parts.length; j++) {
+                inputNames.add("x" + (j + 1));
+            }
+        }
+
         for (String name : inputNames) {
-            if (i >= parts.length) break;
+            fieldsByName.computeIfAbsent(name, n -> new TextField());
+        }
+
+        for (int i = 0; i < inputNames.size() && i < parts.length; i++) {
+            String name = inputNames.get(i);
             TextField field = fieldsByName.get(name);
             if (field != null) {
-                String value = parts[i].trim();
-                field.setText(value);
+                field.setText(parts[i].trim());
             }
-            i++;
         }
     }
 }

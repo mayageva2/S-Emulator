@@ -218,7 +218,13 @@ public class StatisticsTableController {
                 Object inputsObj = r.get("inputs");
                 if (inputsObj instanceof List<?> list) {
                     for (Object v : list) {
-                        try { inputs.add(Long.parseLong(v.toString())); } catch (Exception ignored) {}
+                        try {
+                            if (v instanceof Number num) {
+                                inputs.add(num.longValue());
+                            } else {
+                                inputs.add(Long.parseLong(v.toString().replace(".0", "")));
+                            }
+                        } catch (Exception ignored) {}
                     }
                 } else if (inputsObj != null) {
                     for (String s : inputsObj.toString().split(",")) {
