@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.control.Button?>
+
+<AnchorPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="goToDashboardButton.goToDashboardController"
+            prefWidth="500" prefHeight="50">
+
+    <Button fx:id="btnGoToDashboard" text="Back to Dashboard"
+            textFill="WHITE" prefWidth="450" prefHeight="40.0"
+            style="-fx-background-color: purple;  -fx-font-size: 16px;" onAction="#onGoToDashboardClicked"/>
+</AnchorPane>

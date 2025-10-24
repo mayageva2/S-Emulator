@@ -32,6 +32,7 @@ public class MainExecutionController {
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBoxController inputsBoxController;
     @FXML private ArchitectureChoiceBox.ArchitectureChoiceBoxController architectureController;
+    @FXML private goToDashboardButton.goToDashboardController DashboardBtnController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private VBox statisticsBox;
@@ -76,6 +77,9 @@ public class MainExecutionController {
         toolbarController.setOnDegreeChanged(deg -> {
             if (runButtonsController != null) {runButtonsController.setCurrentDegree(deg);}
         });
+        if (DashboardBtnController != null) {
+            DashboardBtnController.setParentController(this);
+        }
 
         instructionsController.setOnRowSelected(selected -> {
             if (selected == null) {
