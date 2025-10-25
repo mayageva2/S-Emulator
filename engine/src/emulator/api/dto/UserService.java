@@ -9,6 +9,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class UserService {
+    private static final UserService instance = new UserService();
+
+    public static UserService getInstance() {
+        return instance;
+    }
 
     public UserDTO loginUser(String username) {
         UserManager.login(username);
@@ -66,6 +71,10 @@ public class UserService {
             u.incrementMainPrograms();
             u.incrementFunctions(functionsCount);
         });
+    }
+
+    public void incrementRuns() {
+        UserManager.getCurrentUser().ifPresent(u -> u.incrementRuns());
     }
 
 }

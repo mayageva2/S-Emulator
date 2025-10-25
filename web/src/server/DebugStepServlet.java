@@ -3,6 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.UserService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -13,6 +14,7 @@ import java.util.*;
 public class DebugStepServlet extends HttpServlet {
 
     private static final Gson gson = new Gson();
+    private final UserService userService = UserService.getInstance();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -97,6 +99,7 @@ public class DebugStepServlet extends HttpServlet {
                         vars,
                         cycles
                 );
+                userService.incrementRuns();
                 ServerEventManager.broadcast("PROGRAM_RUN");
             }
 
