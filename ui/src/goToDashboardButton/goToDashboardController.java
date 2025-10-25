@@ -1,5 +1,6 @@
 package goToDashboardButton;
 
+import Main.Dashboard.mainDashboardController;
 import Main.Execution.MainExecutionController;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -23,6 +24,10 @@ public class goToDashboardController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();
 
+            mainDashboardController controller = loader.getController();
+            controller.initServerMode(parentController.getBaseUrl());
+            controller.refreshAll();
+
             Stage stage = (Stage) btnGoToDashboard.getScene().getWindow();
             Scene scene = new Scene(root);
             stage.setScene(scene);
@@ -34,4 +39,5 @@ public class goToDashboardController {
             System.err.println("Failed to load mainDashboard.fxml: " + e.getMessage());
         }
     }
+
 }

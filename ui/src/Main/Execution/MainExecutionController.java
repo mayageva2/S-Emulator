@@ -666,4 +666,8 @@ public class MainExecutionController {
             }
         });
     }
+
+    public String getBaseUrl() {
+        return BASE_URL;
+    }
 }

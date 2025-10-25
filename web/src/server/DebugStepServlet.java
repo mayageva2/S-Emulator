@@ -32,6 +32,15 @@ public class DebugStepServlet extends HttpServlet {
                 return;
             }
 
+            String dbgError = impl.getDebugErrorMessage();
+            if (dbgError != null) {
+                responseMap.put("status", "error");
+                responseMap.put("message", dbgError);
+                impl.clearDebugErrorMessage();
+                writeJson(resp, responseMap);
+                return;
+            }
+
             if (!engine.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 responseMap.put("status", "error");
@@ -62,6 +71,15 @@ public class DebugStepServlet extends HttpServlet {
                     finished = impl.debugIsFinished();
                     break;
                 }
+            }
+
+            dbgError = impl.getDebugErrorMessage();
+            if (dbgError != null) {
+                responseMap.put("status", "error");
+                responseMap.put("message", dbgError);
+                impl.clearDebugErrorMessage();
+                writeJson(resp, responseMap);
+                return;
             }
 
             Map<String, String> vars = impl.debugVarsSnapshot();

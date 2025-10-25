@@ -37,8 +37,10 @@ public class mainDashboardController {
     }
 
     private void safeInitAfterLoad() {
-        if (connectedUsersController != null)
+        if (connectedUsersController != null) {
             connectedUsersController.setBaseUrl(baseUrl);
+            connectedUsersController.setDashboardController(this);
+        }
         if (statisticsController != null)
             statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
         if (statisticsCommandsController != null && statisticsController != null) {
@@ -104,7 +106,7 @@ public class mainDashboardController {
                 });
     }
 
-    private String getCurrentUsername() {
+    public String getCurrentUsername() {
         try {
             String json = HttpSessionClient.get(baseUrl + "user/current");
             Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
@@ -138,5 +140,9 @@ public class mainDashboardController {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public StatisticsTableController getStatisticsController() {
+        return statisticsController;
     }
 }

@@ -126,12 +126,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         Instruction ins = instructions.get(currentIndex);
         int cost = ins.cycles();
 
-        if (!UserManager.charge(cost)) {
-            System.err.println("Not enough credits to execute instruction at PC=" + currentIndex +
-                    " (" + ins.getName() + "), cost=" + cost);
-            throw new IllegalStateException("Not enough credits to continue execution.");
-        }
-
         if (stepListener != null) {
             stepListener.onStep(currentIndex,
                     QuoteUtils.getCurrentCycles() + lastExecutionCycles,
@@ -141,6 +135,11 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
         Label next = ins.execute(context);
         lastExecutionCycles += cost;
+        if (!UserManager.charge(cost)) {
+            System.err.println("Not enough credits to execute instruction at PC=" + currentIndex +
+                    " (" + ins.getName() + "), cost=" + cost);
+            throw new IllegalStateException("Not enough credits to continue execution.");
+        }
 
         int dynamicIncrement = 0;
         if (context instanceof ExecutionContextImpl ectx) {

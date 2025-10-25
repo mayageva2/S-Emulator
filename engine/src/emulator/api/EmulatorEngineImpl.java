@@ -71,6 +71,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private volatile boolean dbgResumeMode = false;
     private volatile boolean dbgStepOnce = false;
     private volatile Runnable dbgOnFinish;
+    private volatile String dbgErrorMessage = null;
 
     private volatile int dbgPC = 0;
     private volatile int dbgCycles = 0;
@@ -78,6 +79,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     private transient Program dbgProgram;
     private transient ProgramExecutor dbgExecutor;
+    public String getDebugErrorMessage() { return dbgErrorMessage; }
+    public void clearDebugErrorMessage() { dbgErrorMessage = null; }
 
     private static final class DebugAbortException extends RuntimeException {
         DebugAbortException() { super("Debug aborted"); }
@@ -1040,27 +1043,27 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return finalMap;
     }
 
-    public void debugStart(String programName, Long[] inputs, int degree) {
+    public void debugStart(String programName, Long[] inputs, int degree, ArchitectureInfo architectureInfo) {
         Objects.requireNonNull(programName, "programName");
         Program target = functionLibrary.get(programName);
         if (target == null) target = functionLibrary.get(programName.toUpperCase(java.util.Locale.ROOT));
         if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
-        debugStartCommon(target, inputs, degree);
+        debugStartCommon(target, inputs, degree, architectureInfo);
     }
 
-    public void debugStart(Long[] inputs, int degree) {
+    public void debugStart(Long[] inputs, int degree, ArchitectureInfo architectureInfo) {
         requireLoaded();
-        debugStartCommon(current, inputs, degree);
+        debugStartCommon(current, inputs, degree, architectureInfo);
     }
 
-    private void debugStartCommon(Program target, Long[] inputs, int degree) {
+    private void debugStartCommon(Program target, Long[] inputs, int degree,  ArchitectureInfo architectureInfo) {
         int maxDegree = target.calculateMaxDegree();
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
         }
 
         long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
-        long architectureCost = 5;
+        long architectureCost = architectureInfo.cost();
         if (credits < architectureCost) {
             throw new IllegalStateException("Not enough credits to start debug (requires at least " + architectureCost + ")");
         }
@@ -1136,6 +1139,19 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             } catch (DebugAbortException ignore) {
             } catch (Throwable t) {
+                if (t instanceof IllegalStateException &&
+                        t.getMessage() != null &&
+                        t.getMessage().toLowerCase().contains("not enough credits")) {
+
+                    dbgErrorMessage = "You ran out of credits. Program stopped.";
+                    dbgFinished = true;
+                    dbgAlive = false;
+                    System.err.println("Debug stopped: out of credits");
+
+                } else {
+                    dbgErrorMessage = "Unexpected error during debug: " + t.getMessage();
+                    t.printStackTrace();
+                }
             } finally {
                 dbgFinished = true;
                 dbgAlive = false;

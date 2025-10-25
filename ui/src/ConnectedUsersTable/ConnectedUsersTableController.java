@@ -1,5 +1,6 @@
 package ConnectedUsersTable;
 
+import Main.Dashboard.mainDashboardController;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -7,10 +8,6 @@ import javafx.fxml.FXML;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class ConnectedUsersTableController {
@@ -25,7 +22,15 @@ public class ConnectedUsersTableController {
 
     private final Gson gson = new Gson();
     private String baseUrl = "http://localhost:8080/semulator/";
-    public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
+    private mainDashboardController dashboardController;
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public void setDashboardController(mainDashboardController controller) {
+        this.dashboardController = controller;
+    }
 
     @FXML
     private void initialize() {
@@ -71,5 +76,17 @@ public class ConnectedUsersTableController {
         }
     }
 
-    public TableView<UserRow> getUsersTable() {return usersTable;}
+    @FXML
+    private void onUnselectUserClicked() {
+        usersTable.getSelectionModel().clearSelection();
+
+        if (dashboardController != null) {
+            String currentUser = dashboardController.getCurrentUsername();
+            dashboardController.getStatisticsController().loadUserHistory(baseUrl, currentUser);
+        }
+    }
+
+    public TableView<UserRow> getUsersTable() {
+        return usersTable;
+    }
 }

@@ -22,6 +22,14 @@
                     <TableColumn fx:id="colRuns" text="Runs" prefWidth="150"/>
                 </columns>
             </TableView>
+
+            <Button
+                    fx:id="btnUnselectUser"
+                    text="Unselect User"
+                    onAction="#onUnselectUserClicked"
+                    style="-fx-background-color: purple; -fx-text-fill: white; -fx-font-weight: bold;"
+                   prefWidth="200" prefHeight="50"
+            />
         </VBox>
     </center>
 </BorderPane>
