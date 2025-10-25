@@ -14,8 +14,6 @@ import java.util.*;
 @WebServlet("/debug/stop")
 public class DebugStopServlet extends HttpServlet {
     private static final Gson gson = new Gson();
-    private final UserService userService = UserService.getInstance();
-
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
@@ -79,8 +77,6 @@ public class DebugStopServlet extends HttpServlet {
                         cycles
                 );
             }
-
-            userService.incrementRuns();
 
             long yVal = 0L;
             if (vars != null && vars.containsKey("y")) {

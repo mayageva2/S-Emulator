@@ -16,7 +16,6 @@ import java.util.Map;
 public class DebugResumeServlet extends HttpServlet {
 
     private static final Gson gson = new Gson();
-    private final UserService userService = UserService.getInstance();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -83,7 +82,6 @@ public class DebugResumeServlet extends HttpServlet {
                 responseMap.put("message", "Program finished");
                 responseMap.put("finished", true);
                 responseMap.put("debug", debugData);
-                userService.incrementRuns();
                 ServerEventManager.broadcast("PROGRAM_RUN");
             } else {
                 responseMap.put("status", "resumed");

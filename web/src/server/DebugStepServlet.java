@@ -14,7 +14,6 @@ import java.util.*;
 public class DebugStepServlet extends HttpServlet {
 
     private static final Gson gson = new Gson();
-    private final UserService userService = UserService.getInstance();
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -99,7 +98,6 @@ public class DebugStepServlet extends HttpServlet {
                         vars,
                         cycles
                 );
-                userService.incrementRuns();
                 ServerEventManager.broadcast("PROGRAM_RUN");
             }
 

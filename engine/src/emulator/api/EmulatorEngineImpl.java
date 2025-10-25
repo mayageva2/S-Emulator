@@ -61,6 +61,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final Map<String, List<Long>> functionCreditHistory = new HashMap<>();
     private final Map<String, Integer> runCountByProgram = new HashMap<>();
     private final Map<String, Double> avgCreditsByProgram = new HashMap<>();
+    private final UserService userService = UserService.getInstance();
 
     // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
     private transient Thread dbgThread;
@@ -555,6 +556,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             if (ProgramService.getInstance() != null) {
                 ProgramService.getInstance().recordRun(programName, cycles);
             }
+            userService.incrementRuns();
 
             System.out.println("recordRun(): Added run #" + nextRunNumber +
                     " for program=" + programName +
@@ -564,7 +566,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     ", avgCredits=" + newAvg);
 
         } catch (Exception e) {
-            System.err.println("⚠️ recordRun() failed for " + programName + ": " + e);
+            System.err.println("recordRun() failed for " + programName + ": " + e);
             e.printStackTrace();
         }
     }
@@ -849,8 +851,27 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         UserManager.charge(archCost);
         ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
-        long y = exec.run(input);
-        int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+        long y = 0L;
+        int totalCycles = 0;
+
+        try {
+            y = exec.run(input);
+            totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+
+        } catch (IllegalStateException ex) {
+            if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not enough credits")) {
+                System.err.println("Run stopped: not enough credits to continue.");
+
+                totalCycles = (exec instanceof ProgramExecutorImpl pei)
+                        ? pei.getLastExecutionCycles() + pei.getLastDynamicCycles()
+                        : 0;
+
+                recordRun(programName, degree, input, y, totalCycles);
+                throw new IllegalStateException("Run stopped due to insufficient credits.");
+            } else {
+                throw ex;
+            }
+        }
 
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
@@ -874,7 +895,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-
         recordRun(programName, degree, input, y, totalCycles);
         return new RunResult(y, totalCycles, vars);
     }
@@ -1007,8 +1027,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         var state = ex.variableState(); // Map<VarRef,Long>
         if (state == null) return Map.of();
 
-        java.util.TreeMap<Integer, Long> x = new java.util.TreeMap<>();
-        java.util.TreeMap<Integer, Long> z = new java.util.TreeMap<>();
+        TreeMap<Integer, Long> x = new TreeMap<>();
+        TreeMap<Integer, Long> z = new TreeMap<>();
         Long yVal = null;
         LinkedHashMap<String,String> out = new LinkedHashMap<>();
 
@@ -1132,6 +1152,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         .toList();
                 lastRunDegree = degree;
                 lastRunProgramName = target.getName();
+                userService.incrementRuns();
+                recordRun(lastRunProgramName, degree, inputs, y, cycles);
 
                 dbgVars = vars;
                 dbgFinished = true;
@@ -1146,7 +1168,24 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     dbgErrorMessage = "You ran out of credits. Program stopped.";
                     dbgFinished = true;
                     dbgAlive = false;
-                    System.err.println("Debug stopped: out of credits");
+
+                    try {
+                        int cycles = (dbgExecutor != null)
+                                ? dbgExecutor.getLastExecutionCycles() + dbgExecutor.getLastDynamicCycles()
+                                : 0;
+                        Map<String, String> vars = snapshotVars(dbgExecutor, inputs);
+
+                        recordDebugSession(
+                                lastRunProgramName != null ? lastRunProgramName : target.getName(),
+                                degree,
+                                inputs,
+                                vars,
+                                cycles
+                        );
+                        System.err.println("Debug stopped: out of credits");
+                    } catch (Exception saveEx) {
+                        System.err.println("Failed to record partial debug run: " + saveEx);
+                    }
 
                 } else {
                     dbgErrorMessage = "Unexpected error during debug: " + t.getMessage();

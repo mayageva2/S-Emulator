@@ -15,7 +15,6 @@ import java.util.*;
 @WebServlet("/run")
 public class RunServlet extends HttpServlet {
     private static final Gson gson = new Gson();
-    private final UserService userService = UserService.getInstance();
     private static final Map<String, ArchitectureInfo> ARCHITECTURES = Map.of(
             "I", new ArchitectureInfo("I", 5, "Basic architecture"),
             "II", new ArchitectureInfo("II", 100, "Optimized architecture"),
@@ -47,7 +46,6 @@ public class RunServlet extends HttpServlet {
             EmulatorEngine engine = EngineHolder.getEngine();
             RunResult result = ((EmulatorEngineImpl) engine)
                     .run(program, degree, archInfo, inputs);
-            userService.incrementRuns();
             ServerEventManager.broadcast("PROGRAM_RUN");
 
             responseMap.put("status", "success");
