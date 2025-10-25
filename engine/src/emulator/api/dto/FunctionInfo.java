@@ -5,5 +5,6 @@ public record FunctionInfo(
         String programName,
         String username,
         int instructionCount,
-        int maxDegree
+        int maxDegree,
+        double avgCreditCost
 ) {}

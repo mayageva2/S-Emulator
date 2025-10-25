@@ -652,4 +652,18 @@ public class MainExecutionController {
             }
         }).start();
     }
+
+    public void triggerGoToDashboard() {
+        Platform.runLater(() -> {
+            if (DashboardBtnController != null) {
+                try {
+                    DashboardBtnController.onGoToDashboardClicked();
+                } catch (Exception e) {
+                    System.err.println("Failed to trigger dashboard button: " + e.getMessage());
+                }
+            } else {
+                System.err.println("DashboardBtnController is null — cannot trigger return.");
+            }
+        });
+    }
 }

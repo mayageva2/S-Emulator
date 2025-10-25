@@ -2,6 +2,7 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
+import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.ArchitectureInfo;
 import emulator.api.dto.RunResult;
 import emulator.logic.user.UserManager;
@@ -42,13 +43,23 @@ public class RunServlet extends HttpServlet {
             Long[] inputs = inputsD.stream().map(Double::longValue).toArray(Long[]::new);
 
             EmulatorEngine engine = EngineHolder.getEngine();
-            RunResult result = ((emulator.api.EmulatorEngineImpl) engine)
+            RunResult result = ((EmulatorEngineImpl) engine)
                     .run(program, degree, archInfo, inputs);
 
             responseMap.put("status", "success");
             responseMap.put("result", result);
             responseMap.put("userCredits", UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L));
-
+        } catch (IllegalStateException ex) {
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                responseMap.put("status", "error");
+                responseMap.put("message", "Run stopped: not enough credits to complete the execution.");
+                responseMap.put("errorType", "CREDITS");
+            } else {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg != null ? msg : "Unknown runtime error");
+                responseMap.put("errorType", "RUNTIME");
+            }
         } catch (Exception e) {
             e.printStackTrace();
             responseMap.put("status", "error");

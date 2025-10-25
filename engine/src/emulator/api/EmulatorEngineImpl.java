@@ -57,6 +57,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
     private final Map<String,String> displayToInternal = new HashMap<>();
+    private final Map<String, List<Long>> programCreditHistory = new HashMap<>();
+    private final Map<String, List<Long>> functionCreditHistory = new HashMap<>();
+    private final Map<String, Integer> runCountByProgram = new HashMap<>();
+    private final Map<String, Double> avgCreditsByProgram = new HashMap<>();
 
     // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
     private transient Thread dbgThread;
@@ -514,16 +518,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {
             Map<String, Long> normalizedVars = new LinkedHashMap<>();
-            if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {
-                for (var e : this.lastRunVars.entrySet()) {
-                    long value = e.getValue();
-                    normalizedVars.put(e.getKey(), (long) (int) value);
-                }
-                record.setVarsSnapshot(normalizedVars);
+            for (var e : this.lastRunVars.entrySet()) {
+                long value = e.getValue();
+                normalizedVars.put(e.getKey(), (long) (int) value);
             }
-        }
-
-        else {
+            record.setVarsSnapshot(normalizedVars);
+        } else {
             LinkedHashMap<String, Long> fallback = new LinkedHashMap<>();
             if (input != null) {
                 for (int i = 0; i < input.length; i++) {
@@ -538,11 +538,32 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         history.add(record);
         historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
 
-        System.out.println("recordRun(): Added run #" + nextRunNumber +
-                " for program=" + programName +
-                ", degree=" + degree +
-                ", inputs=" + Arrays.toString(input) +
-                ", cycles=" + cycles);
+        try {
+            int prevRuns = runCountByProgram.getOrDefault(canonical, 0);
+            double prevAvg = avgCreditsByProgram.getOrDefault(canonical, 0.0);
+            double newAvg = ((prevAvg * prevRuns) + cycles) / (prevRuns + 1);
+            avgCreditsByProgram.put(canonical, newAvg);
+            runCountByProgram.put(canonical, prevRuns + 1);
+
+            // safely update external stats if initialized
+            if (ProgramStatsRepository.getInstance() != null) {
+                ProgramStatsRepository.getInstance().updateAverage(programName, cycles);
+            }
+            if (ProgramService.getInstance() != null) {
+                ProgramService.getInstance().recordRun(programName, cycles);
+            }
+
+            System.out.println("recordRun(): Added run #" + nextRunNumber +
+                    " for program=" + programName +
+                    ", degree=" + degree +
+                    ", inputs=" + Arrays.toString(input) +
+                    ", cycles=" + cycles +
+                    ", avgCredits=" + newAvg);
+
+        } catch (Exception e) {
+            System.err.println("⚠️ recordRun() failed for " + programName + ": " + e);
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -800,28 +821,34 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     public RunResult run(String programName, int degree, ArchitectureInfo arch, Long... input) {
-        Objects.requireNonNull(programName, "programName");
+        Objects.requireNonNull(programName, "programName cannot be null");
+        Objects.requireNonNull(arch, "architecture cannot be null");
+
+        long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
+        long archCost = arch.cost();
+
+        if (credits < archCost) {
+            throw new IllegalStateException(
+                    "Not enough credits to start program (architecture cost = " + archCost + ")");
+        }
+
         Program target = functionLibrary.get(programName.toUpperCase(Locale.ROOT));
-        if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+        if (target == null)
+            throw new IllegalArgumentException("Unknown program: " + programName);
 
         int maxDegree = target.calculateMaxDegree();
         if (degree < 0 || degree > maxDegree)
             throw new IllegalArgumentException("Invalid expansion degree: " + degree);
 
-        Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+        Program toRun = (degree <= 0)
+                ? target
+                : programExpander.expandToDegree(target, degree);
 
-        long baseCost = emulator.logic.architecture.ProgramCreditCostCalculator.calculateTotalCost(toRun);
-        double multiplier = arch.cost() / 5.0;
-        long adjustedCost = Math.round(baseCost * multiplier);
-
-        if (!UserManager.charge(adjustedCost)) {
-            throw new IllegalStateException("Not enough credits (" + adjustedCost + " cycles required)");
-        }
-
+        UserManager.charge(archCost);
         ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
         long y = exec.run(input);
-
         int totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+
         var vars = exec.variableState().entrySet().stream()
                 .map(e -> new VariableView(
                         e.getKey().getRepresentation(),
@@ -835,9 +862,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .collect(Collectors.toMap(
                         e -> e.getKey().getRepresentation(),
                         Map.Entry::getValue,
-                        (a,b) -> b,
+                        (a, b) -> b,
                         LinkedHashMap::new
                 ));
+
         this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
                 .map(v -> v == null ? 0L : v)
                 .toList();
@@ -964,8 +992,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 } catch (NumberFormatException ignore) {}
             }
         }
-
-        this.lastRunVars = new LinkedHashMap<>(lastVars);
+        if (this.lastRunVars == null) {
+            this.lastRunVars = new LinkedHashMap<>(lastVars);
+        }
         recordRun(this.lastRunProgramName, this.lastRunDegree,
                 inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
     }
@@ -1029,6 +1058,13 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
         }
+
+        long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
+        long architectureCost = 5;
+        if (credits < architectureCost) {
+            throw new IllegalStateException("Not enough credits to start debug (requires at least " + architectureCost + ")");
+        }
+        UserManager.charge(architectureCost);
 
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
         debugStopSafe();

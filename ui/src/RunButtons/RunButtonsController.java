@@ -112,7 +112,12 @@ public class RunButtonsController {
 
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(outer.get("status"))) {
-                throw new RuntimeException("Run failed: " + outer.get("message"));
+                String msg = String.valueOf(outer.get("message"));
+                if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                    handleCreditsDepleted(msg);
+                    return;
+                }
+                throw new RuntimeException("Run failed: " + msg);
             }
 
             Map<String, Object> result = (Map<String, Object>) outer.get("result");
@@ -148,8 +153,29 @@ public class RunButtonsController {
             }
 
         } catch (Exception ex) {
-            alertError("Run failed", ex.getMessage());
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                handleCreditsDepleted(msg);
+            } else {
+                alertError("Run failed", msg);
+            }
         }
+    }
+
+    private void handleCreditsDepleted(String msg) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Credits Depleted");
+            alert.setHeaderText("Out of Credits");
+            alert.setContentText("Your available credits have been used up.\n" +
+                    "Execution stopped.\n\n" +
+                    (msg != null ? msg : ""));
+            alert.showAndWait();
+
+            if (mainExecutionController != null) {
+                mainExecutionController.triggerGoToDashboard();
+            }
+        });
     }
 
     @FXML

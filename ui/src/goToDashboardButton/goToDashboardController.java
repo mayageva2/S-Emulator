@@ -18,7 +18,7 @@ public class goToDashboardController {
     }
 
     @FXML
-    private void onGoToDashboardClicked() {
+    public void onGoToDashboardClicked() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();

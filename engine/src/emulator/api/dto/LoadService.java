@@ -29,7 +29,8 @@ public class LoadService {
                     result.programName(),
                     username,
                     result.instructionCount(),
-                    result.maxDegree()
+                    result.maxDegree(),
+                    0.0
             );
         }
 
@@ -55,7 +56,8 @@ public class LoadService {
                     result.programName(),
                     username,
                     result.instructionCount(),
-                    result.maxDegree()
+                    result.maxDegree(),
+                    0.0
             );
         }
 

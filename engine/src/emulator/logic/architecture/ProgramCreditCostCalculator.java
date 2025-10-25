@@ -1,26 +1,22 @@
 package emulator.logic.architecture;
 
-import emulator.logic.instruction.Instruction;
-import emulator.logic.instruction.InstructionData;
 import emulator.logic.program.Program;
+import emulator.logic.program.ProgramCost;
+import emulator.logic.instruction.quote.QuotationRegistry;
 
 public class ProgramCreditCostCalculator {
 
-    public static long calculateTotalCost(Program program) {
+    private final QuotationRegistry quotationRegistry;
+
+    public ProgramCreditCostCalculator(QuotationRegistry quotationRegistry) {
+        this.quotationRegistry = quotationRegistry;
+    }
+
+    public long calculateTotalCost(Program program, ArchitectureType architectureType) {
         if (program == null)
             throw new IllegalArgumentException("Program cannot be null");
-
-        long total = 0;
-
-        for (Instruction instr : program.getInstructions()) {
-            InstructionData data = instr.getInstructionData();
-            if (data != null) {
-                total += data.getBaseCreditCost();
-            } else {
-                System.err.println("Instruction missing InstructionData: " + instr.getName());
-            }
-        }
-
-        return total;
+        long architectureCost = (architectureType != null) ? architectureType.getCost() : 0;
+        long baseCost = new ProgramCost(quotationRegistry).cyclesAtDegree(program, 0);
+        return baseCost + architectureCost;
     }
 }

@@ -40,7 +40,19 @@ public class ProgramService {
     }
 
     public List<ProgramStats> getAllPrograms() {
-        return new ArrayList<>(programs.values());
+        List<ProgramStats> result = new ArrayList<>();
+        for (ProgramStats p : programs.values()) {
+            double avg = ProgramStatsRepository.getInstance().getAverage(p.getProgramName());
+            result.add(new ProgramStats(
+                    p.getProgramName(),
+                    p.getUsername(),
+                    p.getInstructionCount(),
+                    p.getMaxDegree(),
+                    p.getRunCount(),
+                    avg
+            ));
+        }
+        return result;
     }
 
     public void clear() {programs.clear();}
