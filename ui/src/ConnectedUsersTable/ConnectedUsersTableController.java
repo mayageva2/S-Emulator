@@ -82,7 +82,9 @@ public class ConnectedUsersTableController {
 
         if (dashboardController != null) {
             String currentUser = dashboardController.getCurrentUsername();
-            dashboardController.getStatisticsController().loadUserHistory(baseUrl, currentUser);
+            if (currentUser != null && !currentUser.isBlank()) {
+                dashboardController.getStatisticsController().loadUserHistory(baseUrl, currentUser);
+            }
         }
     }
 
