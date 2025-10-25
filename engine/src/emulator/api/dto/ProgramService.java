@@ -55,5 +55,9 @@ public class ProgramService {
         return result;
     }
 
+    public boolean programExists(String programName) {
+        return programs.containsKey(programName);
+    }
+
     public void clear() {programs.clear();}
 }

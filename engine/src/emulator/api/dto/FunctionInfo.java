@@ -7,4 +7,6 @@ public record FunctionInfo(
         int instructionCount,
         int maxDegree,
         double avgCreditCost
-) {}
+) {
+    public String name() { return functionName; }
+}
