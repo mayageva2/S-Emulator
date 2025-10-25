@@ -10,6 +10,17 @@ public class LoadService {
     private final ProgramService programService = ProgramService.getInstance();
     private final FunctionService functionService = FunctionService.getInstance();
     private final UserService userService = new UserService();
+    private static final Map<String, String> programTypes = new HashMap<>();
+    public static String getTypeForProgram(String name) {
+        if (name == null) return "PROGRAM";
+        return programTypes.getOrDefault(name.toUpperCase(Locale.ROOT), "PROGRAM");
+    }
+
+    public static void registerProgramType(String name, String type) {
+        if (name != null && type != null) {
+            programTypes.put(name.toUpperCase(Locale.ROOT), type);
+        }
+    }
 
     public LoadResult load(EmulatorEngine engine, Path xmlPath, String username) throws Exception {
         LoadResult result = engine.loadProgram(xmlPath);
@@ -24,16 +35,20 @@ public class LoadService {
                 result.instructionCount(),
                 result.maxDegree()
         );
+        registerProgramType(result.programName(), "PROGRAM");
 
         for (String func : result.functions()) {
-            functionService.addFunction(
-                    func,
-                    result.programName(),
-                    username,
-                    result.instructionCount(),
-                    result.maxDegree(),
-                    0.0
-            );
+            if (!func.equalsIgnoreCase(result.programName())) {
+                functionService.addFunction(
+                        func,
+                        result.programName(),
+                        username,
+                        result.instructionCount(),
+                        result.maxDegree(),
+                        0.0
+                );
+                registerProgramType(func, "FUNCTION");
+            }
         }
 
         return result;
@@ -98,4 +113,13 @@ public class LoadService {
             }
         }
     }
+
+    public static void debugPrintTypes() {
+        System.out.println("=== PROGRAM TYPES MAP ===");
+        for (var e : programTypes.entrySet()) {
+            System.out.println("  " + e.getKey() + " → " + e.getValue());
+        }
+        System.out.println("=========================");
+    }
+
 }

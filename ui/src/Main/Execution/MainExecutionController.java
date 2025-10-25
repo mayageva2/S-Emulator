@@ -437,6 +437,7 @@ public class MainExecutionController {
                     long y = ((Number) rec.get("y")).longValue();
                     int cycles = ((Number) rec.get("cycles")).intValue();
                     Object inputsObj = rec.get("inputs");
+                    String type = (String) rec.get("type");
 
                     List<Long> inputsList = new ArrayList<>();
                     if (inputsObj instanceof List<?> list) {
@@ -470,7 +471,8 @@ public class MainExecutionController {
                             inputsList,
                             y,
                             cycles,
-                            varsSnapshot
+                            varsSnapshot,
+                            type
                     ));
                 }
 

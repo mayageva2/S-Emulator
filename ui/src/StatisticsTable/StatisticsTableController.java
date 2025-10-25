@@ -102,7 +102,7 @@ public class StatisticsTableController {
 
             rows.add(new HistoryRow(
                     r.runNumber(),
-                    "Main",
+                    r.getType() != null ? r.getType() : "PROGRAM",
                     r.programName(),
                     "I",
                     r.degree(),
@@ -205,7 +205,7 @@ public class StatisticsTableController {
             for (Map<String, Object> r : runs) {
                 HistoryRow row = new HistoryRow(
                         ((Number) r.get("runNumber")).intValue(),
-                        Objects.toString(r.get("type"), "Main"),
+                        Objects.toString(r.get("type")),
                         Objects.toString(r.get("program"), "Unknown"),
                         Objects.toString(r.get("arch"), "I"),
                         ((Number) r.get("degree")).intValue(),
@@ -250,7 +250,8 @@ public class StatisticsTableController {
                         inputs,
                         row.y,
                         row.cycles,
-                        varsSnapshot
+                        varsSnapshot,
+                        row.type
                 ));
             }
 

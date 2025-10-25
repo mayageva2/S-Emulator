@@ -201,12 +201,20 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.lastRunDegree = 0;
             this.lastRunProgramName = null;
 
-            return new LoadResult(
+            LoadResult result = new LoadResult(
                     current.getName(),
                     current.getInstructions().size(),
                     current.calculateMaxDegree(),
                     extractFunctionNames(pxml)
             );
+
+            LoadService.registerProgramType(current.getName(), "PROGRAM");
+            for (String fn : result.functions()) {
+                if (!fn.equalsIgnoreCase(current.getName())) {
+                    LoadService.registerProgramType(fn, "FUNCTION");
+                }
+            }
+            return result;
 
         } catch (emulator.exception.ProgramException | java.io.IOException e) {
             throw e;
@@ -312,13 +320,20 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = 0;
         this.lastRunProgramName = null;
 
-        return new LoadResult(
+        LoadResult result = new LoadResult(
                 current.getName(),
                 current.getInstructions().size(),
                 current.calculateMaxDegree(),
                 extractFunctionNames(pxml)
         );
 
+        LoadService.registerProgramType(current.getName(), "PROGRAM");
+        for (String fn : result.functions()) {
+            if (!fn.equalsIgnoreCase(current.getName())) {
+                LoadService.registerProgramType(fn, "FUNCTION");
+            }
+        }
+        return result;
     }
 
     private List<String> extractFunctionNames(ProgramXml pxml) {
@@ -508,6 +523,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         String currentUser = UserManager.getCurrentUser()
                 .map(u -> u.getUsername())
                 .orElse("Unknown");
+        String programType = LoadService.getTypeForProgram(programName);
 
         RunRecord record = new RunRecord(
                 currentUser,
@@ -517,7 +533,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 Arrays.asList(input),
                 y,
                 cycles,
-                this.lastRunVars != null ? new LinkedHashMap<>(this.lastRunVars) : new LinkedHashMap<>()
+                this.lastRunVars != null ? new LinkedHashMap<>(this.lastRunVars) : new LinkedHashMap<>(),
+                programType
         );
 
         if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {

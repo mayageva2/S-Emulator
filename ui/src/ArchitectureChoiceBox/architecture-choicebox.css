@@ -1,0 +1,27 @@
+
+.choice-box {
+    -fx-background-color: purple;
+    -fx-mark-color: white; /* arrow */
+    -fx-font-size: 16px;
+    -fx-text-fill: white;  /* affects prompt text in some skins */
+}
+
+/* Text in the selected item (button cell) */
+.choice-box > .label {
+    -fx-text-fill: white;
+}
+
+/* Text in the dropdown list */
+.choice-box .list-cell {
+    -fx-text-fill: white;
+    -fx-background-color: purple;
+}
+
+/* When hovered/selected */
+.choice-box .list-cell:hover {
+    -fx-background-color: #a020f0; /* lighter purple */
+}
+.choice-box .list-cell:selected {
+    -fx-background-color: #8000ff;
+    -fx-text-fill: white;
+}

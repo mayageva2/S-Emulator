@@ -80,11 +80,8 @@ public class ArchitectureChoiceBoxController {
         if (architectures != null) items.addAll(architectures);
 
         architectureChoiceBox.getItems().setAll(items);
-        if (architectures != null && !architectures.isEmpty()) {
-            architectureChoiceBox.getSelectionModel().select(architectures.get(0));
-        } else {
-            architectureChoiceBox.getSelectionModel().select(PLACEHOLDER);
-        }
+        architectureChoiceBox.getSelectionModel().select(PLACEHOLDER);
+
         architectureChoiceBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             System.out.println("Architecture selected: " + (newVal != null ? newVal.name() : "null"));
         });
