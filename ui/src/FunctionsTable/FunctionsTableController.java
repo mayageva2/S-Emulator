@@ -71,6 +71,10 @@ public class FunctionsTableController {
         functionsTable.getSelectionModel().selectedItemProperty()
                 .addListener((obs, oldSel, newSel) -> btnExecuteFunc.setDisable(newSel == null));
 
+        functionsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        for (var col : functionsTable.getColumns()) col.setSortable(false);
+        functionsTable.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
+
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
             functionsTable.getStylesheets().add(css.toExternalForm());

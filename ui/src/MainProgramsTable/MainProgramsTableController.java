@@ -58,6 +58,10 @@ public class MainProgramsTableController {
             btnExecuteProgram.setDisable(newSel == null);
         });
 
+        programsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        for (var col : programsTable.getColumns()) col.setSortable(false);
+        programsTable.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
+
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
             programsTable.getStylesheets().add(css.toExternalForm());

@@ -512,12 +512,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, "I");
 
         return new RunResult(y, totalCycles, vars);
     }
 
-    private void recordRun(String programName, int degree, Long[] input, long y, int cycles) {
+    private void recordRun(String programName, int degree, Long[] input, long y, int cycles, String arch) {
         String canonical = canonicalProgramName(programName);
         int nextRunNumber = runCountersByProgram.merge(canonical, 1, Integer::sum);
         String currentUser = UserManager.getCurrentUser()
@@ -534,7 +534,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 y,
                 cycles,
                 this.lastRunVars != null ? new LinkedHashMap<>(this.lastRunVars) : new LinkedHashMap<>(),
-                programType
+                programType,
+                arch
         );
 
         if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {
@@ -838,7 +839,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, "I");
         return new RunResult(y, totalCycles, vars);
     }
 
@@ -883,7 +884,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         ? pei.getLastExecutionCycles() + pei.getLastDynamicCycles()
                         : 0;
 
-                recordRun(programName, degree, input, y, totalCycles);
+                recordRun(programName, degree, input, y, totalCycles, arch.name());
                 throw new IllegalStateException("Run stopped due to insufficient credits.");
             } else {
                 throw ex;
@@ -912,7 +913,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-        recordRun(programName, degree, input, y, totalCycles);
+        recordRun(programName, degree, input, y, totalCycles, arch.name());
         return new RunResult(y, totalCycles, vars);
     }
 
@@ -1036,7 +1037,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.lastRunVars = new LinkedHashMap<>(lastVars);
         }
         recordRun(this.lastRunProgramName, this.lastRunDegree,
-                inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+                inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles), "I");
     }
 
     private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {
@@ -1170,7 +1171,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 lastRunDegree = degree;
                 lastRunProgramName = target.getName();
                 userService.incrementRuns();
-                recordRun(lastRunProgramName, degree, inputs, y, cycles);
+                recordRun(lastRunProgramName, degree, inputs, y, cycles, architectureInfo.name());
 
                 dbgVars = vars;
                 dbgFinished = true;

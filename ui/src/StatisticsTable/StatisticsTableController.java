@@ -1,6 +1,5 @@
 package StatisticsTable;
 
-import InstructionsTable.InstructionRow;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -11,19 +10,14 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.beans.property.ReadOnlyLongWrapper;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
-
-// Adjust the import to your real RunRecord package
 import emulator.api.dto.RunRecord;
 
 public class StatisticsTableController {
 
-    // Row model matching your console columns
     public static final class HistoryRow {
         public final int runNumber;
         public final String type;
@@ -104,7 +98,7 @@ public class StatisticsTableController {
                     r.runNumber(),
                     r.getType() != null ? r.getType() : "PROGRAM",
                     r.programName(),
-                    "I",
+                    r.architecture(),
                     r.degree(),
                     r.y(),
                     r.cycles()
@@ -129,9 +123,9 @@ public class StatisticsTableController {
 
             rows.add(new HistoryRow(
                     r.runNumber(),
-                    "Main",
+                    r.getType() != null ? r.getType() : "PROGRAM",
                     r.programName(),
-                    "I",
+                    r.architecture(),
                     r.degree(),
                     r.y(),
                     r.cycles()
@@ -251,7 +245,8 @@ public class StatisticsTableController {
                         row.y,
                         row.cycles,
                         varsSnapshot,
-                        row.type
+                        row.type,
+                        row.arch
                 ));
             }
 

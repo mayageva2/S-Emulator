@@ -113,7 +113,7 @@ public class RunButtonsController {
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(outer.get("status"))) {
                 String msg = String.valueOf(outer.get("message"));
-                if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                if (msg != null && msg.toLowerCase().contains("credits")) {
                     handleCreditsDepleted(msg);
                     return;
                 }
@@ -168,13 +168,28 @@ public class RunButtonsController {
             alert.setTitle("Credits Depleted");
             alert.setHeaderText("Out of Credits");
             alert.setContentText("Your available credits have been used up.\n" +
-                    "Execution stopped.\n\n" +
-                    (msg != null ? msg : ""));
-            alert.showAndWait();
+                    "Execution stopped.\n\n" + (msg != null ? msg : ""));
+            alert.show();
 
-            if (mainExecutionController != null) {
-                mainExecutionController.triggerGoToDashboard();
-            }
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException ignored) {}
+
+                Platform.runLater(() -> {
+                    try {
+                        alert.close();
+                        if (mainExecutionController != null) {
+                            System.out.println("Redirecting to dashboard due to depleted credits...");
+                            mainExecutionController.triggerGoToDashboard();
+                        } else {
+                            System.err.println("mainExecutionController is null, cannot redirect.");
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }).start();
         });
     }
 
@@ -227,7 +242,12 @@ public class RunButtonsController {
             }
 
         } catch (Exception ex) {
-            alertError("Debug start failed", ex.getMessage());
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("credit")) {
+                handleCreditsDepleted(msg);
+            } else {
+                alertError("Debug start failed", msg);
+            }
         }
     }
 
@@ -246,6 +266,12 @@ public class RunButtonsController {
         try {
             String response = httpPost(BASE_URL + endpoint, "");
             Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+
+            String msg = String.valueOf(result.get("message"));
+            if (msg != null && msg.toLowerCase().contains("credit")) {
+                handleCreditsDepleted(msg);
+                return;
+            }
 
             String status = String.valueOf(result.getOrDefault("status", ""));
             boolean finished = Boolean.TRUE.equals(result.get("finished"));

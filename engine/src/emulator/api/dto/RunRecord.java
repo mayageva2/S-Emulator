@@ -16,9 +16,11 @@ public class RunRecord implements Serializable {
     private final int cycles;
     private Map<String, Long> varsSnapshot = new LinkedHashMap<>();
     private final String type;
+    private final String architecture;
 
     public RunRecord(String username, String programName, int runNumber, int degree,
-                     List<Long> inputs, long y, int cycles, Map<String, Long> varsSnapshot,  String type) {
+                     List<Long> inputs, long y, int cycles, Map<String, Long> varsSnapshot,
+                     String type, String architecture) {
         this.username = username;
         this.programName = programName;
         this.runNumber = runNumber;
@@ -28,6 +30,7 @@ public class RunRecord implements Serializable {
         this.cycles = cycles;
         this.varsSnapshot = varsSnapshot;
         this.type = type;
+        this.architecture = architecture;
     }
 
     public String username() { return username; }
@@ -37,10 +40,13 @@ public class RunRecord implements Serializable {
     public List<Long> inputs() { return inputs; }
     public long y() { return y; }
     public int cycles() { return cycles; }
+    public String architecture() { return architecture; }
 
-    public static RunRecord of(String username, String programName, int runNumber, int degree, long[] inputs, long y, int cycles, Map<String, Long> varsSnapshot,  String type) {
+    public static RunRecord of(String username, String programName, int runNumber, int degree,
+                               long[] inputs, long y, int cycles, Map<String, Long> varsSnapshot,
+                               String type, String architecture) {
         List<Long> in = (inputs == null) ? List.of() : Arrays.stream(inputs).boxed().toList();
-        return new RunRecord(username, programName, runNumber, degree, in, y, cycles, varsSnapshot, type);
+        return new RunRecord(username, programName, runNumber, degree, in, y, cycles, varsSnapshot, type, architecture);
     }
 
     public String inputsCsv() {

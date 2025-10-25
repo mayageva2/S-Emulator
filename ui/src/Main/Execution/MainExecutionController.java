@@ -443,6 +443,7 @@ public class MainExecutionController {
                     int cycles = ((Number) rec.get("cycles")).intValue();
                     Object inputsObj = rec.get("inputs");
                     String type = (String) rec.get("type");
+                    String architecture = (String) rec.get("architecture");
 
                     List<Long> inputsList = new ArrayList<>();
                     if (inputsObj instanceof List<?> list) {
@@ -477,7 +478,8 @@ public class MainExecutionController {
                             y,
                             cycles,
                             varsSnapshot,
-                            type
+                            type,
+                            architecture
                     ));
                 }
 
@@ -713,4 +715,15 @@ public class MainExecutionController {
             default -> 99;
         };
     }
+
+    public void handleOutOfCredits(String message) {
+        showError(message);
+        Platform.runLater(() -> {
+            try {
+                Thread.sleep(1500); //delay to let user see message
+            } catch (InterruptedException ignored) {}
+            triggerGoToDashboard();
+        });
+    }
+
 }

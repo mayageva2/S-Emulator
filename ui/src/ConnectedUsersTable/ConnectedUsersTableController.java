@@ -5,6 +5,7 @@ import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.fxml.FXML;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -40,6 +41,10 @@ public class ConnectedUsersTableController {
         colCredits.setCellValueFactory(new PropertyValueFactory<>("credits"));
         colUsedCredits.setCellValueFactory(new PropertyValueFactory<>("usedCredits"));
         colRuns.setCellValueFactory(new PropertyValueFactory<>("runs"));
+
+        usersTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        for (var col : usersTable.getColumns()) col.setSortable(false);
+        usersTable.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
 
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {

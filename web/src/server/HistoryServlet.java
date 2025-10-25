@@ -64,9 +64,9 @@ public class HistoryServlet extends HttpServlet {
             for (RunRecord r : userHistory) {
                 Map<String, Object> record = new LinkedHashMap<>();
                 record.put("runNumber", r.runNumber());
-                record.put("type", r.programName().equalsIgnoreCase("Main") ? "Main Program" : "Function");
+                record.put("type", r.getType());
                 record.put("program", r.programName());
-                record.put("arch", detectArchitecture(r.cycles()));
+                record.put("arch", r.architecture());
                 record.put("degree", r.degree());
                 record.put("y", r.y());
                 record.put("cycles", r.cycles());
@@ -94,12 +94,5 @@ public class HistoryServlet extends HttpServlet {
         try (PrintWriter out = resp.getWriter()) {
             out.write(json);
         }
-    }
-
-    private String detectArchitecture(int cycles) {
-        if (cycles <= 10) return "I";
-        if (cycles <= 100) return "II";
-        if (cycles <= 500) return "III";
-        return "IV";
     }
 }
