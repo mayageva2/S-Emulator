@@ -113,7 +113,7 @@ public class RunButtonsController {
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(outer.get("status"))) {
                 String msg = String.valueOf(outer.get("message"));
-                if (msg != null && msg.toLowerCase().contains("credits")) {
+                if (msg != null && msg.toLowerCase().contains("Dashboard")) {
                     handleCreditsDepleted(msg);
                     return;
                 }
@@ -154,7 +154,7 @@ public class RunButtonsController {
 
         } catch (Exception ex) {
             String msg = ex.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+            if (msg != null && msg.toLowerCase().contains("dashboard")) {
                 handleCreditsDepleted(msg);
             } else {
                 alertError("Run failed", msg);

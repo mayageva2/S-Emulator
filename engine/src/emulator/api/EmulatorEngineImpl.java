@@ -885,7 +885,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         : 0;
 
                 recordRun(programName, degree, input, y, totalCycles, arch.name());
-                throw new IllegalStateException("Run stopped due to insufficient credits.");
+                throw new IllegalStateException("Run stopped due to insufficient credits. returning to Dashboard");
             } else {
                 throw ex;
             }
