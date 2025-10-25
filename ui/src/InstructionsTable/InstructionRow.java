@@ -16,6 +16,7 @@ public class InstructionRow {
     public final long creditCost;
     public final String architecture;
     public String display = "";
+    public boolean needsHighlight = false; //red
 
     public InstructionRow(int index, boolean basic, String label, int cycles,
                           String opcode, List<String> args, int depth,

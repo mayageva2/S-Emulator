@@ -1,5 +1,6 @@
 package Main.Execution;
 
+import ArchitectureChoiceBox.ArchitectureChoiceBoxController;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
@@ -108,6 +109,10 @@ public class MainExecutionController {
         runButtonsController.setInstructionsController(instructionsController);
         runButtonsController.setArchitectureController(architectureController);
         runButtonsController.setMainController(this);
+        if (architectureController != null) {
+            architectureController.setOnArchitectureSelected(arch -> checkArchitectureCompatibility(arch));
+        }
+
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
@@ -671,5 +676,41 @@ public class MainExecutionController {
 
     public String getBaseUrl() {
         return BASE_URL;
+    }
+
+    private void checkArchitectureCompatibility(ArchitectureChoiceBoxController.Architecture selectedArch) {
+        if (selectedArch == null) return;
+
+        String selectedName = selectedArch.name();
+        int selectedLevel = mapArchLevel(selectedName);
+
+        boolean hasIncompatible = false;
+        if (instructionsController != null) {
+            for (var row : instructionsController.getTableView().getItems()) {
+                int rowLevel = mapArchLevel(row.architecture);
+                if (rowLevel > selectedLevel) {
+                    row.needsHighlight = true;
+                    hasIncompatible = true;
+                } else {
+                    row.needsHighlight = false;
+                }
+            }
+            instructionsController.refreshStyles();
+        }
+
+        // השבתת כפתור Run אם יש חוסר תאימות
+        if (runButtonsController != null) {
+            runButtonsController.disableAllRunButtons(hasIncompatible);
+        }
+    }
+
+    private int mapArchLevel(String name) {
+        return switch (name.toUpperCase(Locale.ROOT)) {
+            case "I" -> 1;
+            case "II" -> 2;
+            case "III" -> 3;
+            case "IV" -> 4;
+            default -> 99;
+        };
     }
 }

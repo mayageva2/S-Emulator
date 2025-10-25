@@ -77,11 +77,11 @@ public class InstructionsTableController {
                 setStyle("");
 
                 if (empty || row == null) return;
-                if (getIndex() == highlightedIndex) {
+                if (row.needsHighlight) {
+                    setStyle("-fx-background-color: #ffcccc;");
+                } else if (getIndex() == highlightedIndex) {
                     setStyle("-fx-background-color: #fff3cd;");
-                    return;
-                }
-                if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
+                } else if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
                     setStyle("-fx-background-color: #fff3cd;");
                 }
             }
@@ -98,6 +98,10 @@ public class InstructionsTableController {
             table.getStylesheets().add(css.toExternalForm());
             table.getStyleClass().add("instructions");
         }
+    }
+
+    public void refreshStyles() {
+        Platform.runLater(() -> table.refresh());
     }
 
     public void setHighlightTerm(String term) {

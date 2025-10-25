@@ -11,6 +11,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class ArchitectureChoiceBoxController {
 
@@ -18,6 +19,10 @@ public class ArchitectureChoiceBoxController {
 
     private static final String BASE_URL = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
+    private Consumer<Architecture> onArchitectureSelected;
+    public void setOnArchitectureSelected(Consumer<Architecture> listener) {
+        this.onArchitectureSelected = listener;
+    }
 
     private static final Architecture PLACEHOLDER =
             new Architecture("__PLACEHOLDER__", 0, "Select Architecture…");
@@ -84,6 +89,9 @@ public class ArchitectureChoiceBoxController {
 
         architectureChoiceBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             System.out.println("Architecture selected: " + (newVal != null ? newVal.name() : "null"));
+            if (onArchitectureSelected != null && newVal != null && newVal != PLACEHOLDER) {
+                onArchitectureSelected.accept(newVal);
+            }
         });
     }
 
