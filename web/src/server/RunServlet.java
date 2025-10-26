@@ -55,7 +55,7 @@ public class RunServlet extends HttpServlet {
             String msg = ex.getMessage();
             if (msg != null && msg.toLowerCase().contains("not enough credits")) {
                 responseMap.put("status", "error");
-                responseMap.put("message", "Run stopped: not enough credits to complete the execution.");
+                responseMap.put("message", msg);
                 responseMap.put("errorType", "CREDITS");
             } else {
                 responseMap.put("status", "error");

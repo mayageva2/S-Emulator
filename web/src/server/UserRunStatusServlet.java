@@ -18,7 +18,6 @@ public class UserRunStatusServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
-        System.out.println("🔸 /user/run/status servlet called!");
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
@@ -45,9 +44,6 @@ public class UserRunStatusServlet extends HttpServlet {
             }
 
             List<RunRecord> history = engine.history();
-            System.out.println("🔸 /user/run/status called");
-            System.out.println("🔸 username=" + username + " | run=" + runStr);
-            System.out.println("🔸 total history size=" + history.size());
 
             Optional<RunRecord> recOpt = history.stream()
                     .filter(r -> r.runNumber() == runNumber &&
@@ -64,9 +60,6 @@ public class UserRunStatusServlet extends HttpServlet {
 
             RunRecord rec = recOpt.get();
             Map<String, Long> vars = rec.getVarsSnapshot();
-
-            System.out.println("🔸 found run record: " + rec.programName() + " #" + rec.runNumber());
-            System.out.println("🔸 varsSnapshot=" + rec.getVarsSnapshot());
 
             responseMap.put("status", "success");
             responseMap.put("message", "Run status retrieved successfully");

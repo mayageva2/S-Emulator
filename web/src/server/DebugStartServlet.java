@@ -102,11 +102,17 @@ public class DebugStartServlet extends HttpServlet {
             responseMap.put("message", "Debug session started successfully");
             responseMap.put("debug", debug);
 
-        } catch (Exception e) {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            responseMap.put("status", "error");
-            responseMap.put("message", e.getMessage());
-            responseMap.put("exception", e.getClass().getSimpleName());
+        } catch (IllegalStateException ex) {
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg);
+                responseMap.put("errorType", "CREDITS");
+            } else {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg != null ? msg : "Unknown runtime error");
+                responseMap.put("errorType", "RUNTIME");
+            }
         }
 
         writeJson(resp, responseMap);

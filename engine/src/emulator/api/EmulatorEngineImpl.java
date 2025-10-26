@@ -850,10 +850,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
         long archCost = arch.cost();
+        double avgCost = avgCreditsByProgram.getOrDefault(programName.toUpperCase(Locale.ROOT), 0.0);
+        long totalRequired = archCost + Math.round(avgCost);
 
-        if (credits < archCost) {
+        if (credits < totalRequired) {
             throw new IllegalStateException(
-                    "Not enough credits to start program (architecture cost = " + archCost + ")");
+                    "Not enough credits to start program (required = " + totalRequired +
+                            ", architecture cost = " + archCost +
+                            ", average cost = " + Math.round(avgCost) + ")");
         }
 
         Program target = functionLibrary.get(programName.toUpperCase(Locale.ROOT));
@@ -1105,12 +1109,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
-        long architectureCost = architectureInfo.cost();
-        if (credits < architectureCost) {
-            throw new IllegalStateException("Not enough credits to start debug (requires at least " + architectureCost + ")");
-        }
-        UserManager.charge(architectureCost);
+        long archCost = architectureInfo.cost();
+        double avgCost = avgCreditsByProgram.getOrDefault(target.getName().toUpperCase(Locale.ROOT), 0.0);
+        long totalRequired = archCost + Math.round(avgCost);
 
+        if (credits < archCost) {
+            throw new IllegalStateException(
+                    "Not enough credits to start program (required = " + totalRequired +
+                            ", architecture cost = " + archCost +
+                            ", average cost = " + Math.round(avgCost) + ")");
+        }
+
+        UserManager.charge(archCost);
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
         debugStopSafe();
 
