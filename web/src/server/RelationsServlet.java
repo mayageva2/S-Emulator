@@ -33,8 +33,16 @@ public class RelationsServlet extends HttpServlet {
 
         try (PrintWriter out = resp.getWriter()) {
             if (path.endsWith("/functions")) {
+                String rawParam = req.getQueryString();
                 String program = URLDecoder.decode(req.getParameter("program"), StandardCharsets.UTF_8);
+
+                if (rawParam != null && rawParam.contains("%2B")) {  //edge case of '+'
+                    program = program.replace(' ', '+');
+                }
+
+                System.out.println(">>> RelationsServlet /functions – looking for program: [" + program + "]");
                 Set<String> funcs = functionService.getFunctionsByProgram(program);
+                System.out.println(">>> Found functions: " + funcs);
                 out.write(gson.toJson(funcs));
 
             } else if (path.endsWith("/programs")) {

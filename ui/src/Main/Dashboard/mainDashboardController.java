@@ -110,6 +110,8 @@ public class mainDashboardController {
         mainProgramsController.getProgramsTable().getSelectionModel()
                 .selectedItemProperty().addListener((obs, oldSel, newSel) -> {
                     if (newSel != null) {
+                        functionsController.clearHighlights();
+                        mainProgramsController.clearHighlights();
                         highlightFunctionsForProgram(newSel.getProgramName());
                     } else {
                         functionsController.clearHighlights();
@@ -119,6 +121,8 @@ public class mainDashboardController {
         functionsController.getFunctionsTable().getSelectionModel()
                 .selectedItemProperty().addListener((obs, oldSel, newSel) -> {
                     if (newSel != null) {
+                        mainProgramsController.clearHighlights();
+                        functionsController.clearHighlights();
                         highlightProgramsForFunction(newSel.getFunctionName());
                         highlightRelatedFunctions(newSel.getFunctionName());
                     } else {
@@ -130,7 +134,8 @@ public class mainDashboardController {
 
     private void highlightFunctionsForProgram(String programName) {
         try {
-            String json = HttpSessionClient.get(baseUrl + "relations/functions?program=" + URLEncoder.encode(programName, StandardCharsets.UTF_8));
+            String encodedProgram = URLEncoder.encode(programName, StandardCharsets.UTF_8).replace("+", "%2B");
+            String json = HttpSessionClient.get(baseUrl + "relations/functions?program=" + encodedProgram);
             Set<String> funcs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
             functionsController.highlightFunctions(funcs);
         } catch (Exception e) { e.printStackTrace(); }
