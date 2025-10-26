@@ -6,20 +6,14 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.Timer;
 
 public class FunctionsTableController {
 
@@ -81,8 +75,34 @@ public class FunctionsTableController {
             functionsTable.getStyleClass().add("instructions");
         }
 
+        functionsTable.setRowFactory(tv -> new TableRow<>() {
+            @Override
+            protected void updateItem(FunctionRow item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().remove("highlighted");
+                if (!empty && item != null && item.isHighlighted()) {
+                    getStyleClass().add("highlighted");
+                }
+            }
+        });
+
         refreshFunctions();
     }
+
+    public void highlightFunctions(Set<String> functionNames) {
+        var set = (functionNames != null) ? functionNames : Set.<String>of();
+        for (FunctionRow row : functionsTable.getItems()) {
+            row.setHighlighted(set.contains(row.getFunctionName()));
+        }
+        functionsTable.refresh();
+    }
+
+    public void clearHighlights() {
+        for (FunctionRow row : functionsTable.getItems()) row.setHighlighted(false);
+        functionsTable.refresh();
+    }
+
+    public TableView<FunctionRow> getFunctionsTable() { return functionsTable; }
 
     @FXML
     private void onExecuteFuncClicked() {

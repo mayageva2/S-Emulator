@@ -7,6 +7,7 @@ public class ProgramRow {
     private final int maxDegree;
     private final int runCount;
     private final double avgCreditCost;
+    private boolean highlighted = false;
 
     public ProgramRow(String programName, String username, int instructionCount,
                       int maxDegree, int runCount, double avgCreditCost) {
@@ -24,4 +25,6 @@ public class ProgramRow {
     public int getMaxDegree() { return maxDegree; }
     public int getRunCount() { return runCount; }
     public double getAvgCreditCost() { return avgCreditCost; }
+    public boolean isHighlighted() { return highlighted; }
+    public void setHighlighted(boolean highlighted) { this.highlighted = highlighted; }
 }
