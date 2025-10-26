@@ -62,8 +62,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final Map<String, Integer> runCountByProgram = new HashMap<>();
     private final Map<String, Double> avgCreditsByProgram = new HashMap<>();
     private final UserService userService = UserService.getInstance();
+    private ArchitectureInfo lastArchitecture = new ArchitectureInfo("I", 5, "Basic architecture");
 
-    // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
+    // ----- DEBUG -----
     private transient Thread dbgThread;
     private final Object dbgLock = new Object();
     private volatile boolean dbgAlive = false;
@@ -512,7 +513,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, "I");
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, lastArchitecture.name());
 
         return new RunResult(y, totalCycles, vars);
     }
@@ -839,7 +840,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, "I");
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, lastArchitecture.name());
         return new RunResult(y, totalCycles, vars);
     }
 
@@ -884,6 +885,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         ? pei.getLastExecutionCycles() + pei.getLastDynamicCycles()
                         : 0;
 
+                this.lastArchitecture = arch;
                 recordRun(programName, degree, input, y, totalCycles, arch.name());
                 throw new IllegalStateException("Run stopped due to insufficient credits. returning to Dashboard");
             } else {
@@ -1037,7 +1039,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.lastRunVars = new LinkedHashMap<>(lastVars);
         }
         recordRun(this.lastRunProgramName, this.lastRunDegree,
-                inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles), "I");
+                inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles), lastArchitecture.name());
     }
 
     private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {
@@ -1086,12 +1088,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         Program target = functionLibrary.get(programName);
         if (target == null) target = functionLibrary.get(programName.toUpperCase(java.util.Locale.ROOT));
         if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
+        this.lastArchitecture = architectureInfo;
         debugStartCommon(target, inputs, degree, architectureInfo);
     }
 
     public void debugStart(Long[] inputs, int degree, ArchitectureInfo architectureInfo) {
         requireLoaded();
         debugStartCommon(current, inputs, degree, architectureInfo);
+        this.lastArchitecture = architectureInfo;
     }
 
     private void debugStartCommon(Program target, Long[] inputs, int degree,  ArchitectureInfo architectureInfo) {
@@ -1120,6 +1124,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         dbgResumeMode = false;
         dbgStepOnce = false;
         dbgAlive = true;
+        this.lastArchitecture = architectureInfo;
 
         this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
                 .map(v -> v == null ? 0L : v)
