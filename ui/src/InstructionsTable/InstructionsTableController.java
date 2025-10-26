@@ -79,6 +79,8 @@ public class InstructionsTableController {
                 if (empty || row == null) return;
                 if (row.needsHighlight) {
                     setStyle("-fx-background-color: #ffcccc;");
+                } else if (row.isSupported) {
+                    setStyle("-fx-background-color: #ccffcc;");
                 } else if (getIndex() == highlightedIndex) {
                     setStyle("-fx-background-color: #fff3cd;");
                 } else if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
