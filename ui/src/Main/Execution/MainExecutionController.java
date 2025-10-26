@@ -599,11 +599,11 @@ public class MainExecutionController {
         }).start();
     }
 
-    public void prepareForRerun(String programName, int degree, String inputsCsv) {
+    public void prepareForRerun(String programName, int degree, String inputsCsv, String architectureName) {
         this.currentProgram = programName;
         this.currentDegree = degree;
         this.predefinedInputsCsv = inputsCsv;
-        Platform.runLater(this::loadProgramAndInputs);
+        Platform.runLater(() -> loadProgramForRerun(programName, architectureName, degree));
     }
 
     private void loadProgramAndInputs() {
@@ -653,6 +653,69 @@ public class MainExecutionController {
                         toolbarController.setHighlightEnabled(true);
                         toolbarController.setDegreeButtonEnabled(true);
                     }
+                });
+
+            } catch (Exception e) {
+                showError("Program view failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void loadProgramForRerun(String programName, String architectureName, int degree) {
+        new Thread(() -> {
+            try {
+                String viewUrl = BASE_URL + "view?degree=" + degree +
+                        "&program=" + URLEncoder.encode(programName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program view: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(programName);
+                        runButtonsController.setCurrentDegree(degree);
+                        runButtonsController.enableRunButtonsAfterLoad();
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(0, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
+                    }
+
+                    Platform.runLater(() -> {
+                        try {
+                            if (inputsBoxController != null && predefinedInputsCsv != null && !predefinedInputsCsv.isBlank()) {
+                                inputsBoxController.fillFromCsv(predefinedInputsCsv);
+                                System.out.println("RERUN: filled inputs from CSV → " + predefinedInputsCsv);
+                            }
+
+                            if (architectureController != null && architectureName != null && !architectureName.isBlank()) {
+                                architectureController.selectArchitectureByName(architectureName);
+                                System.out.println("RERUN: selected architecture → " + architectureName);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
                 });
 
             } catch (Exception e) {

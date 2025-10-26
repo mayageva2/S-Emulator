@@ -44,6 +44,26 @@ public class ArchitectureChoiceBoxController {
         loadArchitecturesFromServer();
     }
 
+    public void selectArchitectureByName(String name) {
+        if (name == null || name.isBlank()) {
+            System.out.println("selectArchitectureByName called with null/blank name");
+            return;
+        }
+
+        Platform.runLater(() -> {
+            for (Architecture a : architectureChoiceBox.getItems()) {
+                if (a != null && a.name().equalsIgnoreCase(name.trim())) {
+                    architectureChoiceBox.getSelectionModel().select(a);
+                    System.out.println("Architecture auto-selected → " + a.name());
+                    return;
+                }
+            }
+
+            architectureChoiceBox.getSelectionModel().select(PLACEHOLDER);
+            System.out.println("Architecture name not found → fallback to placeholder");
+        });
+    }
+
     private void loadArchitecturesFromServer() {
         new Thread(() -> {
             try {

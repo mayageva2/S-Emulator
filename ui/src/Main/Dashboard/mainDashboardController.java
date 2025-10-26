@@ -127,12 +127,12 @@ public class mainDashboardController {
         if (functionsController != null) functionsController.refreshFunctions();
     }
 
-    public void openExecutionScreenWithRun(String program, int degree, String inputsCsv) {
+    public void openExecutionScreenWithRun(String program, int degree, String inputsCsv, String architecture) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController execController = loader.getController();
-            execController.prepareForRerun(program, degree, inputsCsv);
+            execController.prepareForRerun(program, degree, inputsCsv, architecture);
             Stage stage = (Stage) statisticsController.getTableView().getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setMaximized(true);

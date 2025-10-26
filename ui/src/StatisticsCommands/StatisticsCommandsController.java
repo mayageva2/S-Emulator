@@ -73,9 +73,7 @@ public class StatisticsCommandsController {
                     URLEncoder.encode(rec.username(), StandardCharsets.UTF_8) +
                     "&runNumber=" + rec.runNumber();
 
-            System.out.println("🔹 Sending SHOW request to: " + url);
             String json = HttpSessionClient.get(url);
-            System.out.println("🔹 Response from server: " + json);
             Map<String, Object> result = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
             if (!"success".equals(result.get("status"))) {
@@ -126,7 +124,7 @@ public class StatisticsCommandsController {
             String csvInputs = String.join(",", rec.inputs().stream().map(String::valueOf).toList());
 
             if (dashboardController != null) {
-                dashboardController.openExecutionScreenWithRun(rec.programName(), rec.degree(), csvInputs);
+                dashboardController.openExecutionScreenWithRun(rec.programName(), rec.degree(), csvInputs, rec.architecture());
             }
 
         } catch (Exception ex) {
