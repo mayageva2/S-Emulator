@@ -5,7 +5,8 @@
 
 <AnchorPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="goToDashboardButton.goToDashboardController"
-            prefWidth="500" prefHeight="50">
+            prefWidth="500" prefHeight="50"
+            minHeight="0" maxHeight="Infinity">
 
     <Button fx:id="btnGoToDashboard" text="Back to Dashboard"
             textFill="WHITE" prefWidth="450" prefHeight="40.0"

@@ -23,17 +23,16 @@
    <center>
       <StackPane minWidth="0" maxHeight="Infinity" maxWidth="Infinity" snapToPixel="false" style="-fx-border-color: purple; -fx-border-width: 1;
                   -fx-border-insets: 0 1 0 0; -fx-background-color: transparent; -fx-background-insets: 0;">
-         <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"  prefHeight="525.0" minWidth="0.0" style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
+         <ScrollPane fitToWidth="true" fitToHeight="true" vbarPolicy="AS_NEEDED" hbarPolicy="NEVER"  VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;">
             <content>
-               <VBox spacing="0" fillWidth="true" minWidth="0.0">
+               <VBox maxWidth="Infinity" spacing="0" fillWidth="true" minWidth="0.0" VBox.vgrow="ALWAYS">
                   <padding><Insets top="6" right="10" bottom="10" left="10"/></padding>
-                  <VBox fx:id="inputsList" spacing="0" fillWidth="true" minWidth="0.0"/>
+                  <VBox fx:id="inputsList" spacing="0" fillWidth="true" minWidth="0.0" maxHeight="Infinity" maxWidth="Infinity"/>
                </VBox>
             </content>
          </ScrollPane>
       </StackPane>
    </center>
-
    <padding>
       <Insets left="0" top="5" right="0"/>
    </padding>

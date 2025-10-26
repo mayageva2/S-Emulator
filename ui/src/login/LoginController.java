@@ -60,7 +60,7 @@ public class LoginController {
             stage.setResizable(true);
             stage.centerOnScreen();
 
-            // stage.setFullScreen(true);
+            stage.setFullScreen(true);
 
             stage.show();
 

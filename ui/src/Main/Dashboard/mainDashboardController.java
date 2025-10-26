@@ -135,7 +135,7 @@ public class mainDashboardController {
             execController.prepareForRerun(program, degree, inputsCsv, architecture);
             Stage stage = (Stage) statisticsController.getTableView().getScene().getWindow();
             stage.setScene(new Scene(root));
-            stage.setMaximized(true);
+            stage.setFullScreen(true);
             stage.show();
         } catch (IOException e) {
             e.printStackTrace();

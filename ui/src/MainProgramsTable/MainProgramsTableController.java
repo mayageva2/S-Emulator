@@ -112,23 +112,14 @@ public class MainProgramsTableController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController controller = loader.getController();
-
             controller.setProgramToExecute(selectedProgram.getProgramName());
 
             Stage stage = (Stage) btnExecuteProgram.getScene().getWindow();
-            Screen screen = Screen.getPrimary();
-            Rectangle2D bounds = screen.getVisualBounds();
+            Scene scene = new Scene(root);
+            stage.setScene(scene);
 
             double desiredWidth = stage.getWidth();
-            double desiredHeight = stage.getHeight();
-            if (desiredWidth > bounds.getWidth()) {desiredWidth = bounds.getWidth() - 20;}
-            if (desiredHeight > bounds.getHeight()) {desiredHeight = bounds.getHeight() - 20;}
-
-            Scene scene = new Scene(root, desiredWidth, desiredHeight);
-            stage.setScene(scene);
-            stage.setX(bounds.getMinX() + (bounds.getWidth() - desiredWidth) / 2);
-            stage.setY(bounds.getMinY() + (bounds.getHeight() - desiredHeight) / 2);
-
+            stage.setFullScreen(true);
             stage.show();
         } catch (IOException e) {
             e.printStackTrace();

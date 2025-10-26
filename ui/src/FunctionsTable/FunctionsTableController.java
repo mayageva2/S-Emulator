@@ -99,17 +99,9 @@ public class FunctionsTableController {
             controller.setProgramToExecute(selected.getFunctionName());
 
             Stage stage = (Stage) btnExecuteFunc.getScene().getWindow();
-            Screen screen = Screen.getPrimary();
-            Rectangle2D bounds = screen.getVisualBounds();
-
-            double desiredWidth = Math.min(stage.getWidth(), bounds.getWidth() - 20);
-            double desiredHeight = Math.min(stage.getHeight(), bounds.getHeight() - 20);
-
-            Scene scene = new Scene(root, desiredWidth, desiredHeight);
+            Scene scene = new Scene(root);
             stage.setScene(scene);
-            stage.setX(bounds.getMinX() + (bounds.getWidth() - desiredWidth) / 2);
-            stage.setY(bounds.getMinY() + (bounds.getHeight() - desiredHeight) / 2);
-
+            stage.setFullScreen(true);
             stage.show();
 
         } catch (IOException e) {
