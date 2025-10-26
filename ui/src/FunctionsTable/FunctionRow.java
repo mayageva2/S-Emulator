@@ -6,6 +6,7 @@ public class FunctionRow {
     private final String username;
     private final int instructionCount;
     private final int maxDegree;
+    private boolean highlighted;
 
     public FunctionRow(String functionName, String programName, String username, int instructionCount, int maxDegree) {
         this.functionName = functionName;
@@ -20,4 +21,6 @@ public class FunctionRow {
     public String getUsername() { return username; }
     public int getInstructionCount() { return instructionCount; }
     public int getMaxDegree() { return maxDegree; }
+    public boolean isHighlighted() { return highlighted; }
+    public void setHighlighted(boolean highlighted) { this.highlighted = highlighted; }
 }

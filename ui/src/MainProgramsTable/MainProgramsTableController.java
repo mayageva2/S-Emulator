@@ -4,24 +4,17 @@ import Main.Execution.MainExecutionController;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Timer;
-import java.util.TimerTask;
 
 public class MainProgramsTableController {
 
@@ -61,6 +54,17 @@ public class MainProgramsTableController {
         programsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         for (var col : programsTable.getColumns()) col.setSortable(false);
         programsTable.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
+
+        programsTable.setRowFactory(tv -> new TableRow<>() {
+            @Override
+            protected void updateItem(ProgramRow item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().remove("highlighted");
+                if (!empty && item != null && item.isHighlighted()) {
+                    getStyleClass().add("highlighted");
+                }
+            }
+        });
 
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
@@ -133,5 +137,20 @@ public class MainProgramsTableController {
 
     public TableView<ProgramRow> getProgramsTable() {
         return programsTable;
+    }
+
+    public void highlightPrograms(Set<String> programNames) {
+        var set = (programNames != null) ? programNames : Set.<String>of();
+        for (ProgramRow row : programsTable.getItems()) {
+            row.setHighlighted(set.contains(row.getProgramName()));
+        }
+        programsTable.refresh();
+    }
+
+    public void clearHighlights() {
+        for (ProgramRow row : programsTable.getItems()) {
+            row.setHighlighted(false);
+        }
+        programsTable.refresh();
     }
 }

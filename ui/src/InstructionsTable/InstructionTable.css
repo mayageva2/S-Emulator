@@ -28,3 +28,7 @@
     -fx-background-radius: 6;
     -fx-font-weight: bold;
 }
+
+.table-view.instructions .table-row-cell.highlighted {
+    -fx-background-color: #c7eaff;
+}

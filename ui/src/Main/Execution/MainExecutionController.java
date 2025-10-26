@@ -755,15 +755,16 @@ public class MainExecutionController {
                 int rowLevel = mapArchLevel(row.architecture);
                 if (rowLevel > selectedLevel) {
                     row.needsHighlight = true;
+                    row.isSupported = false;
                     hasIncompatible = true;
                 } else {
                     row.needsHighlight = false;
+                    row.isSupported = true;
                 }
             }
             instructionsController.refreshStyles();
         }
 
-        // השבתת כפתור Run אם יש חוסר תאימות
         if (runButtonsController != null) {
             runButtonsController.disableAllRunButtons(hasIncompatible);
         }

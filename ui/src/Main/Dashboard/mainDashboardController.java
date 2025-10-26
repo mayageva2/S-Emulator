@@ -18,6 +18,8 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class mainDashboardController {
@@ -104,6 +106,55 @@ public class mainDashboardController {
                     else
                         statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
                 });
+
+        mainProgramsController.getProgramsTable().getSelectionModel()
+                .selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+                    if (newSel != null) {
+                        functionsController.clearHighlights();
+                        mainProgramsController.clearHighlights();
+                        highlightFunctionsForProgram(newSel.getProgramName());
+                    } else {
+                        functionsController.clearHighlights();
+                    }
+                });
+
+        functionsController.getFunctionsTable().getSelectionModel()
+                .selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+                    if (newSel != null) {
+                        mainProgramsController.clearHighlights();
+                        functionsController.clearHighlights();
+                        highlightProgramsForFunction(newSel.getFunctionName());
+                        highlightRelatedFunctions(newSel.getFunctionName());
+                    } else {
+                        mainProgramsController.clearHighlights();
+                        functionsController.clearHighlights();
+                    }
+                });
+    }
+
+    private void highlightFunctionsForProgram(String programName) {
+        try {
+            String encodedProgram = URLEncoder.encode(programName, StandardCharsets.UTF_8).replace("+", "%2B");
+            String json = HttpSessionClient.get(baseUrl + "relations/functions?program=" + encodedProgram);
+            Set<String> funcs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
+            functionsController.highlightFunctions(funcs);
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void highlightProgramsForFunction(String functionName) {
+        try {
+            String json = HttpSessionClient.get(baseUrl + "relations/programs?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
+            Set<String> progs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
+            mainProgramsController.highlightPrograms(progs);
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void highlightRelatedFunctions(String functionName) {
+        try {
+            String json = HttpSessionClient.get(baseUrl + "relations/related-functions?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
+            Set<String> funcs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
+            functionsController.highlightFunctions(funcs);
+        } catch (Exception e) {}
     }
 
     public String getCurrentUsername() {
