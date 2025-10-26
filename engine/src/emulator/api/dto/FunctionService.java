@@ -6,6 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FunctionService {
     private static final Map<String, FunctionInfo> functions = new ConcurrentHashMap<>();
     private static final FunctionService instance = new FunctionService();
+    private static final Map<String, Set<String>> programToFunctions = new ConcurrentHashMap<>();
+    private static final Map<String, Set<String>> funcToFuncs       = new ConcurrentHashMap<>();
 
     private FunctionService() {}
 
