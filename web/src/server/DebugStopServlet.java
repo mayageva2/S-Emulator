@@ -3,6 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.UserService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -12,7 +13,6 @@ import java.util.*;
 
 @WebServlet("/debug/stop")
 public class DebugStopServlet extends HttpServlet {
-
     private static final Gson gson = new Gson();
 
     @Override
@@ -103,6 +103,7 @@ public class DebugStopServlet extends HttpServlet {
             responseMap.put("exception", e.getClass().getSimpleName());
         }
 
+        ServerEventManager.broadcast("PROGRAM_RUN");
         writeJson(resp, responseMap);
     }
 

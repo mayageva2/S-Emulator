@@ -1,7 +1,9 @@
 package RunButtons;
 
+import ArchitectureChoiceBox.ArchitectureChoiceBoxController;
 import InputsBox.InputsBoxController;
 import Main.Execution.MainExecutionController;
+import Utils.HttpSessionClient;
 import VariablesBox.VariablesBoxController;
 import StatisticsTable.StatisticsTableController;
 import ProgramToolBar.ProgramToolbarController;
@@ -36,6 +38,8 @@ public class RunButtonsController {
     private ProgramToolbarController toolbarController;
     private InstructionsTableController instructionsController;
     private MainExecutionController mainExecutionController;
+    private ArchitectureChoiceBoxController architectureController;
+    private StatisticsCommands.StatisticsCommandsController statisticsCommandsController;
 
     private int currentDegree = 0;
     private String currentProgram = "";
@@ -69,6 +73,8 @@ public class RunButtonsController {
     public void setStatisticsTableController(StatisticsTableController c) { this.statisticsTableController = c; }
     public void setInstructionsController(InstructionsTableController c) { this.instructionsController = c; }
     public void setProgramToolbarController(ProgramToolbarController c) {this.toolbarController = c;}
+    public void setArchitectureController(ArchitectureChoiceBoxController c) { this.architectureController = c; }
+    public void setStatisticsCommandsController(StatisticsCommands.StatisticsCommandsController c) { this.statisticsCommandsController = c; }
 
     public void setCurrentProgram(String name) { this.currentProgram = (name == null ? "" : name); }
     public void setCurrentDegree(int degree) { this.currentDegree = Math.max(0, degree); }
@@ -84,26 +90,34 @@ public class RunButtonsController {
         try {
             Long[] inputs = inputsBoxController.collectAsLongsOrThrow();
             String effectiveProgram = (currentProgram == null || currentProgram.isBlank() ||
-                            currentProgram.equalsIgnoreCase("Main Program")) ? "" : currentProgram;
+                    currentProgram.equalsIgnoreCase("Main Program")) ? "" : currentProgram;
+
+            String architecture = (architectureController != null &&
+                    architectureController.getSelectedArchitecture() != null)
+                    ? architectureController.getSelectedArchitecture().name() : null;
+
+            if (architecture == null || architecture.isBlank()) {
+                alertError("Missing architecture", "Please select an architecture before running.");
+                return;
+            }
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("program", effectiveProgram);
             data.put("degree", currentDegree);
+            data.put("architecture", architecture);
             data.put("inputs", inputs);
-
-            System.out.println("▶ Sending run request:");
-            System.out.println("  program='" + currentProgram + "'");
-            System.out.println("  effectiveProgram='" + effectiveProgram + "'");
-            System.out.println("  degree=" + currentDegree);
-            System.out.println("  inputs=" + Arrays.toString(inputs));
 
             String json = gson.toJson(data);
             String response = httpPostJson(BASE_URL + "run", json);
 
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
-
             if (!"success".equals(outer.get("status"))) {
-                throw new RuntimeException("Run failed: " + outer.get("message"));
+                String msg = String.valueOf(outer.get("message"));
+                if (msg != null && msg.toLowerCase().contains("Dashboard")) {
+                    handleCreditsDepleted(msg);
+                    return;
+                }
+                throw new RuntimeException("Run failed: " + msg);
             }
 
             Map<String, Object> result = (Map<String, Object>) outer.get("result");
@@ -119,33 +133,65 @@ public class RunButtonsController {
                 }
             }
 
-            if (varsBoxController != null) {
-                varsBoxController.renderAll(varsMap);
-                if (mainExecutionController != null) {
-                    var statsCmd = mainExecutionController.getStatisticsCommandsController();
-                    if (statsCmd != null) {
-                        Map<String, String> snapshot = new LinkedHashMap<>();
-                        for (var es : varsMap.entrySet()) {
-                            snapshot.put(es.getKey(), String.valueOf(es.getValue()));
-                        }
-                        statsCmd.setLastVarsSnapshot(snapshot);
-                    }
-                }
-                varsBoxController.setCycles(cycles.intValue());
+            Map<String, String> latestVarsSnapshot = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> entry : varsMap.entrySet()) {
+                latestVarsSnapshot.put(entry.getKey(), String.valueOf(entry.getValue()));
+            }
+            if (statisticsCommandsController != null) {
+                statisticsCommandsController.setLastVarsSnapshot(latestVarsSnapshot);
             }
 
-            if (statisticsTableController != null)
+            if (varsBoxController != null) {
+                varsBoxController.renderAll(varsMap);
+                varsBoxController.setCycles(cycles.intValue());
+            }
+            if (statisticsTableController != null) {
                 Platform.runLater(() -> statisticsTableController.clear());
-
+            }
             if (mainExecutionController != null) {
                 mainExecutionController.refreshHistory();
             }
 
         } catch (Exception ex) {
-            alertError("Run failed", ex.getMessage());
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("dashboard")) {
+                handleCreditsDepleted(msg);
+            } else {
+                alertError("Run failed", msg);
+            }
         }
     }
 
+    private void handleCreditsDepleted(String msg) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Credits Depleted");
+            alert.setHeaderText("Out of Credits");
+            alert.setContentText("Your available credits have been used up.\n" +
+                    "Execution stopped.\n\n" + (msg != null ? msg : ""));
+            alert.show();
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException ignored) {}
+
+                Platform.runLater(() -> {
+                    try {
+                        alert.close();
+                        if (mainExecutionController != null) {
+                            System.out.println("Redirecting to dashboard due to depleted credits...");
+                            mainExecutionController.triggerGoToDashboard();
+                        } else {
+                            System.err.println("mainExecutionController is null, cannot redirect.");
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }).start();
+        });
+    }
 
     @FXML
     private void onDebug(ActionEvent e) {
@@ -156,8 +202,18 @@ public class RunButtonsController {
                             currentProgram.equalsIgnoreCase("Main Program"))
                             ? "" : currentProgram;
 
+            String architecture = (architectureController != null &&
+                    architectureController.getSelectedArchitecture() != null)
+                    ? architectureController.getSelectedArchitecture().name() : null;
+
+            if (architecture == null || architecture.isBlank()) {
+                alertError("Missing architecture", "Please select an architecture before debugging.");
+                return;
+            }
+
             String formData = "program=" + URLEncoder.encode(effectiveProgram, StandardCharsets.UTF_8)
                     + "&degree=" + currentDegree
+                    + "&architecture=" + URLEncoder.encode(architecture, StandardCharsets.UTF_8)
                     + "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
             String response = httpPost(BASE_URL + "debug/start", formData);
             Map<String, Object> json = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
@@ -186,7 +242,12 @@ public class RunButtonsController {
             }
 
         } catch (Exception ex) {
-            alertError("Debug start failed", ex.getMessage());
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("dashboard")) {
+                handleCreditsDepleted(msg);
+            } else {
+                alertError("Debug start failed", msg);
+            }
         }
     }
 
@@ -205,6 +266,12 @@ public class RunButtonsController {
         try {
             String response = httpPost(BASE_URL + endpoint, "");
             Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+
+            String msg = String.valueOf(result.get("message"));
+            if (msg != null && msg.toLowerCase().contains("dashboard")) {
+                handleCreditsDepleted(msg);
+                return;
+            }
 
             String status = String.valueOf(result.getOrDefault("status", ""));
             boolean finished = Boolean.TRUE.equals(result.get("finished"));
@@ -282,39 +349,18 @@ public class RunButtonsController {
 
     private void updateVarsFromDebug(Map<String, Object> json) {
         if (json == null || varsBoxController == null) return;
+
         Map<String, Object> vars = (Map<String, Object>) json.get("vars");
         Number cycles = (Number) json.getOrDefault("cycles", 0);
+
         Platform.runLater(() -> {
             varsBoxController.renderAll(vars);
             varsBoxController.setCycles(cycles.intValue());
-            if (mainExecutionController != null) {
-                var statsCmd = mainExecutionController.getStatisticsCommandsController();
-                if (statsCmd != null && vars != null) {
-                    Map<String, String> snapshot = new LinkedHashMap<>();
-                    for (var e : vars.entrySet()) {
-                        snapshot.put(e.getKey(), String.valueOf(e.getValue()));
-                    }
-                    statsCmd.setLastVarsSnapshot(snapshot);
-                }
-            }
         });
     }
 
     private String httpPost(String urlStr, String body) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(body.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, body, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     private void alertError(String title, String msg) {
@@ -355,20 +401,7 @@ public class RunButtonsController {
     }
 
     private String httpPostJson(String urlStr, String json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, json, "application/json; charset=UTF-8");
     }
 
     public void setMainController(MainExecutionController mainExecutionController) {

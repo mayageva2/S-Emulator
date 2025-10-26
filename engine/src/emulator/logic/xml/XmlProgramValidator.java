@@ -401,20 +401,17 @@ public class XmlProgramValidator {
 
             // Optionally validate the function’s own instructions using same rules:
             if (f.getInstructions() != null && f.getInstructions().getInstructions() != null) {
-                // Minimal: ensure it has at least 1 instruction if present
                 if (f.getInstructions().getInstructions().isEmpty()) {
                     throw new XmlInvalidContentException(
                             "Empty instructions inside function '" + fname + "'.",
                             Map.of("section", "S-Function", "name", fname)
                     );
                 }
-                // You may recursively re-use checks here if desired.
-                // e.g., validateInstructionTypeAndName for function body, etc.
             }
         }
         boolean hasFunctions = !functionNames.isEmpty();
 
-        // Cross-reference from main instructions
+       /* // Cross-reference from main instructions    //NOTED cause its a 2 exercise validation
         if (p.getInstructions() != null && p.getInstructions().getInstructions() != null) {
             for (int i = 0; i < p.getInstructions().getInstructions().size(); i++) {
                 InstructionXml ins = p.getInstructions().getInstructions().get(i);
@@ -459,6 +456,6 @@ public class XmlProgramValidator {
                     }
                 }
             }
-        }
+        }*/
     }
 }

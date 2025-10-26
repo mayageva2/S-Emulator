@@ -14,6 +14,7 @@
             <TableColumn fx:id="labelCol" text="Label" prefWidth="90"/>
             <TableColumn fx:id="cyclesCol" text="Cycles"  prefWidth="80"/>
             <TableColumn fx:id="instructionCol" text="Instruction" prefWidth="200"/>
+            <TableColumn fx:id="architectureCol" text="Architecture" prefWidth="100"/>
         </columns>
          <opaqueInsets>
             <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />

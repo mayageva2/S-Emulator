@@ -19,6 +19,7 @@ import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramCost;
+import emulator.logic.user.UserManager;
 import emulator.logic.xml.*;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
@@ -56,8 +57,14 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private int lastRunDegree = 0;
     private String lastRunProgramName = null;
     private final Map<String,String> displayToInternal = new HashMap<>();
+    private final Map<String, List<Long>> programCreditHistory = new HashMap<>();
+    private final Map<String, List<Long>> functionCreditHistory = new HashMap<>();
+    private final Map<String, Integer> runCountByProgram = new HashMap<>();
+    private final Map<String, Double> avgCreditsByProgram = new HashMap<>();
+    private final UserService userService = UserService.getInstance();
+    private ArchitectureInfo lastArchitecture = new ArchitectureInfo("I", 5, "Basic architecture");
 
-    // ----- DEBUG STATE (add to EmulatorEngineImpl fields) -----
+    // ----- DEBUG -----
     private transient Thread dbgThread;
     private final Object dbgLock = new Object();
     private volatile boolean dbgAlive = false;
@@ -66,6 +73,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private volatile boolean dbgResumeMode = false;
     private volatile boolean dbgStepOnce = false;
     private volatile Runnable dbgOnFinish;
+    private volatile String dbgErrorMessage = null;
 
     private volatile int dbgPC = 0;
     private volatile int dbgCycles = 0;
@@ -73,6 +81,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     private transient Program dbgProgram;
     private transient ProgramExecutor dbgExecutor;
+    public String getDebugErrorMessage() { return dbgErrorMessage; }
+    public void clearDebugErrorMessage() { dbgErrorMessage = null; }
 
     private static final class DebugAbortException extends RuntimeException {
         DebugAbortException() { super("Debug aborted"); }
@@ -164,6 +174,81 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return lastRunProgramName;
     }
 
+    @Override
+    public LoadResult loadProgramFromStream(InputStream xmlStream)
+            throws emulator.exception.XmlWrongExtensionException,
+            emulator.exception.XmlNotFoundException,
+            emulator.exception.XmlReadException,
+            emulator.exception.XmlInvalidContentException,
+            emulator.exception.InvalidInstructionException,
+            emulator.exception.MissingLabelException,
+            emulator.exception.ProgramException,
+            java.io.IOException {
+        try {
+            String xmlContent = new String(xmlStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            XmlProgramReader reader = new XmlProgramReader();
+            ProgramXml pxml = reader.readFromString(xmlContent);
+
+            this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
+            this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
+            functionLibrary.put(this.current.getName().toUpperCase(java.util.Locale.ROOT), this.current);
+
+            this.lastViewProgram = null;
+            this.history.clear();
+            this.historyByProgram.clear();
+            this.runCountersByProgram.clear();
+            this.lastRunVars = Map.of();
+            this.lastRunInputs = List.of();
+            this.lastRunDegree = 0;
+            this.lastRunProgramName = null;
+
+            LoadResult result = new LoadResult(
+                    current.getName(),
+                    current.getInstructions().size(),
+                    current.calculateMaxDegree(),
+                    extractFunctionNames(pxml)
+            );
+
+            LoadService.registerProgramType(current.getName(), "PROGRAM");
+            for (String fn : result.functions()) {
+                if (!fn.equalsIgnoreCase(current.getName())) {
+                    LoadService.registerProgramType(fn, "FUNCTION");
+                }
+            }
+            return result;
+
+        } catch (emulator.exception.ProgramException | java.io.IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new emulator.exception.ProgramException(
+                    "Unexpected error while loading program from stream",
+                    e.getMessage()
+            );
+        }
+    }
+
+    private ArchitectureInfo getArchitectureInfo(InstructionData data) {
+        if (data == null)
+            return new ArchitectureInfo("?", 0, "Unknown architecture");
+
+        int cost = data.getBaseCreditCost();
+        String name = switch (cost) {
+            case 5 -> "I";
+            case 100 -> "II";
+            case 500 -> "III";
+            case 1000 -> "IV";
+            default -> "?";
+        };
+        String description = switch (name) {
+            case "I" -> "Basic architecture";
+            case "II" -> "Optimized architecture";
+            case "III" -> "High performance architecture";
+            case "IV" -> "Ultimate architecture";
+            default -> "Unknown architecture";
+        };
+        return new ArchitectureInfo(name, cost, description);
+    }
+
     private ProgramXml parseXmlToProgram(String xml) throws Exception {
         JAXBContext ctx = JAXBContext.newInstance(ProgramXml.class);
         Unmarshaller um = ctx.createUnmarshaller();
@@ -236,11 +321,33 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = 0;
         this.lastRunProgramName = null;
 
-        return new LoadResult(
+        LoadResult result = new LoadResult(
                 current.getName(),
                 current.getInstructions().size(),
-                current.calculateMaxDegree()
+                current.calculateMaxDegree(),
+                extractFunctionNames(pxml)
         );
+
+        LoadService.registerProgramType(current.getName(), "PROGRAM");
+        for (String fn : result.functions()) {
+            if (!fn.equalsIgnoreCase(current.getName())) {
+                LoadService.registerProgramType(fn, "FUNCTION");
+            }
+        }
+        return result;
+    }
+
+    private List<String> extractFunctionNames(ProgramXml pxml) {
+        try {
+            if (pxml.getFunctions() == null || pxml.getFunctions().getFunctions() == null)
+                return List.of();
+            return pxml.getFunctions().getFunctions().stream()
+                    .map(f -> (f.getName() != null) ? f.getName().trim() : "")
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private String internalOf(String maybeDisplayOrInternal) {
@@ -336,12 +443,20 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             }
 
             InstructionView self = mkViewNoIndex.apply(ins);
+            InstructionData data = ins.getInstructionData();
+            ArchitectureInfo info = getArchitectureInfo(data);
+
             out.add(new InstructionView(
                     i,
-                    self.opcode(), self.label(),
-                    self.basic(), self.cycles(), self.args(),
+                    self.opcode(),
+                    self.label(),
+                    self.basic(),
+                    self.cycles(),
+                    self.args(),
                     createdFromChain,
-                    provenance
+                    provenance,
+                    info.cost(),
+                    info.name()
             ));
         }
         List<String> inputs = extractInputVars(new ProgramView(out, displayOf(base.getName()), degree, maxDegree, totalCycles, List.of()));
@@ -361,6 +476,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
 
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
+
+        int estimatedCycles = new ProgramCost(quotationRegistry).cyclesAtDegree(target, degree);
+        if (!UserManager.charge(estimatedCycles)) {
+            throw new IllegalStateException("Not enough credits (" + estimatedCycles + " cycles required)");
+        }
+
         ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
         debugTrace.clear();
         exec.setStepListener((pcAfter, cycles, vars, finished) -> {
@@ -392,17 +513,81 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 .toList();
         this.lastRunDegree = degree;
         this.lastRunProgramName = target.getName();
-        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, lastArchitecture.name());
 
         return new RunResult(y, totalCycles, vars);
     }
 
-    private void recordRun(String programName, int degree, Long[] input, long y, int cycles) {
+    private void recordRun(String programName, int degree, Long[] input, long y, int cycles, String arch) {
         String canonical = canonicalProgramName(programName);
         int nextRunNumber = runCountersByProgram.merge(canonical, 1, Integer::sum);
-        RunRecord record = new RunRecord(programName, nextRunNumber, degree, Arrays.asList(input), y, cycles);
+        String currentUser = UserManager.getCurrentUser()
+                .map(u -> u.getUsername())
+                .orElse("Unknown");
+        String programType = LoadService.getTypeForProgram(programName);
+
+        RunRecord record = new RunRecord(
+                currentUser,
+                programName,
+                nextRunNumber,
+                degree,
+                Arrays.asList(input),
+                y,
+                cycles,
+                this.lastRunVars != null ? new LinkedHashMap<>(this.lastRunVars) : new LinkedHashMap<>(),
+                programType,
+                arch
+        );
+
+        if (this.lastRunVars != null && !this.lastRunVars.isEmpty()) {
+            Map<String, Long> normalizedVars = new LinkedHashMap<>();
+            for (var e : this.lastRunVars.entrySet()) {
+                long value = e.getValue();
+                normalizedVars.put(e.getKey(), (long) (int) value);
+            }
+            record.setVarsSnapshot(normalizedVars);
+        } else {
+            LinkedHashMap<String, Long> fallback = new LinkedHashMap<>();
+            if (input != null) {
+                for (int i = 0; i < input.length; i++) {
+                    fallback.put("x" + (i + 1), input[i] != null ? input[i] : 0L);
+                }
+            }
+            fallback.putIfAbsent("y", y);
+            record.setVarsSnapshot(fallback);
+            System.out.println("recordRun(): lastRunVars empty, using fallback varsSnapshot = " + fallback);
+        }
+
         history.add(record);
         historyByProgram.computeIfAbsent(canonical, k -> new ArrayList<>()).add(record);
+
+        try {
+            int prevRuns = runCountByProgram.getOrDefault(canonical, 0);
+            double prevAvg = avgCreditsByProgram.getOrDefault(canonical, 0.0);
+            double newAvg = ((prevAvg * prevRuns) + cycles) / (prevRuns + 1);
+            avgCreditsByProgram.put(canonical, newAvg);
+            runCountByProgram.put(canonical, prevRuns + 1);
+
+            // safely update external stats if initialized
+            if (ProgramStatsRepository.getInstance() != null) {
+                ProgramStatsRepository.getInstance().updateAverage(programName, cycles);
+            }
+            if (ProgramService.getInstance() != null) {
+                ProgramService.getInstance().recordRun(programName, cycles);
+            }
+            userService.incrementRuns();
+
+            System.out.println("recordRun(): Added run #" + nextRunNumber +
+                    " for program=" + programName +
+                    ", degree=" + degree +
+                    ", inputs=" + Arrays.toString(input) +
+                    ", cycles=" + cycles +
+                    ", avgCredits=" + newAvg);
+
+        } catch (Exception e) {
+            System.err.println("recordRun() failed for " + programName + ": " + e);
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -451,9 +636,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         Label lbl = ins.getLabel();
         String label = (lbl == null) ? null : lbl.getLabelRepresentation();
+        ArchitectureInfo info = getArchitectureInfo(data);
 
         List<String> args = collectArgs(ins);
-        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of());
+        return new InstructionView(-1, opcode, label, basic, cycles, args, List.of(), List.of(), info.cost(), info.name());
     }
 
     private String canonicalProgramName(String programName) {
@@ -539,11 +725,16 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             InstructionView v = mkViewNoIndex.apply(cur);
             int idx = (foundDeg >= 0) ? indexMaps.get(foundDeg).get(cur) : -1;
 
+            InstructionData data = cur.getInstructionData();
+            ArchitectureInfo info = getArchitectureInfo(data);
+
             provenance.add(new InstructionView(
                     idx,
                     v.opcode(), v.label(),
                     v.basic(), v.cycles(), v.args(),
-                    List.of(), List.of()
+                    List.of(), List.of(),
+                    info.cost(),
+                    info.name()
             ));
 
             cur = cur.getCreatedFrom();
@@ -649,7 +840,86 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = degree;
         this.lastRunProgramName = current.getName();
 
-        recordRun(this.lastRunProgramName, degree, input, y, totalCycles);
+        recordRun(this.lastRunProgramName, degree, input, y, totalCycles, lastArchitecture.name());
+        return new RunResult(y, totalCycles, vars);
+    }
+
+    public RunResult run(String programName, int degree, ArchitectureInfo arch, Long... input) {
+        Objects.requireNonNull(programName, "programName cannot be null");
+        Objects.requireNonNull(arch, "architecture cannot be null");
+
+        long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
+        long archCost = arch.cost();
+        double avgCost = avgCreditsByProgram.getOrDefault(programName.toUpperCase(Locale.ROOT), 0.0);
+        long totalRequired = archCost + Math.round(avgCost);
+
+        if (credits < totalRequired) {
+            throw new IllegalStateException(
+                    "Not enough credits to start program (required = " + totalRequired +
+                            ", architecture cost = " + archCost +
+                            ", average cost = " + Math.round(avgCost) + ")");
+        }
+
+        Program target = functionLibrary.get(programName.toUpperCase(Locale.ROOT));
+        if (target == null)
+            throw new IllegalArgumentException("Unknown program: " + programName);
+
+        int maxDegree = target.calculateMaxDegree();
+        if (degree < 0 || degree > maxDegree)
+            throw new IllegalArgumentException("Invalid expansion degree: " + degree);
+
+        Program toRun = (degree <= 0)
+                ? target
+                : programExpander.expandToDegree(target, degree);
+
+        UserManager.charge(archCost);
+        ProgramExecutor exec = new ProgramExecutorImpl(toRun, makeQuoteEvaluator());
+        long y = 0L;
+        int totalCycles = 0;
+
+        try {
+            y = exec.run(input);
+            totalCycles = exec.getLastExecutionCycles() + exec.getLastDynamicCycles();
+
+        } catch (IllegalStateException ex) {
+            if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not enough credits")) {
+                System.err.println("Run stopped: not enough credits to continue.");
+
+                totalCycles = (exec instanceof ProgramExecutorImpl pei)
+                        ? pei.getLastExecutionCycles() + pei.getLastDynamicCycles()
+                        : 0;
+
+                this.lastArchitecture = arch;
+                recordRun(programName, degree, input, y, totalCycles, arch.name());
+                throw new IllegalStateException("Run stopped due to insufficient credits. returning to Dashboard");
+            } else {
+                throw ex;
+            }
+        }
+
+        var vars = exec.variableState().entrySet().stream()
+                .map(e -> new VariableView(
+                        e.getKey().getRepresentation(),
+                        VarType.valueOf(e.getKey().getType().name()),
+                        e.getKey().getNumber(),
+                        e.getValue()
+                ))
+                .toList();
+
+        this.lastRunVars = exec.variableState().entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey().getRepresentation(),
+                        Map.Entry::getValue,
+                        (a, b) -> b,
+                        LinkedHashMap::new
+                ));
+
+        this.lastRunInputs = Arrays.stream(input == null ? new Long[0] : input)
+                .map(v -> v == null ? 0L : v)
+                .toList();
+        this.lastRunDegree = degree;
+        this.lastRunProgramName = target.getName();
+        recordRun(programName, degree, input, y, totalCycles, arch.name());
         return new RunResult(y, totalCycles, vars);
     }
 
@@ -736,7 +1006,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         }
     }
 
-    //This func creates heavy objects
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
@@ -750,7 +1019,9 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             programName = (current != null ? current.getName() : "UNKNOWN");
         }
 
-        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs).map(v -> v == null ? 0L : v).toList();
+        this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
+                .map(v -> v == null ? 0L : v)
+                .toList();
         this.lastRunDegree = Math.max(0, degree);
         this.lastRunProgramName = programName;
 
@@ -768,9 +1039,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                 } catch (NumberFormatException ignore) {}
             }
         }
-        this.lastRunVars = java.util.Collections.unmodifiableMap(lastVars);
-
-        recordRun(this.lastRunProgramName, this.lastRunDegree, inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles));
+        if (this.lastRunVars == null) {
+            this.lastRunVars = new LinkedHashMap<>(lastVars);
+        }
+        recordRun(this.lastRunProgramName, this.lastRunDegree,
+                inputs == null ? new Long[0] : inputs, y, Math.max(0, cycles), lastArchitecture.name());
     }
 
     private Map<String,String> snapshotVars(ProgramExecutor ex, Long[] inputs) {
@@ -778,8 +1051,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         var state = ex.variableState(); // Map<VarRef,Long>
         if (state == null) return Map.of();
 
-        java.util.TreeMap<Integer, Long> x = new java.util.TreeMap<>();
-        java.util.TreeMap<Integer, Long> z = new java.util.TreeMap<>();
+        TreeMap<Integer, Long> x = new TreeMap<>();
+        TreeMap<Integer, Long> z = new TreeMap<>();
         Long yVal = null;
         LinkedHashMap<String,String> out = new LinkedHashMap<>();
 
@@ -814,25 +1087,40 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return finalMap;
     }
 
-    public void debugStart(String programName, Long[] inputs, int degree) {
+    public void debugStart(String programName, Long[] inputs, int degree, ArchitectureInfo architectureInfo) {
         Objects.requireNonNull(programName, "programName");
         Program target = functionLibrary.get(programName);
         if (target == null) target = functionLibrary.get(programName.toUpperCase(java.util.Locale.ROOT));
         if (target == null) throw new IllegalArgumentException("Unknown program: " + programName);
-        debugStartCommon(target, inputs, degree);
+        this.lastArchitecture = architectureInfo;
+        debugStartCommon(target, inputs, degree, architectureInfo);
     }
 
-    public void debugStart(Long[] inputs, int degree) {
+    public void debugStart(Long[] inputs, int degree, ArchitectureInfo architectureInfo) {
         requireLoaded();
-        debugStartCommon(current, inputs, degree);
+        debugStartCommon(current, inputs, degree, architectureInfo);
+        this.lastArchitecture = architectureInfo;
     }
 
-    private void debugStartCommon(Program target, Long[] inputs, int degree) {
+    private void debugStartCommon(Program target, Long[] inputs, int degree,  ArchitectureInfo architectureInfo) {
         int maxDegree = target.calculateMaxDegree();
         if (degree < 0 || degree > maxDegree) {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
         }
 
+        long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
+        long archCost = architectureInfo.cost();
+        double avgCost = avgCreditsByProgram.getOrDefault(target.getName().toUpperCase(Locale.ROOT), 0.0);
+        long totalRequired = archCost + Math.round(avgCost);
+
+        if (credits < archCost) {
+            throw new IllegalStateException(
+                    "Not enough credits to start program (required = " + totalRequired +
+                            ", architecture cost = " + archCost +
+                            ", average cost = " + Math.round(avgCost) + ")");
+        }
+
+        UserManager.charge(archCost);
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
         debugStopSafe();
 
@@ -846,6 +1134,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         dbgResumeMode = false;
         dbgStepOnce = false;
         dbgAlive = true;
+        this.lastArchitecture = architectureInfo;
 
         this.lastRunInputs = Arrays.stream(inputs == null ? new Long[0] : inputs)
                 .map(v -> v == null ? 0L : v)
@@ -896,6 +1185,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         .toList();
                 lastRunDegree = degree;
                 lastRunProgramName = target.getName();
+                userService.incrementRuns();
+                recordRun(lastRunProgramName, degree, inputs, y, cycles, architectureInfo.name());
 
                 dbgVars = vars;
                 dbgFinished = true;
@@ -903,6 +1194,36 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             } catch (DebugAbortException ignore) {
             } catch (Throwable t) {
+                if (t instanceof IllegalStateException &&
+                        t.getMessage() != null &&
+                        t.getMessage().toLowerCase().contains("not enough credits")) {
+
+                    dbgErrorMessage = "You ran out of credits. Program stopped.";
+                    dbgFinished = true;
+                    dbgAlive = false;
+
+                    try {
+                        int cycles = (dbgExecutor != null)
+                                ? dbgExecutor.getLastExecutionCycles() + dbgExecutor.getLastDynamicCycles()
+                                : 0;
+                        Map<String, String> vars = snapshotVars(dbgExecutor, inputs);
+
+                        recordDebugSession(
+                                lastRunProgramName != null ? lastRunProgramName : target.getName(),
+                                degree,
+                                inputs,
+                                vars,
+                                cycles
+                        );
+                        System.err.println("Debug stopped: out of credits");
+                    } catch (Exception saveEx) {
+                        System.err.println("Failed to record partial debug run: " + saveEx);
+                    }
+
+                } else {
+                    dbgErrorMessage = "Unexpected error during debug: " + t.getMessage();
+                    t.printStackTrace();
+                }
             } finally {
                 dbgFinished = true;
                 dbgAlive = false;
@@ -1002,5 +1323,4 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
         return names;
     }
-
 }

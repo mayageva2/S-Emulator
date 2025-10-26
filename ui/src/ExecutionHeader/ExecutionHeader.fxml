@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.text.Font?>
+
+<?import javafx.scene.layout.Region?>
+<BorderPane nodeOrientation="LEFT_TO_RIGHT" xmlns="http://javafx.com/javafx/22.0.2" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ExecutionHeader.ExecutionHeaderController">
+    <top>
+        <HBox alignment="CENTER" prefWidth="1200.0" prefHeight="50.0" BorderPane.alignment="CENTER">
+            <Label fx:id="lblUsername" alignment="TOP_RIGHT" textFill="#9a0cb2d7">
+                <font><Font name="System Bold" size="20.0" /></font>
+            </Label>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="50"/>
+            <Label alignment="TOP_CENTER" text="S-Emulator: Execution" textFill="#9a0cb2d7">
+                <font><Font name="System Bold" size="30.0" /></font>
+            </Label>
+            <Region HBox.hgrow="ALWAYS" minWidth="0" prefWidth="50"/>
+            <Label fx:id="lblCredits" alignment="TOP_LEFT" textFill="#9a0cb2d7">
+                <font><Font name="System Bold" size="20.0" /></font>
+            </Label>
+        </HBox>
+    </top>
+</BorderPane>

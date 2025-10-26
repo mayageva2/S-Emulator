@@ -1,6 +1,5 @@
 package SummaryLine;
 
-import emulator.api.EmulatorEngine;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import javafx.application.Platform;
@@ -15,6 +14,10 @@ public class SummaryLineController {
     @FXML private Label basicCount;
     @FXML private Label syntheticCount;
     @FXML private Label totalCount;
+    @FXML private Label arch1Count;
+    @FXML private Label arch2Count;
+    @FXML private Label arch3Count;
+    @FXML private Label arch4Count;
     @FXML private BorderPane root;
 
     @FXML
@@ -24,7 +27,7 @@ public class SummaryLineController {
             if (root != null) {
                 root.getStylesheets().add(css.toExternalForm());
             } else {
-                javafx.application.Platform.runLater(() -> {
+                Platform.runLater(() -> {
                     var scene = totalCount.getScene();
                     if (scene != null) scene.getStylesheets().add(css.toExternalForm());
                 });
@@ -32,43 +35,50 @@ public class SummaryLineController {
         }
     }
 
-    //Updates the summary line using a ProgramView object fetched from the server
-    public void refreshFromServer(ProgramView pv) {
-        update(pv);
-    }
+    public void refreshFromServer(ProgramView pv) { update(pv); }
 
     public void update(ProgramView pv) {
         if (pv == null) {
-            setCounts(0, 0, 0);
+            setCounts(0, 0, 0, 0, 0, 0, 0);
             return;
         }
+
         List<InstructionView> list = pv.instructions();
         int total = (list == null) ? 0 : list.size();
-        int basic = (list == null) ? 0 : (int) list.stream().filter(InstructionView::basic).count();
+        int basic = (int) list.stream().filter(InstructionView::basic).count();
         int synthetic = Math.max(0, total - basic);
-        setCounts(total, basic, synthetic);
+
+        long archI = list.stream().filter(iv -> "I".equalsIgnoreCase(iv.architecture())).count();
+        long archII = list.stream().filter(iv -> "II".equalsIgnoreCase(iv.architecture())).count();
+        long archIII = list.stream().filter(iv -> "III".equalsIgnoreCase(iv.architecture())).count();
+        long archIV = list.stream().filter(iv -> "IV".equalsIgnoreCase(iv.architecture())).count();
+
+        setCounts(total, basic, synthetic, (int) archI, (int) archII, (int) archIII, (int) archIV);
     }
 
-    private void setCounts(int total, int basic, int synthetic) {
+    private void setCounts(int total, int basic, int synthetic,
+                           int arch1, int arch2, int arch3, int arch4) {
         Runnable r = () -> {
             if (totalCount != null) totalCount.setText(Integer.toString(total));
             if (basicCount != null) basicCount.setText(Integer.toString(basic));
             if (syntheticCount != null) syntheticCount.setText(Integer.toString(synthetic));
+            if (arch1Count != null) arch1Count.setText(Integer.toString(arch1));
+            if (arch2Count != null) arch2Count.setText(Integer.toString(arch2));
+            if (arch3Count != null) arch3Count.setText(Integer.toString(arch3));
+            if (arch4Count != null) arch4Count.setText(Integer.toString(arch4));
         };
         if (Platform.isFxApplicationThread()) r.run(); else Platform.runLater(r);
     }
 
     public void clear() {
-        setCounts(0, 0, 0);
+        setCounts(0, 0, 0, 0, 0, 0, 0);
     }
 
-    public void bindTo(ProgramView pv) {
-        update(pv);
-    }
+    public void bindTo(ProgramView pv) { update(pv); }
 
     public void updateFromJson(Map<String, Object> programJson) {
         if (programJson == null) {
-            setCounts(0, 0, 0);
+            setCounts(0, 0, 0, 0, 0, 0, 0);
             return;
         }
 
@@ -77,22 +87,26 @@ public class SummaryLineController {
                     (List<Map<String, Object>>) programJson.get("instructions");
             int total = (instructions == null) ? 0 : instructions.size();
 
-            // basic / synthetic
-            int basic = 0;
+            int basic = 0, arch1 = 0, arch2 = 0, arch3 = 0, arch4 = 0;
             if (instructions != null) {
                 for (Map<String, Object> ins : instructions) {
-                    Object val = ins.get("basic");
-                    if (val instanceof Boolean b && b) basic++;
+                    if (Boolean.TRUE.equals(ins.get("basic"))) basic++;
+                    String arch = String.valueOf(ins.getOrDefault("architecture", "?"));
+                    switch (arch) {
+                        case "I" -> arch1++;
+                        case "II" -> arch2++;
+                        case "III" -> arch3++;
+                        case "IV" -> arch4++;
+                    }
                 }
             }
             int synthetic = Math.max(0, total - basic);
 
-            setCounts(total, basic, synthetic);
+            setCounts(total, basic, synthetic, arch1, arch2, arch3, arch4);
 
         } catch (Exception e) {
             System.err.println("Failed to update summary line from JSON: " + e.getMessage());
-            setCounts(0, 0, 0);
+            setCounts(0, 0, 0, 0, 0, 0, 0);
         }
     }
-
 }

@@ -17,16 +17,16 @@ import java.util.function.Consumer;
 public class ProgramToolbarController {
 
     @FXML private Button CollapseButton, ExpandButton, CurrentOrMaxDegreeButton;
-    @FXML private ChoiceBox<String> HighlightChoices, selectProgramChoice;
+    @FXML private ChoiceBox<String> HighlightChoices;
     private Consumer<Integer> onJumpToDegree;
     private Consumer<String> onHighlightChanged;
     private Consumer<String> onProgramSelected;
     private Consumer<Integer> onDegreeChanged;
 
     public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
-    public void setOnProgramSelected(java.util.function.Consumer<String> c) { this.onProgramSelected = c; }
+    public void setOnProgramSelected(Consumer<String> c) { this.onProgramSelected = c; }
     public void setOnDegreeChanged(Consumer<Integer> c) { this.onDegreeChanged = c; }
-    private Runnable onSelectProgram, onCollapseClick, onExpandClick;
+    private Runnable onCollapseClick, onExpandClick;
     private int currentDegree = 0;
     private int maxDegree = 0;
     private boolean degreeUiLocked = false;
@@ -39,10 +39,6 @@ public class ProgramToolbarController {
         if (CollapseButton != null) CollapseButton.setDisable(!enabled);
     }
 
-    public String getSelectedProgramName() {
-        return (selectProgramChoice != null) ? selectProgramChoice.getValue() : null;
-    }
-
     @FXML
     private void initialize() {
         CollapseButton.setOnAction(e -> {
@@ -53,18 +49,6 @@ public class ProgramToolbarController {
             if (onExpandClick != null) onExpandClick.run();
             if (onDegreeChanged != null) onDegreeChanged.accept(currentDegree);
         });
-
-        if (selectProgramChoice != null) {
-            selectProgramChoice.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
-                if (onProgramSelected == null) return;
-                String oldKey = (oldV == null) ? null : oldV.trim().toLowerCase(java.util.Locale.ROOT);
-                String newKey = (newV == null) ? null : newV.trim().toLowerCase(java.util.Locale.ROOT);
-                if (newKey != null && !newKey.isBlank() && !java.util.Objects.equals(oldKey, newKey)) {
-                    onProgramSelected.accept(newV.trim());
-                }
-            });
-            selectProgramChoice.setDisable(true);// disabled until we load a program
-        }
 
         CurrentOrMaxDegreeButton.setMnemonicParsing(false);
         CurrentOrMaxDegreeButton.setOnAction(e -> openDegreeDialog());
@@ -198,25 +182,6 @@ public class ProgramToolbarController {
         }
     }
 
-    public void setPrograms(java.util.List<String> names) {
-        if (selectProgramChoice == null) return;
-        var items = (names == null) ? List.<String>of() : names;
-        selectProgramChoice.setItems(FXCollections.observableArrayList(items));
-        if (!items.isEmpty()) {
-            selectProgramChoice.getSelectionModel().select(0);
-            if (onProgramSelected != null) {
-                String v = selectProgramChoice.getValue();
-                if (v != null && !v.isBlank()) onProgramSelected.accept(v.trim());
-            }
-        }
-        selectProgramChoice.setDisable(items.isEmpty());
-    }
-
-    public void setSelectedProgram(String name) {
-        if (selectProgramChoice == null || name == null) return;
-        selectProgramChoice.getSelectionModel().select(name);
-    }
-
     private boolean isValidDegree(String s) {
         try {
             int v = Integer.parseInt(s.trim());
@@ -244,10 +209,6 @@ public class ProgramToolbarController {
                 HighlightChoices.setItems(FXCollections.observableArrayList("None"));
                 HighlightChoices.getSelectionModel().selectFirst();
                 HighlightChoices.setDisable(true);
-            }
-            if (selectProgramChoice != null) {
-                selectProgramChoice.setItems(FXCollections.observableArrayList());
-                selectProgramChoice.setDisable(true);
             }
             updateButtons();
         } catch (Throwable ignore) {}

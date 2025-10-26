@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/22.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="ConnectedUsersTable.ConnectedUsersTableController">
+
+    <center>
+        <VBox spacing="10">
+            <Label text="Connected Users"
+                   style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: purple;" />
+
+            <TableView fx:id="usersTable" prefHeight="400" prefWidth="800">
+                <columns>
+                    <TableColumn fx:id="colUsername" text="Username" prefWidth="150"/>
+                    <TableColumn fx:id="colMainPrograms" text="Main Programs" prefWidth="120"/>
+                    <TableColumn fx:id="colFunctions" text="Functions" prefWidth="120"/>
+                    <TableColumn fx:id="colCredits" text="Credits" prefWidth="100"/>
+                    <TableColumn fx:id="colUsedCredits" text="Used Credits" prefWidth="120"/>
+                    <TableColumn fx:id="colRuns" text="Runs" prefWidth="150"/>
+                </columns>
+            </TableView>
+
+            <Button
+                    fx:id="btnUnselectUser"
+                    text="Unselect User"
+                    onAction="#onUnselectUserClicked"
+                    style="-fx-background-color: purple; -fx-text-fill: white; -fx-font-weight: bold;"
+                   prefWidth="200" prefHeight="50"
+            />
+        </VBox>
+    </center>
+</BorderPane>

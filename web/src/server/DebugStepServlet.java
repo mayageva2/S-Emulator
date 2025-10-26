@@ -3,6 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.UserService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -28,6 +29,15 @@ public class DebugStepServlet extends HttpServlet {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 responseMap.put("status", "error");
                 responseMap.put("message", "Engine is not EmulatorEngineImpl");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            String dbgError = impl.getDebugErrorMessage();
+            if (dbgError != null) {
+                responseMap.put("status", "error");
+                responseMap.put("message", dbgError);
+                impl.clearDebugErrorMessage();
                 writeJson(resp, responseMap);
                 return;
             }
@@ -64,6 +74,15 @@ public class DebugStepServlet extends HttpServlet {
                 }
             }
 
+            dbgError = impl.getDebugErrorMessage();
+            if (dbgError != null) {
+                responseMap.put("status", "error");
+                responseMap.put("message", dbgError);
+                impl.clearDebugErrorMessage();
+                writeJson(resp, responseMap);
+                return;
+            }
+
             Map<String, String> vars = impl.debugVarsSnapshot();
             int cycles = impl.debugCycles();
             long yVal = 0;
@@ -79,6 +98,7 @@ public class DebugStepServlet extends HttpServlet {
                         vars,
                         cycles
                 );
+                ServerEventManager.broadcast("PROGRAM_RUN");
             }
 
             Map<String, Object> debugData = new LinkedHashMap<>();

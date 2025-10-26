@@ -218,4 +218,28 @@ public class InputsBoxController {
             i++;
         }
     }
+
+    public void fillFromCsv(String csv) {
+        if (csv == null || csv.isBlank()) return;
+
+        String[] parts = csv.split(",");
+        if (inputNames.isEmpty() || inputNames.size() < parts.length) {
+            inputNames.clear();
+            for (int j = 0; j < parts.length; j++) {
+                inputNames.add("x" + (j + 1));
+            }
+        }
+
+        for (String name : inputNames) {
+            fieldsByName.computeIfAbsent(name, n -> new TextField());
+        }
+
+        for (int i = 0; i < inputNames.size() && i < parts.length; i++) {
+            String name = inputNames.get(i);
+            TextField field = fieldsByName.get(name);
+            if (field != null) {
+                field.setText(parts[i].trim());
+            }
+        }
+    }
 }

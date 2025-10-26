@@ -5,6 +5,7 @@ import emulator.api.dto.*;
 import emulator.exception.*;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,15 @@ public interface EmulatorEngine {
             MissingLabelException,         // label refs without definition
             ProgramException,              // other domain errors
             IOException;                   // reader surfaces raw IO
+    public LoadResult loadProgramFromStream(InputStream xmlStream)
+            throws XmlWrongExtensionException,
+            XmlNotFoundException,
+            XmlReadException,
+            XmlInvalidContentException,
+            InvalidInstructionException,
+            MissingLabelException,
+            ProgramException,
+           IOException;
     LoadResult loadProgram(Path xmlPath, ProgressListener listener) throws Exception;
     public void clearHistory();
     void saveState(Path fileWithoutExt) throws Exception;

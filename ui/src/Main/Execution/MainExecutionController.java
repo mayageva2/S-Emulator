@@ -1,13 +1,13 @@
 package Main.Execution;
 
+import ArchitectureChoiceBox.ArchitectureChoiceBoxController;
 import HeaderAndLoadButton.HeaderAndLoadButtonController;
 import ProgramToolBar.ProgramToolbarController;
 import InstructionsTable.InstructionsTableController;
 import SummaryLine.SummaryLineController;
+import Utils.HttpSessionClient;
 import VariablesBox.VariablesBoxController;
 import InputsBox.InputsBoxController;
-import StatisticsTable.StatisticsTableController;
-import StatisticsCommands.StatisticsCommandsController;
 import SelectedInstructionHistoryChainTable.SelectedInstructionHistoryChainTableController;
 import RunButtons.RunButtonsController;
 import com.google.gson.Gson;
@@ -19,19 +19,12 @@ import javafx.scene.Node;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.*;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class MainExecutionController {
-    @FXML private HeaderAndLoadButtonController headerController;
     @FXML private ProgramToolbarController toolbarController;
     @FXML private InstructionsTableController instructionsController;
     @FXML private SummaryLineController summaryLineController;
@@ -39,8 +32,8 @@ public class MainExecutionController {
     @FXML private RunButtonsController runButtonsController;
     @FXML private VariablesBoxController varsBoxController;
     @FXML private InputsBoxController inputsBoxController;
-    @FXML private StatisticsTableController statisticsTableController;
-    @FXML private StatisticsCommandsController statisticsCommandsController;
+    @FXML private ArchitectureChoiceBox.ArchitectureChoiceBoxController architectureController;
+    @FXML private goToDashboardButton.goToDashboardController DashboardBtnController;
     @FXML private VBox contentBox;
     @FXML private VBox historyChainBox;
     @FXML private VBox statisticsBox;
@@ -64,10 +57,10 @@ public class MainExecutionController {
     private Consumer<String> onHighlightChanged;
     private String loadedProgramName = null;
     private String selectedFunctionName = null;
+    private String predefinedInputsCsv = null;
 
     @FXML
     private void initialize() {
-        headerController.setOnLoaded(this::onProgramLoaded);
         toolbarController.setOnExpand(this::onExpandOne);
         toolbarController.setOnCollapse(this::onCollapseOne);
         toolbarController.setOnJumpToDegree(this::onJumpToDegree);
@@ -75,12 +68,8 @@ public class MainExecutionController {
         toolbarController.setHighlightEnabled(false);
         toolbarController.setDegreeButtonEnabled(false);
         toolbarController.setOnProgramSelected(name -> {
-            if (statisticsTableController != null)
-                statisticsTableController.clear();
-
             selectedFunctionName = (name == null ? "" : name);
             runButtonsController.setCurrentProgram(selectedFunctionName);
-
             refreshProgramView(currentDegree);
         });
         toolbarController.setOnHighlightChanged(term -> {
@@ -89,6 +78,9 @@ public class MainExecutionController {
         toolbarController.setOnDegreeChanged(deg -> {
             if (runButtonsController != null) {runButtonsController.setCurrentDegree(deg);}
         });
+        if (DashboardBtnController != null) {
+            DashboardBtnController.setParentController(this);
+        }
 
         instructionsController.setOnRowSelected(selected -> {
             if (selected == null) {
@@ -111,35 +103,42 @@ public class MainExecutionController {
             inputsBox.prefWidthProperty().bind(sidePanels.widthProperty().divide(2));
         });
 
-        runButtonsController.setStatisticsTableController(statisticsTableController);
         runButtonsController.setInputsBoxController(inputsBoxController);
         runButtonsController.setVarsBoxController(varsBoxController);
         runButtonsController.setProgramToolbarController(toolbarController);
         runButtonsController.setInstructionsController(instructionsController);
+        runButtonsController.setArchitectureController(architectureController);
         runButtonsController.setMainController(this);
-        statisticsCommandsController.setStatisticsTableController(statisticsTableController);
-        statisticsCommandsController.setToolbarController(toolbarController);
-        statisticsCommandsController.setMainController(this);
+        if (architectureController != null) {
+            architectureController.setOnArchitectureSelected(arch -> checkArchitectureCompatibility(arch));
+        }
+
     }
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String jsonBody = new Gson().toJson(Map.of("path", ev.xmlPath().toString()));
-            String response = httpPost(BASE_URL + "load", jsonBody);
+            String viewUrl = BASE_URL + "view?degree=0&program=" +
+                    URLEncoder.encode(ev.programName(), StandardCharsets.UTF_8);
+            String response = httpGet(viewUrl);
 
             System.out.println("SERVER LOAD RESPONSE:");
             System.out.println(response);
-            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>() {
-            }.getType());
 
-            if (map.containsKey("programName")){
-                loadedProgramName = String.valueOf(map.get("programName"));
-                currentProgram = loadedProgramName;
+            Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
+            if (!"success".equals(map.get("status"))) {
+                showError("View failed: " + map.get("message"));
+                return;
             }
-            if (map.containsKey("maxDegree"))
-                maxDegree = ((Double) map.get("maxDegree")).intValue();
-            else
-                maxDegree = ev.maxDegree();
+
+            Map<String, Object> program = (Map<String, Object>) map.get("program");
+            if (program == null) {
+                showError("Missing program data in response");
+                return;
+            }
+
+            loadedProgramName = ev.programName();
+            currentProgram = loadedProgramName;
+            maxDegree = ev.maxDegree();
             currentDegree = 0;
 
             if (runButtonsController != null) {
@@ -147,47 +146,30 @@ public class MainExecutionController {
                 runButtonsController.setCurrentDegree(0);
             }
 
-            refreshProgramView(currentDegree);
-
-            List<String> programs = new ArrayList<>();
-            Object funcsObj = map.get("functions");
-            if (funcsObj instanceof List<?> funcList) {
-                for (Object f : funcList) {
-                    if (f != null && !f.toString().isBlank()) programs.add(f.toString());
-                }
-            }
-
             Platform.runLater(() -> {
+                updateProgramDegrees(program);
+                updateInputsBox(program);
+                renderInstructions(program);
+                updateToolbarHighlights(program);
+                updateToolbarPrograms(program);
+                updateSummaryLine(program);
+
                 toolbarController.bindDegree(currentDegree, maxDegree);
                 toolbarController.setHighlightEnabled(true);
-                toolbarController.setPrograms(programs);
                 toolbarController.setDegreeButtonEnabled(true);
                 toolbarController.setExpandEnabled(maxDegree > 0);
                 toolbarController.setCollapseEnabled(false);
                 runButtonsController.enableRunButtonsAfterLoad();
             });
-            refreshProgramView(0);
 
         } catch (Exception e) {
             showError("Load failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private String httpPostForm(String urlStr, String formData) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(formData.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     private void refreshProgramView(int degree) {
@@ -368,11 +350,6 @@ public class MainExecutionController {
             }
             return pa.compareToIgnoreCase(pb);
         });
-
-        Platform.runLater(() -> {
-            toolbarController.setPrograms(programs);
-            toolbarController.setSelectedProgram(currentProgram);
-        });
     }
 
     private void updateSummaryLine(Map<String, Object> program) {
@@ -458,15 +435,17 @@ public class MainExecutionController {
             if (records != null && !records.isEmpty()) {
                 List<RunRecord> runRecords = new ArrayList<>();
                 for (Map<String, Object> rec : records) {
+                    String username = Objects.toString(rec.get("username"), "Unknown");
                     String programName = Objects.toString(rec.get("programName"), "Main Program");
                     int runNumber = ((Number) rec.get("runNumber")).intValue();
                     int degree = ((Number) rec.get("degree")).intValue();
                     long y = ((Number) rec.get("y")).longValue();
                     int cycles = ((Number) rec.get("cycles")).intValue();
-
                     Object inputsObj = rec.get("inputs");
-                    List<Long> inputsList = new ArrayList<>();
+                    String type = (String) rec.get("type");
+                    String architecture = (String) rec.get("architecture");
 
+                    List<Long> inputsList = new ArrayList<>();
                     if (inputsObj instanceof List<?> list) {
                         for (Object val : list) {
                             try { inputsList.add(Long.parseLong(val.toString())); } catch (Exception ignored) {}
@@ -480,12 +459,31 @@ public class MainExecutionController {
                         }
                     }
 
-                    runRecords.add(new RunRecord(programName, runNumber, degree, inputsList, y, cycles));
+                    Map<String, Long> varsSnapshot = new LinkedHashMap<>();
+                    Object varsObj = rec.get("varsSnapshot");
+                    if (varsObj instanceof Map<?,?> map) {
+                        for (var e : map.entrySet()) {
+                            try {
+                                varsSnapshot.put(e.getKey().toString(), Long.parseLong(e.getValue().toString()));
+                            } catch (Exception ignored) {}
+                        }
+                    }
+
+                    runRecords.add(new RunRecord(
+                            username,
+                            programName,
+                            runNumber,
+                            degree,
+                            inputsList,
+                            y,
+                            cycles,
+                            varsSnapshot,
+                            type,
+                            architecture
+                    ));
                 }
 
-                Platform.runLater(() -> {
-                    statisticsTableController.setHistory(runRecords, (Function<String, String>) s -> s);
-                });
+                System.out.println("Loaded " + runRecords.size() + " history records");
             }
 
         } catch (Exception e) {
@@ -494,33 +492,11 @@ public class MainExecutionController {
     }
 
     private String httpGet(String urlStr) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "application/json");
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.get(urlStr);
     }
 
     private String httpPost(String urlStr, String json) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.getBytes(StandardCharsets.UTF_8));
-        }
-        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) sb.append(line);
-        in.close();
-        conn.disconnect();
-        return sb.toString();
+        return HttpSessionClient.post(urlStr, json, "application/json; charset=UTF-8");
     }
 
     private void showError(String msg) {
@@ -536,10 +512,6 @@ public class MainExecutionController {
                 this.currentDegree = 0;
                 this.maxDegree = 0;
 
-                if (headerController != null) {
-                    headerController.setOnLoaded(this::onProgramLoaded);
-                }
-
                 if (toolbarController != null) {
                     toolbarController.setOnExpand(this::onExpandOne);
                     toolbarController.setOnCollapse(this::onCollapseOne);
@@ -554,7 +526,6 @@ public class MainExecutionController {
                 if (runButtonsController != null) {
                     runButtonsController.setInputsBoxController(inputsBoxController);
                     runButtonsController.setVarsBoxController(varsBoxController);
-                    runButtonsController.setStatisticsTableController(statisticsTableController);
                     runButtonsController.setProgramToolbarController(toolbarController);
                     runButtonsController.setCurrentDegree(currentDegree);
                 }
@@ -571,25 +542,251 @@ public class MainExecutionController {
         }
     }
 
-    public VariablesBoxController getVarsBoxController() {
-        return varsBoxController;
+    public VariablesBoxController getVarsBoxController() {return varsBoxController;}
+    public InputsBoxController getInputsBoxController() {return inputsBoxController;}
+    public void refreshProgramViewPublic(int degree) {refreshProgramView(degree);}
+    public String httpPostFormPublic(String urlStr, String formData) throws Exception {return httpPostForm(urlStr, formData);}
+
+    public void setProgramToExecute(String programName) {
+        this.currentProgram = programName;
+        this.loadedProgramName = programName;
+
+        System.out.println("Program selected for execution: " + programName);
+
+        new Thread(() -> {
+            try {
+                String viewUrl = BASE_URL + "view?degree=0&program=" +
+                        URLEncoder.encode(programName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program view: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(programName);
+                        runButtonsController.setCurrentDegree(0);
+                        runButtonsController.enableRunButtonsAfterLoad();
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(0, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
+                    }
+                });
+
+            } catch (Exception e) {
+                showError("Program view failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
     }
 
-    public InputsBoxController getInputsBoxController() {
-        return inputsBoxController;
+    public void prepareForRerun(String programName, int degree, String inputsCsv, String architectureName) {
+        this.currentProgram = programName;
+        this.currentDegree = degree;
+        this.predefinedInputsCsv = inputsCsv;
+        Platform.runLater(() -> loadProgramForRerun(programName, architectureName, degree));
     }
 
-    public void refreshProgramViewPublic(int degree) {
-        refreshProgramView(degree);
+    private void loadProgramAndInputs() {
+        loadProgramFromServer(currentProgram);
+        inputsBoxController.fillFromCsv(predefinedInputsCsv);
     }
 
-    public String httpPostFormPublic(String urlStr, String formData) throws Exception {
-        return httpPostForm(urlStr, formData);
+    private void loadProgramFromServer(String programName) {
+        new Thread(() -> {
+            try {
+                String viewUrl = BASE_URL + "view?degree=0&program=" +
+                        URLEncoder.encode(programName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program view: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (predefinedInputsCsv != null && !predefinedInputsCsv.isBlank() && inputsBoxController != null) {
+                        inputsBoxController.fillFromCsv(predefinedInputsCsv);
+                    }
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(programName);
+                        runButtonsController.setCurrentDegree(0);
+                        runButtonsController.enableRunButtonsAfterLoad();
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(0, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
+                    }
+                });
+
+            } catch (Exception e) {
+                showError("Program view failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
     }
 
-    public StatisticsCommands.StatisticsCommandsController getStatisticsCommandsController() {
-        return statisticsCommandsController;
+    private void loadProgramForRerun(String programName, String architectureName, int degree) {
+        new Thread(() -> {
+            try {
+                String viewUrl = BASE_URL + "view?degree=" + degree +
+                        "&program=" + URLEncoder.encode(programName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program view: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(programName);
+                        runButtonsController.setCurrentDegree(degree);
+                        runButtonsController.enableRunButtonsAfterLoad();
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(0, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
+                    }
+
+                    Platform.runLater(() -> {
+                        try {
+                            if (inputsBoxController != null && predefinedInputsCsv != null && !predefinedInputsCsv.isBlank()) {
+                                inputsBoxController.fillFromCsv(predefinedInputsCsv);
+                                System.out.println("RERUN: filled inputs from CSV → " + predefinedInputsCsv);
+                            }
+
+                            if (architectureController != null && architectureName != null && !architectureName.isBlank()) {
+                                architectureController.selectArchitectureByName(architectureName);
+                                System.out.println("RERUN: selected architecture → " + architectureName);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
+                });
+
+            } catch (Exception e) {
+                showError("Program view failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
     }
 
+    public void triggerGoToDashboard() {
+        Platform.runLater(() -> {
+            if (DashboardBtnController != null) {
+                try {
+                    DashboardBtnController.onGoToDashboardClicked();
+                } catch (Exception e) {
+                    System.err.println("Failed to trigger dashboard button: " + e.getMessage());
+                }
+            } else {
+                System.err.println("DashboardBtnController is null — cannot trigger return.");
+            }
+        });
+    }
+
+    public String getBaseUrl() {
+        return BASE_URL;
+    }
+
+    private void checkArchitectureCompatibility(ArchitectureChoiceBoxController.Architecture selectedArch) {
+        if (selectedArch == null) return;
+
+        String selectedName = selectedArch.name();
+        int selectedLevel = mapArchLevel(selectedName);
+
+        boolean hasIncompatible = false;
+        if (instructionsController != null) {
+            for (var row : instructionsController.getTableView().getItems()) {
+                int rowLevel = mapArchLevel(row.architecture);
+                if (rowLevel > selectedLevel) {
+                    row.needsHighlight = true;
+                    hasIncompatible = true;
+                } else {
+                    row.needsHighlight = false;
+                }
+            }
+            instructionsController.refreshStyles();
+        }
+
+        // השבתת כפתור Run אם יש חוסר תאימות
+        if (runButtonsController != null) {
+            runButtonsController.disableAllRunButtons(hasIncompatible);
+        }
+    }
+
+    private int mapArchLevel(String name) {
+        return switch (name.toUpperCase(Locale.ROOT)) {
+            case "I" -> 1;
+            case "II" -> 2;
+            case "III" -> 3;
+            case "IV" -> 4;
+            default -> 99;
+        };
+    }
+
+    public void handleOutOfCredits(String message) {
+        showError(message);
+        Platform.runLater(() -> {
+            try {
+                Thread.sleep(1500); //delay to let user see message
+            } catch (InterruptedException ignored) {}
+            triggerGoToDashboard();
+        });
+    }
 
 }

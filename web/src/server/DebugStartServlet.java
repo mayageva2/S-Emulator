@@ -3,6 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.ArchitectureInfo;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -14,6 +15,13 @@ import java.util.*;
 public class DebugStartServlet extends HttpServlet {
 
     private static final Gson gson = new Gson();
+    private static final Map<String, ArchitectureInfo> ARCHITECTURES = Map.of(
+            "I", new ArchitectureInfo("I", 5, "Basic architecture"),
+            "II", new ArchitectureInfo("II", 100, "Optimized architecture"),
+            "III", new ArchitectureInfo("III", 500, "High performance architecture"),
+            "IV", new ArchitectureInfo("IV", 1000, "Ultimate architecture")
+    );
+
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -46,6 +54,12 @@ public class DebugStartServlet extends HttpServlet {
             String programName = req.getParameter("program");
             String degreeStr = req.getParameter("degree");
             String inputsStr = req.getParameter("inputs");
+            String archName = req.getParameter("architecture");
+
+            ArchitectureInfo arch = ARCHITECTURES.getOrDefault(
+                    (archName != null ? archName.trim().toUpperCase(Locale.ROOT) : "I"),
+                    ARCHITECTURES.get("I")
+            );
 
             int degree = 0;
             if (degreeStr != null && !degreeStr.isBlank()) {
@@ -71,10 +85,10 @@ public class DebugStartServlet extends HttpServlet {
             }
 
             if (programName == null || programName.isEmpty()) {
-                impl.debugStart(inputs, degree);
+                impl.debugStart(inputs, degree, arch);
             }
             else {
-                impl.debugStart(programName, inputs, degree);
+                impl.debugStart(programName, inputs, degree, arch);
             }
 
             Map<String, String> varsSnapshot = impl.debugVarsSnapshot();
@@ -88,11 +102,17 @@ public class DebugStartServlet extends HttpServlet {
             responseMap.put("message", "Debug session started successfully");
             responseMap.put("debug", debug);
 
-        } catch (Exception e) {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            responseMap.put("status", "error");
-            responseMap.put("message", e.getMessage());
-            responseMap.put("exception", e.getClass().getSimpleName());
+        } catch (IllegalStateException ex) {
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg);
+                responseMap.put("errorType", "CREDITS");
+            } else {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg != null ? msg : "Unknown runtime error");
+                responseMap.put("errorType", "RUNTIME");
+            }
         }
 
         writeJson(resp, responseMap);

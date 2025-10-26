@@ -1,5 +1,6 @@
 package InstructionsTable;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
@@ -28,6 +29,7 @@ public class InstructionsTableController {
     @FXML private TableColumn<InstructionRow, String> labelCol;
     @FXML private TableColumn<InstructionRow, String> cyclesCol;
     @FXML private TableColumn<InstructionRow, String> instructionCol;
+    @FXML private TableColumn<InstructionRow, String> architectureCol;
 
     private Consumer<InstructionView> onRowSelected;
     private String highlightTerm = null;
@@ -64,6 +66,9 @@ public class InstructionsTableController {
                     : r.opcode + " " + String.join(", ", r.args);
             return new ReadOnlyStringWrapper(text);
         });
+        architectureCol.setCellValueFactory(cd ->
+                new ReadOnlyStringWrapper(ns(cd.getValue().architecture))
+        );
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setRowFactory(tv -> new TableRow<InstructionRow>() {
@@ -72,11 +77,11 @@ public class InstructionsTableController {
                 setStyle("");
 
                 if (empty || row == null) return;
-                if (getIndex() == highlightedIndex) {
+                if (row.needsHighlight) {
+                    setStyle("-fx-background-color: #ffcccc;");
+                } else if (getIndex() == highlightedIndex) {
                     setStyle("-fx-background-color: #fff3cd;");
-                    return;
-                }
-                if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
+                } else if (!isBlank(highlightTerm) && matches(row, highlightTerm)) {
                     setStyle("-fx-background-color: #fff3cd;");
                 }
             }
@@ -93,6 +98,10 @@ public class InstructionsTableController {
             table.getStylesheets().add(css.toExternalForm());
             table.getStyleClass().add("instructions");
         }
+    }
+
+    public void refreshStyles() {
+        Platform.runLater(() -> table.refresh());
     }
 
     public void setHighlightTerm(String term) {
@@ -371,6 +380,9 @@ public class InstructionsTableController {
             String opcode = Objects.toString(map.get("opcode"), "");
             List<String> args = (List<String>) map.getOrDefault("args", List.of());
 
+            long creditCost = ((Number) map.getOrDefault("creditCost", 0)).longValue();
+            String architecture = Objects.toString(map.getOrDefault("architecture", "?"));
+
             List<Map<String, Object>> subViewsList =
                     (List<Map<String, Object>>) map.get("createdFromViews");
             List<InstructionView> createdFromViews = new ArrayList<>();
@@ -383,6 +395,9 @@ public class InstructionsTableController {
                     boolean sBasic = Boolean.TRUE.equals(subMap.get("basic"));
                     List<String> sArgs = (List<String>) subMap.getOrDefault("args", List.of());
 
+                    long sCreditCost = ((Number) subMap.getOrDefault("creditCost", 0)).longValue();
+                    String sArchitecture = Objects.toString(subMap.getOrDefault("architecture", "?"));
+
                     createdFromViews.add(new InstructionView(
                             sIndex,
                             sOpcode,
@@ -391,7 +406,9 @@ public class InstructionsTableController {
                             sCycles,
                             sArgs,
                             List.of(),
-                            List.of()
+                            List.of(),
+                            sCreditCost,
+                            sArchitecture
                     ));
                 }
             }
@@ -407,7 +424,9 @@ public class InstructionsTableController {
                     cycles,
                     args,
                     createdFromChain,
-                    createdFromViews
+                    createdFromViews,
+                    creditCost,
+                    architecture
             );
 
             String display = prettyCommand(iv);
@@ -415,8 +434,10 @@ public class InstructionsTableController {
             row.display = display;
             rows.add(row);
         }
+
         setItems(rows);
     }
+
 
     private static String extractArg(List<String> args, String... keys) {
         for (String key : keys) {
@@ -433,26 +454,14 @@ public class InstructionsTableController {
         new Thread(() -> {
             try {
                 String urlStr = "http://localhost:8080/semulator/view?degree=" + degree;
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Accept", "application/json");
-
-                if (conn.getResponseCode() != 200) {
-                    System.err.println("Server returned status " + conn.getResponseCode());
-                    return;
-                }
-
-                String json;
-                try (InputStream in = conn.getInputStream()) {
-                    json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                }
+                String json = HttpSessionClient.get(urlStr);
 
                 Gson gson = new Gson();
                 Map<String, Object> map = gson.fromJson(json, Map.class);
                 List<Map<String, Object>> instructionsList =
                         (List<Map<String, Object>>) map.get("instructions");
-
                 Platform.runLater(() -> renderFromJson(instructionsList));
+
             } catch (Exception e) {
                 e.printStackTrace();
             }

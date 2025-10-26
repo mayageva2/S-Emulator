@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane nodeOrientation="LEFT_TO_RIGHT"
+            xmlns="http://javafx.com/javafx/22.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="HeaderAndLoadButton.HeaderAndLoadButtonController">
+
+   <top>
+      <HBox alignment="CENTER" prefHeight="50.0" BorderPane.alignment="CENTER" maxWidth="Infinity">
+         <children>
+            <Label fx:id="lblUsername" alignment="TOP_RIGHT" textFill="#9a0cb2d7">
+               <font><Font name="System Bold" size="20.0" /></font>
+            </Label>
+            <Region HBox.hgrow="ALWAYS" />
+            <Label alignment="TOP_CENTER" contentDisplay="CENTER"
+                   text="S-Emulator: Dashboard"
+                   textFill="#9a0cb2d7">
+               <font><Font name="System Bold" size="30.0" /></font>
+            </Label>
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="lblCredits" alignment="TOP_LEFT" textFill="#9a0cb2d7">
+               <font><Font name="System Bold" size="20.0" /></font>
+            </Label>
+         </children>
+      </HBox>
+   </top>
+
+   <center>
+      <VBox spacing="10" style="-fx-padding: 10;">
+         <HBox spacing="10" alignment="CENTER" BorderPane.alignment="CENTER">
+            <children>
+               <Button fx:id="loadButton"
+                       mnemonicParsing="false"
+                       onAction="#handleLoadButtonClick"
+                       prefHeight="43.0" prefWidth="133.0"
+                       style="-fx-background-color: purple;"
+                       text="Load File" textFill="WHITE">
+                  <font><Font size="20.0" /></font>
+               </Button>
+
+               <TextField fx:id="xmlPathField"
+                          promptText="Select XML file..."
+                          prefHeight="43.0"
+                          HBox.hgrow="ALWAYS"
+                          style="-fx-font-size: 16px;" />
+
+               <Button fx:id="chargeButton"
+                       mnemonicParsing="false"
+                       onAction="#handlechargeButtonClick"
+                       prefHeight="43.0" prefWidth="140.0"
+                       style="-fx-background-color: purple;"
+                       text="Charge Credits"
+                       textFill="WHITE">
+                  <font><Font size="15.0" /></font>
+               </Button>
+
+               <TextField fx:id="creditsAmount"
+                          prefHeight="43.0"
+                          prefWidth="80.0"
+                          alignment="CENTER_RIGHT"
+                          style="-fx-font-size: 16px;" />
+            </children>
+
+            <padding>
+               <Insets left="10.0" right="10.0" />
+            </padding>
+         </HBox>
+
+         <HBox spacing="10" alignment="CENTER_LEFT">
+            <children>
+               <Label fx:id="statusLabel" textFill="black" />
+               <ProgressBar fx:id="progress" prefWidth="200" progress="0" visible="false" />
+            </children>
+         </HBox>
+      </VBox>
+   </center>
+</BorderPane>

@@ -131,7 +131,9 @@ public class SelectedInstructionHistoryChainTableController {
                     iv.cycles(),
                     args,
                     iv.createdFromChain(),
-                    iv.createdFromViews()
+                    iv.createdFromViews(),
+                    iv.creditCost(),
+                    iv.architecture()
             );
 
             String display = instructionsController.prettyCommand(patched);
@@ -151,6 +153,7 @@ public class SelectedInstructionHistoryChainTableController {
         }
         return out;
     }
+
 
     private static String extractArg(List<String> args, String... keys) {
         for (String key : keys) {

@@ -9,6 +9,7 @@ import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -52,4 +53,13 @@ public class XmlProgramReader {
             throw new XmlWrongExtensionException("Expected an .xml file: " + n);
         }
     }
+
+    public ProgramXml readFromString(String xmlContent) throws Exception {
+        try (StringReader sr = new StringReader(xmlContent)) {
+            jakarta.xml.bind.JAXBContext ctx = jakarta.xml.bind.JAXBContext.newInstance(ProgramXml.class);
+            jakarta.xml.bind.Unmarshaller um = ctx.createUnmarshaller();
+            return (ProgramXml) um.unmarshal(sr);
+        }
+    }
+
 }

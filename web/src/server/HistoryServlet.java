@@ -3,6 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.RunRecord;
+import emulator.api.dto.UserService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -10,10 +11,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
 
-@WebServlet("/history")
+@WebServlet("/user/history")
 public class HistoryServlet extends HttpServlet {
 
     private static final Gson gson = new Gson();
+    private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -25,41 +27,57 @@ public class HistoryServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineHolder.getEngine();
+            String username = req.getParameter("username");
+            if (username == null || username.isBlank()) {
+                username = userService.getCurrentUser()
+                        .map(u -> u.getUsername())
+                        .orElse(null);
+            }
 
-            if (!engine.hasProgramLoaded()) {
+            if (username == null) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 responseMap.put("status", "error");
-                responseMap.put("message", "No program loaded");
+                responseMap.put("message", "No username provided and no current user found");
                 writeJson(resp, responseMap);
                 return;
             }
 
-            List<RunRecord> history = engine.history();
+            EmulatorEngine engine = EngineHolder.getEngine();
+            List<RunRecord> allHistory = engine.history();
 
-            if (history == null || history.isEmpty()) {
+            List<RunRecord> userHistory = new ArrayList<>();
+            for (RunRecord r : allHistory) {
+                if (username.equalsIgnoreCase(r.username())) {
+                    userHistory.add(r);
+                }
+            }
+
+            if (userHistory.isEmpty()) {
                 responseMap.put("status", "success");
-                responseMap.put("history", Collections.emptyList());
-                responseMap.put("message", "No runs recorded yet");
+                responseMap.put("runs", Collections.emptyList());
+                responseMap.put("message", "No runs recorded yet for user: " + username);
                 writeJson(resp, responseMap);
                 return;
             }
 
-            List<Map<String, Object>> records = new ArrayList<>();
-            for (RunRecord r : history) {
+            List<Map<String, Object>> runs = new ArrayList<>();
+            for (RunRecord r : userHistory) {
                 Map<String, Object> record = new LinkedHashMap<>();
-                record.put("programName", r.programName());
                 record.put("runNumber", r.runNumber());
+                record.put("type", r.getType());
+                record.put("program", r.programName());
+                record.put("arch", r.architecture());
                 record.put("degree", r.degree());
-                record.put("inputs", r.inputsCsv());
                 record.put("y", r.y());
                 record.put("cycles", r.cycles());
-                records.add(record);
+                record.put("inputs", r.inputs());
+                runs.add(record);
             }
 
             responseMap.put("status", "success");
-            responseMap.put("history", records);
-            responseMap.put("count", records.size());
+            responseMap.put("user", username);
+            responseMap.put("runs", runs);
+            responseMap.put("count", runs.size());
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

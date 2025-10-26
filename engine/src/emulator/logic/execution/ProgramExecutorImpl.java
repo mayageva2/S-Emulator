@@ -9,10 +9,11 @@ import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
 import emulator.logic.variable.VariableType;
+import emulator.logic.user.UserManager;
 
 import java.util.*;
 
-public class ProgramExecutorImpl implements ProgramExecutor{
+public class ProgramExecutorImpl implements ProgramExecutor {
 
     private final ExecutionContext context = new ExecutionContextImpl();
     private final QuoteEvaluator quoteEval;
@@ -22,7 +23,7 @@ public class ProgramExecutorImpl implements ProgramExecutor{
     private Long[] lastInputs = new Long[0];
     private int observedDynamicCycles = 0;
     private StepListener stepListener;
-    private int baseCycles = 0; // base offset from previous nested executions
+    private int baseCycles = 0;
 
     public void setBaseCycles(int base) {
         this.baseCycles = base;
@@ -42,9 +43,11 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         this.quoteEval = quoteEval;
     }
 
-    @Override public void setStepListener(StepListener l) { this.stepListener = l; }
+    @Override
+    public void setStepListener(StepListener l) {
+        this.stepListener = l;
+    }
 
-    //This func executes the loaded program with the given inputs
     @Override
     public long run(Long... input) {
         lastExecutionCycles = 0;
@@ -64,14 +67,13 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         seedVariables(finalInputs);
 
         executeProgram(instructions);
+        System.out.println("variableState after execution: " + variableState());
         lastDynamicCycles = QuoteUtils.drainCycles();
         return context.getVariableValue(Variable.RESULT);
     }
 
-    // ---- helpers ----
-
-    private Map<String,String> snapshotVarsForDebug() {
-        Map<String,String> out = new LinkedHashMap<>();
+    private Map<String, String> snapshotVarsForDebug() {
+        Map<String, String> out = new LinkedHashMap<>();
         for (var e : variableState().entrySet()) {
             String name = (e.getKey() == null) ? "" : e.getKey().getRepresentation();
             if (name != null && !name.isBlank()) {
@@ -81,14 +83,12 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         return out;
     }
 
-    //This func ensures the instruction list is not empty
     private void validateNotEmpty(List<Instruction> instructions) {
         if (instructions.isEmpty()) {
             throw new IllegalStateException("empty program");
         }
     }
 
-    //This function normalizes inputs
     private long[] normalizeInputs(Long[] input, int need) {
         int provided = (input == null) ? 0 : input.length;
         long[] finalInputs = new long[Math.max(need, 0)];
@@ -100,7 +100,6 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         return finalInputs;
     }
 
-    //This func initializes all program variables
     private void seedVariables(long[] inputs) {
         for (Variable v : program.getVariables()) {
             switch (v.getType()) {
@@ -109,12 +108,11 @@ public class ProgramExecutorImpl implements ProgramExecutor{
                     long val = (idx >= 0 && idx < inputs.length) ? inputs[idx] : 0L;
                     context.updateVariable(v, val);
                 }
-                case WORK, RESULT -> context.updateVariable(v, 0L); //default 0 value
+                case WORK, RESULT -> context.updateVariable(v, 0L);
             }
         }
     }
 
-    //This func executes the program’s instructions
     private void executeProgram(List<Instruction> instructions) {
         int idx = 0;
         int len = instructions.size();
@@ -124,16 +122,25 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         }
     }
 
-    //This func executes a single instruction and returns the next instruction index
     private int step(List<Instruction> instructions, int currentIndex) {
         Instruction ins = instructions.get(currentIndex);
+        int cost = ins.cycles();
 
         if (stepListener != null) {
-            stepListener.onStep(currentIndex, QuoteUtils.getCurrentCycles() + lastExecutionCycles, snapshotVarsForDebug(), false);
+            stepListener.onStep(currentIndex,
+                    QuoteUtils.getCurrentCycles() + lastExecutionCycles,
+                    snapshotVarsForDebug(),
+                    false);
         }
 
         Label next = ins.execute(context);
-        lastExecutionCycles += ins.cycles();
+        lastExecutionCycles += cost;
+        if (!UserManager.charge(cost)) {
+            System.err.println("Not enough credits to execute instruction at PC=" + currentIndex +
+                    " (" + ins.getName() + "), cost=" + cost);
+            throw new IllegalStateException("Not enough credits to continue execution.");
+        }
+
         int dynamicIncrement = 0;
         if (context instanceof ExecutionContextImpl ectx) {
             dynamicIncrement = ectx.drainDynamicCycles();
@@ -152,7 +159,6 @@ public class ProgramExecutorImpl implements ProgramExecutor{
             nextIndex = instructions.indexOf(target);
         }
 
-        boolean finished = (nextIndex < 0 || nextIndex >= instructions.size());
         return nextIndex;
     }
 
@@ -160,19 +166,16 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         return lastDynamicCycles;
     }
 
-    //This func returns the variable's state
     @Override
     public Map<Variable, Long> variableState() {
         return context.getAllVariables();
     }
 
-    //This func returns the last cycle
     @Override
     public int getLastExecutionCycles() {
         return lastExecutionCycles;
     }
 
-    //returns the highest input variable index
     private int requiredInputCount() {
         int maxIdx = 0;
         for (Variable v : program.getVariables()) {
@@ -183,15 +186,13 @@ public class ProgramExecutorImpl implements ProgramExecutor{
         return maxIdx;
     }
 
-    //This func checks if label is EXIT
     private static boolean isExit(Label l) {
         if (l == null) return false;
-        if (l == FixedLabel.EXIT) return true; // fast-path for your singleton
+        if (l == FixedLabel.EXIT) return true;
         String s = l.getLabelRepresentation();
         return s != null && s.trim().equalsIgnoreCase("EXIT");
     }
 
-    //This func checks if label is EMPTY
     private static boolean isEmpty(Label l) {
         if (l == null) return true;
         if (l == FixedLabel.EMPTY) return true;

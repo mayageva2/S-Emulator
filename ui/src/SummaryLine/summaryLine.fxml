@@ -24,6 +24,16 @@
             <Label fx:id="basicCount"   styleClass="chip chip-basic"/>
             <Label text="Synthetic:"    styleClass="key"/>
             <Label fx:id="syntheticCount" styleClass="chip chip-synth"/>
+
+            <Label text="Arch I:" styleClass="key"/>
+            <Label fx:id="arch1Count" styleClass="chip chip-arch1"/>
+            <Label text="Arch II:" styleClass="key"/>
+            <Label fx:id="arch2Count" styleClass="chip chip-arch2"/>
+            <Label text="Arch III:" styleClass="key"/>
+            <Label fx:id="arch3Count" styleClass="chip chip-arch3"/>
+            <Label text="Arch IV:" styleClass="key"/>
+            <Label fx:id="arch4Count" styleClass="chip chip-arch4"/>
+
          </children>
       </HBox>
    </center>

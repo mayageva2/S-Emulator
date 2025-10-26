@@ -2,23 +2,25 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
+import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.ArchitectureInfo;
 import emulator.api.dto.RunResult;
+import emulator.api.dto.UserService;
+import emulator.logic.user.UserManager;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import jakarta.servlet.http.*;
+import java.io.*;
+import java.util.*;
 
 @WebServlet("/run")
 public class RunServlet extends HttpServlet {
-
     private static final Gson gson = new Gson();
+    private static final Map<String, ArchitectureInfo> ARCHITECTURES = Map.of(
+            "I", new ArchitectureInfo("I", 5, "Basic architecture"),
+            "II", new ArchitectureInfo("II", 100, "Optimized architecture"),
+            "III", new ArchitectureInfo("III", 500, "High performance architecture"),
+            "IV", new ArchitectureInfo("IV", 1000, "Ultimate architecture")
+    );
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -26,61 +28,48 @@ public class RunServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         Map<String, Object> responseMap = new LinkedHashMap<>();
-
         try {
-            String body = req.getReader().lines().collect(Collectors.joining());
+            String body = new BufferedReader(new InputStreamReader(req.getInputStream()))
+                    .lines().reduce("", (a, b) -> a + b);
             Map<String, Object> data = gson.fromJson(body, Map.class);
 
-            if (data == null) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                responseMap.put("status", "error");
-                responseMap.put("message", "Invalid JSON body");
-                writeJson(resp, responseMap);
-                return;
-            }
-
             String program = (String) data.get("program");
+            Double degreeD = (Double) data.getOrDefault("degree", 0.0);
+            int degree = degreeD.intValue();
 
-            Number degreeNum = (Number) data.getOrDefault("degree", 0);
-            int degree = degreeNum.intValue();
+            String architectureName = (String) data.getOrDefault("architecture", "I");
+            ArchitectureInfo archInfo = ARCHITECTURES.getOrDefault(architectureName, ARCHITECTURES.get("I"));
 
-            @SuppressWarnings("unchecked")
-            List<Double> inputsJson = (List<Double>) data.getOrDefault("inputs", List.of());
-            Long[] inputs = inputsJson.stream().map(Double::longValue).toArray(Long[]::new);
+            List<Double> inputsD = (List<Double>) data.getOrDefault("inputs", List.of());
+            Long[] inputs = inputsD.stream().map(Double::longValue).toArray(Long[]::new);
 
             EmulatorEngine engine = EngineHolder.getEngine();
-            if (!engine.hasProgramLoaded()) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                responseMap.put("status", "error");
-                responseMap.put("message", "No program loaded");
-                writeJson(resp, responseMap);
-                return;
-            }
+            RunResult result = ((EmulatorEngineImpl) engine)
+                    .run(program, degree, archInfo, inputs);
+            ServerEventManager.broadcast("PROGRAM_RUN");
 
-            RunResult result;
-            if (program == null || program.isEmpty()) {
-                result = engine.run(degree, inputs);
-            }
-            else {
-                result = engine.run(program, degree, inputs);
-            }
             responseMap.put("status", "success");
             responseMap.put("result", result);
-
+            responseMap.put("userCredits", UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L));
+        } catch (IllegalStateException ex) {
+            String msg = ex.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg);
+                responseMap.put("errorType", "CREDITS");
+            } else {
+                responseMap.put("status", "error");
+                responseMap.put("message", msg != null ? msg : "Unknown runtime error");
+                responseMap.put("errorType", "RUNTIME");
+            }
         } catch (Exception e) {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            e.printStackTrace();
             responseMap.put("status", "error");
             responseMap.put("message", e.getMessage());
-            responseMap.put("exception", e.getClass().getSimpleName());
         }
 
-        writeJson(resp, responseMap);
-    }
-
-    private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
-        String json = gson.toJson(data);
         try (PrintWriter out = resp.getWriter()) {
-            out.write(json);
+            out.print(gson.toJson(responseMap));
         }
     }
 }

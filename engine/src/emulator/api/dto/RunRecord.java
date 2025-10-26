@@ -1,25 +1,67 @@
 package emulator.api.dto;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
-public record RunRecord(
-        String programName,
-        int runNumber,
-        int degree,
-        List<Long> inputs,
-        long y,
-        int cycles
-) implements Serializable {
+public class RunRecord implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    public static RunRecord of(String programName, int runNumber, int degree, long[] inputs, long y, int cycles) {
-        List<Long> in = (inputs == null) ? List.of() : Arrays.stream(inputs).boxed().toList();
-        return new RunRecord(programName, runNumber, degree, in, y, cycles);
+    private final String username;
+    private final String programName;
+    private final int runNumber;
+    private final int degree;
+    private final List<Long> inputs;
+    private final long y;
+    private final int cycles;
+    private Map<String, Long> varsSnapshot = new LinkedHashMap<>();
+    private final String type;
+    private final String architecture;
+
+    public RunRecord(String username, String programName, int runNumber, int degree,
+                     List<Long> inputs, long y, int cycles, Map<String, Long> varsSnapshot,
+                     String type, String architecture) {
+        this.username = username;
+        this.programName = programName;
+        this.runNumber = runNumber;
+        this.degree = degree;
+        this.inputs = (inputs != null) ? List.copyOf(inputs) : List.of();
+        this.y = y;
+        this.cycles = cycles;
+        this.varsSnapshot = varsSnapshot;
+        this.type = type;
+        this.architecture = architecture;
     }
+
+    public String username() { return username; }
+    public String programName() { return programName; }
+    public int runNumber() { return runNumber; }
+    public int degree() { return degree; }
+    public List<Long> inputs() { return inputs; }
+    public long y() { return y; }
+    public int cycles() { return cycles; }
+    public String architecture() { return architecture; }
+
+    public static RunRecord of(String username, String programName, int runNumber, int degree,
+                               long[] inputs, long y, int cycles, Map<String, Long> varsSnapshot,
+                               String type, String architecture) {
+        List<Long> in = (inputs == null) ? List.of() : Arrays.stream(inputs).boxed().toList();
+        return new RunRecord(username, programName, runNumber, degree, in, y, cycles, varsSnapshot, type, architecture);
+    }
+
     public String inputsCsv() {
         return inputs == null ? "" : inputs.stream().map(String::valueOf).collect(Collectors.joining(","));
     }
+
+    public void setVarsSnapshot(Map<String, Long> vars) {
+        this.varsSnapshot = (vars != null)
+                ? new LinkedHashMap<>(vars)
+                : new LinkedHashMap<>();
+    }
+
+    public Map<String, Long> getVarsSnapshot() {
+        return Collections.unmodifiableMap(varsSnapshot);
+    }
+
+    public String getType() { return type; }
 }

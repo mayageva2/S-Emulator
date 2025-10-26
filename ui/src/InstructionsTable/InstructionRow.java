@@ -13,7 +13,10 @@ public class InstructionRow {
     public final List<String> args;
     public final int depth;                 // 0 for main table, >0 for history indentation
     public final InstructionView sourceIv;  // << keep the original for callbacks
+    public final long creditCost;
+    public final String architecture;
     public String display = "";
+    public boolean needsHighlight = false; //red
 
     public InstructionRow(int index, boolean basic, String label, int cycles,
                           String opcode, List<String> args, int depth,
@@ -26,5 +29,7 @@ public class InstructionRow {
         this.args = args;
         this.depth = depth;
         this.sourceIv = sourceIv;
+        this.creditCost = sourceIv.creditCost();
+        this.architecture = sourceIv.architecture();
     }
 }
