@@ -12,6 +12,7 @@ public class ProgramCreditCostCalculator {
         this.quotationRegistry = quotationRegistry;
     }
 
+    //This func calculates the total cost
     public long calculateTotalCost(Program program, ArchitectureType architectureType) {
         if (program == null)
             throw new IllegalArgumentException("Program cannot be null");
