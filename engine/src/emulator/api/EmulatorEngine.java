@@ -11,22 +11,32 @@ import java.util.List;
 import java.util.Map;
 
 public interface EmulatorEngine {
+    // Returns the current program view
     ProgramView programView();
     ProgramView programView(int degree);
     ProgramView programView(String programName, int degree);
+
+    // Runs program
     RunResult run(Long... input);
     RunResult run(int degree, Long... input);
     RunResult run(String programName, int degree, Long... inputs);
+
+    // Returns objects of program
     Map<String, Long> lastRunVars();
     List<Long> lastRunInputs();
     int lastRunDegree();
     String lastRunProgramName();
+    List<String> extractInputVars(ProgramView pv);
+
+    //History funcs
     List<RunRecord> history();
     List<RunRecord> history(String programName);
-    List<String> availablePrograms();
-    List<String> getAllProgramNames();
+    public void clearHistory();
+
+    // Checks if there's a loaded program
     boolean hasProgramLoaded();
-    List<String> extractInputVars(ProgramView pv);
+
+    // Load program
     LoadResult loadProgram(Path xmlPath)
             throws XmlWrongExtensionException,   // wrong extension
             XmlNotFoundException,          // file does not exist
@@ -46,9 +56,12 @@ public interface EmulatorEngine {
             ProgramException,
            IOException;
     LoadResult loadProgram(Path xmlPath, ProgressListener listener) throws Exception;
-    public void clearHistory();
+
+    //saves/ loads state
     void saveState(Path fileWithoutExt) throws Exception;
     void loadState(Path fileWithoutExt) throws Exception;
+
+    //Debug handle
     DebugService debugger();
     void debugResume();
     boolean debugIsFinished();
