@@ -7,10 +7,12 @@ public class ProgramStatsRepository {
     private static final ProgramStatsRepository instance = new ProgramStatsRepository();
     private final Map<String, AvgData> averages = new ConcurrentHashMap<>();
 
+    // This func returns the instance
     public static ProgramStatsRepository getInstance() {
         return instance;
     }
 
+    // This func updates the average cycles for a program
     public void updateAverage(String programName, long cycles) {
         String key = programName.toUpperCase(Locale.ROOT);
         averages.compute(key, (k, old) -> {
@@ -21,16 +23,18 @@ public class ProgramStatsRepository {
         });
     }
 
+    // This function returns the average cycles of a program
     public double getAverage(String programName) {
         AvgData data = averages.get(programName.toUpperCase(Locale.ROOT));
         return (data == null) ? 0.0 : data.avg;
     }
-
+    // This function returns how many times a program has been recorded
     public long getCount(String programName) {
         AvgData data = averages.get(programName.toUpperCase(Locale.ROOT));
         return (data == null) ? 0 : data.count;
     }
 
+    //inner class
     private static class AvgData {
         final long count;
         final double avg;

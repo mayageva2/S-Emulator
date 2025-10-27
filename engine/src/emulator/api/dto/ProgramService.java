@@ -9,8 +9,10 @@ public class ProgramService {
 
     private ProgramService() {}
 
+    // This func returns the instance
     public static ProgramService getInstance() {return instance;}
 
+    // This func adds a new program entry
     public void addProgram(String programName, String username,
                            int instructionCount, int maxDegree) {
         programs.put(programName, new ProgramStats(
@@ -23,6 +25,7 @@ public class ProgramService {
         ));
     }
 
+    // This func updates statistics after a program run
     public void recordRun(String programName, double creditCost) {
         ProgramStats old = programs.get(programName);
         if (old == null) return;
@@ -39,6 +42,7 @@ public class ProgramService {
         ));
     }
 
+    // This func returns all programs
     public List<ProgramStats> getAllPrograms() {
         List<ProgramStats> result = new ArrayList<>();
         for (ProgramStats p : programs.values()) {
@@ -55,9 +59,11 @@ public class ProgramService {
         return result;
     }
 
+    // This func checks if a program already exists
     public boolean programExists(String programName) {
         return programs.containsKey(programName);
     }
 
+    // This func clears all stored program data
     public void clear() {programs.clear();}
 }

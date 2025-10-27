@@ -8,6 +8,7 @@ public class ProgramStats {
     private final int runCount;
     private final double avgCreditCost;
 
+    //Holds statistics and metadata for a loaded program
     public ProgramStats(String programName, String username,
                         int instructionCount, int maxDegree,
                         int runCount, double avgCreditCost) {
@@ -19,6 +20,7 @@ public class ProgramStats {
         this.avgCreditCost = avgCreditCost;
     }
 
+    // GETTERS
     public String getProgramName() { return programName; }
     public String getUsername() { return username; }
     public int getInstructionCount() { return instructionCount; }

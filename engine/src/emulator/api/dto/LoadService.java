@@ -11,24 +11,27 @@ public class LoadService {
     private final FunctionService functionService = FunctionService.getInstance();
     private final UserService userService = new UserService();
     private static final Map<String, String> programTypes = new HashMap<>();
+
+    //This func returns the type of the file
     public static String getTypeForProgram(String name) {
         if (name == null) return "PROGRAM";
         return programTypes.getOrDefault(name.toUpperCase(Locale.ROOT), "PROGRAM");
     }
 
+    //This func registers a program or function type
     public static void registerProgramType(String name, String type) {
         if (name != null && type != null) {
             programTypes.put(name.toUpperCase(Locale.ROOT), type);
         }
     }
 
+    //This func loads a program from a file path
     public LoadResult load(EmulatorEngine engine, Path xmlPath, String username) throws Exception {
         LoadResult result = engine.loadProgram(xmlPath);
         validateCrossReferences(result);
 
         int functionCount = (result.functions() != null) ? result.functions().size() : 0;
         userService.incrementMainProgramsAndFunctions(functionCount);
-
         programService.addProgram(
                 result.programName(),
                 username,
@@ -54,10 +57,10 @@ public class LoadService {
         return result;
     }
 
+    //This func loads a program from an InputStream
     public LoadResult loadFromStream(EmulatorEngine engine, InputStream xmlStream, String username) throws Exception {
         LoadResult result = engine.loadProgramFromStream(xmlStream);
         validateCrossReferences(result);
-
         int functionCount = (result.functions() != null) ? result.functions().size() : 0;
         userService.incrementMainProgramsAndFunctions(functionCount);
 
@@ -78,25 +81,25 @@ public class LoadService {
                     0.0
             );
         }
-
         return result;
     }
 
+    //This func validates that no duplicate or missing function references exist in the loaded program
     private void validateCrossReferences(LoadResult result) throws Exception {
         if (result == null)
             throw new IllegalArgumentException("Invalid load result (null).");
 
         String programName = result.programName();
-        if (programService.programExists(programName)) {
+        if (programService.programExists(programName)) {   // Check if the program already exists
             throw new IllegalStateException("Program '" + programName + "' already exists in the system.");
         }
 
         Set<String> existingFunctions = new HashSet<>();
-        for (FunctionInfo f : functionService.getAllFunctions()) {
+        for (FunctionInfo f : functionService.getAllFunctions()) {  // Collect all existing functions
             existingFunctions.add(f.name().toUpperCase(Locale.ROOT));
         }
 
-        for (String f : result.functions()) {
+        for (String f : result.functions()) {   // Ensure new functions don't conflict with existing ones
             if (existingFunctions.contains(f.toUpperCase(Locale.ROOT))) {
                 throw new IllegalStateException("Function '" + f + "' already exists in the system.");
             }
@@ -113,13 +116,4 @@ public class LoadService {
             }
         }
     }
-
-    public static void debugPrintTypes() {
-        System.out.println("=== PROGRAM TYPES MAP ===");
-        for (var e : programTypes.entrySet()) {
-            System.out.println("  " + e.getKey() + " → " + e.getValue());
-        }
-        System.out.println("=========================");
-    }
-
 }

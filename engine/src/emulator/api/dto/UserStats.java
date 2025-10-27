@@ -18,6 +18,7 @@ public class UserStats {
         this.runs = runs;
     }
 
+    // GETTERS
     public String getUsername() { return username; }
     public int getMainPrograms() { return mainPrograms; }
     public int getFunctions() { return functions; }

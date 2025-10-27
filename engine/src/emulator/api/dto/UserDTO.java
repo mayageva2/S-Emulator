@@ -9,6 +9,7 @@ public class UserDTO {
         this.credits = credits;
     }
 
+    // GETTERS
     public String getUsername() { return username; }
     public long getCredits() { return credits; }
 }

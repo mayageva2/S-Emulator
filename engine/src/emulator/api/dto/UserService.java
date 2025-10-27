@@ -11,34 +11,36 @@ import java.util.stream.Collectors;
 public class UserService {
     private static final UserService instance = new UserService();
 
+    // This func returns the singleton instance
     public static UserService getInstance() {
         return instance;
     }
 
+    // This func logs in a user and returns their data
     public UserDTO loginUser(String username) {
         UserManager.login(username);
         var user = UserManager.getCurrentUser().orElseThrow();
         return new UserDTO(user.getUsername(), user.getCredits());
     }
 
+    // This func returns the currently logged-in user
     public Optional<UserDTO> getCurrentUser() {
         return UserManager.getCurrentUser()
                 .map(u -> new UserDTO(u.getUsername(), u.getCredits()));
     }
 
+    // This func checks if a user with the given name exists
     public boolean userExists(String username) {
         Collection<User> users = UserManager.getAllUsers();
         return users.stream().anyMatch(u -> u.getUsername().equalsIgnoreCase(username));
     }
 
+    // This func adds credits to the current user
     public void addCredits(long amount) {
         UserManager.addCredits(amount);
     }
 
-    public void logout() {
-        UserManager.logout();
-    }
-
+    // This func returns a list of stats for all users
     public List<UserStats> getAllUserStats() {
         return UserManager.getAllUsers().stream()
                 .map(u -> new UserStats(
@@ -52,20 +54,7 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public void incrementMainProgramsForCurrentUser() {
-        UserManager.getCurrentUser().ifPresent(user -> {
-            try {
-                var cls = user.getClass();
-                var field = cls.getDeclaredField("mainPrograms");
-                field.setAccessible(true);
-                int current = (int) field.get(user);
-                field.set(user, current + 1);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
+    // This func increments both main programs and functions
     public void incrementMainProgramsAndFunctions(int functionsCount) {
         UserManager.getCurrentUser().ifPresent(u -> {
             u.incrementMainPrograms();
@@ -73,6 +62,7 @@ public class UserService {
         });
     }
 
+    // This func increments the total number of runs
     public void incrementRuns() {
         UserManager.getCurrentUser().ifPresent(u -> u.incrementRuns());
     }

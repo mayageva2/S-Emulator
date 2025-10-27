@@ -33,6 +33,7 @@ public class RunRecord implements Serializable {
         this.architecture = architecture;
     }
 
+    // GETTERS
     public String username() { return username; }
     public String programName() { return programName; }
     public int runNumber() { return runNumber; }
@@ -41,7 +42,9 @@ public class RunRecord implements Serializable {
     public long y() { return y; }
     public int cycles() { return cycles; }
     public String architecture() { return architecture; }
+    public String getType() { return type; }
 
+    // This func creates a RunRecord
     public static RunRecord of(String username, String programName, int runNumber, int degree,
                                long[] inputs, long y, int cycles, Map<String, Long> varsSnapshot,
                                String type, String architecture) {
@@ -49,19 +52,20 @@ public class RunRecord implements Serializable {
         return new RunRecord(username, programName, runNumber, degree, in, y, cycles, varsSnapshot, type, architecture);
     }
 
+    // This func returns the input values as a CSV string
     public String inputsCsv() {
         return inputs == null ? "" : inputs.stream().map(String::valueOf).collect(Collectors.joining(","));
     }
 
+    // This func updates the variable snapshot map
     public void setVarsSnapshot(Map<String, Long> vars) {
         this.varsSnapshot = (vars != null)
                 ? new LinkedHashMap<>(vars)
                 : new LinkedHashMap<>();
     }
 
+    // This function returns a copy of the variable snapshot
     public Map<String, Long> getVarsSnapshot() {
         return Collections.unmodifiableMap(varsSnapshot);
     }
-
-    public String getType() { return type; }
 }

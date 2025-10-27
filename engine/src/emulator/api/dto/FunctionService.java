@@ -13,6 +13,7 @@ public class FunctionService {
 
     public static FunctionService getInstance() {return instance;}
 
+    //This function adds a new function entry and links it to its parent program
     public void addFunction(String functionName, String programName, String username,
                             int instructionCount, int maxDegree, double score) {
         functions.put(functionName, new FunctionInfo(
@@ -29,6 +30,7 @@ public class FunctionService {
                 .add(functionName);
     }
 
+    //This function returns a list of all functions
     public List<FunctionInfo> getAllFunctions() {
         List<FunctionInfo> result = new ArrayList<>();
         for (FunctionInfo f : functions.values()) {
@@ -45,52 +47,14 @@ public class FunctionService {
         return result;
     }
 
-    public void registerFunctionDependency(String parentFunc, String childFunc) {
-        if (parentFunc == null || childFunc == null) return;
-        funcToFuncs
-                .computeIfAbsent(parentFunc, k -> ConcurrentHashMap.newKeySet())
-                .add(childFunc);
-    }
-
-    public Set<String> allFunctionsOfProgram(String programName) {
-        Set<String> direct = programToFunctions.getOrDefault(programName, Set.of());
-        return closureOverFunctions(direct);
-    }
-
-    public Set<String> allProgramsUsingFunction(String funcName) {
-        Set<String> result = new HashSet<>();
-        for (Map.Entry<String, Set<String>> e : programToFunctions.entrySet()) {
-            if (closureOverFunctions(e.getValue()).contains(funcName)) {
-                result.add(e.getKey());
-            }
-        }
-        return result;
-    }
-
-    public Set<String> allRelatedFunctions(String funcName) {
-        if (funcName == null) return Set.of();
-        return closureOverFunctions(Set.of(funcName));
-    }
-
-    private Set<String> closureOverFunctions(Set<String> start) {
-        Set<String> visited = new HashSet<>();
-        Deque<String> stack = new ArrayDeque<>(start);
-        while (!stack.isEmpty()) {
-            String f = stack.pop();
-            if (!visited.add(f)) continue;
-            for (String child : funcToFuncs.getOrDefault(f, Set.of())) {
-                if (!visited.contains(child)) stack.push(child);
-            }
-        }
-        return visited;
-    }
-
+    //This function clears the maps
     public void clear() {
         functions.clear();
         programToFunctions.clear();
         funcToFuncs.clear();
     }
 
+    //This func returns all functions directly belonging to the given program
     public Set<String> getFunctionsByProgram(String programName) {
         Set<String> result = new HashSet<>();
         if (programName == null) return result;
@@ -103,6 +67,7 @@ public class FunctionService {
         return result;
     }
 
+    //This func returns all programs that directly use the given function
     public Set<String> getProgramsUsingFunction(String functionName) {
         Set<String> result = new HashSet<>();
         if (functionName == null) return result;
@@ -115,6 +80,7 @@ public class FunctionService {
         return result;
     }
 
+    //This func returns all functions from the same program as the given function
     public Set<String> getRelatedFunctions(String functionName) {
         Set<String> result = new HashSet<>();
         if (functionName == null) return result;
