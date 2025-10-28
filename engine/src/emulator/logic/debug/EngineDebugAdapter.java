@@ -42,19 +42,26 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
         tryBindDirectMode();
     }
 
+    //This func starts a debug session
     public DebugSnapshot start(Long[] inputs, int degree, String programName) throws Exception {
+        ProgramView pvAtStart = prepareSession(inputs, degree, programName);
+        DebugSnapshot direct  = tryStartDirectMode(pvAtStart, inputs, degree);
+        return (direct != null) ? direct : startSyntheticTimeline();
+    }
+
+    //This func prepares session metadata and initial variables mask
+    private ProgramView prepareSession(Long[] inputs, int degree, String programName) {
         String mainName;
         try { mainName = engine.programView(0).programName(); }
         catch (Exception ex) { mainName = null; }
-
         String target = (programName != null && !programName.isBlank()) ? programName : mainName;
         if (!Objects.equals(target, engine.lastRunProgramName())) {
             engine.clearHistory();
         }
 
         this.selectedProgram = target;
-        this.degreeAtStart = degree;
-        this.inputsAtStart = inputs != null ? inputs.clone() : new Long[0];
+        this.degreeAtStart   = degree;
+        this.inputsAtStart   = (inputs != null) ? inputs.clone() : new Long[0];
 
         ProgramView pvAtStart = null;
         try {
@@ -64,28 +71,45 @@ public class EngineDebugAdapter implements DebugSession, DebugService {
         } catch (Exception ignore) {}
 
         this.orderedVarNames = discoverAllVarNames(pvAtStart, this.inputsAtStart);
-        this.lastKnownVars = new LinkedHashMap<>();
+        this.lastKnownVars   = new LinkedHashMap<>();
         for (String n : orderedVarNames) lastKnownVars.put(n, "-");
 
-        if (directAvailable) {
-            String progForDirect = (selectedProgram != null && !selectedProgram.isBlank()) ? selectedProgram : mainName;
-            if (directHasProgramParam && progForDirect != null && !progForDirect.isBlank()) {
-                invoke(mDebugStartWithProgram, progForDirect, inputs, degree);
-            } else {
-                invoke(mDebugStart, inputs, degree);
-            }
-            alive = true;
-            DebugSnapshot snap = directSnapshot();
-            return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
+        return pvAtStart;
+    }
+
+    //This func tries to start using direct mode
+    private DebugSnapshot tryStartDirectMode(ProgramView pvAtStart, Long[] inputs, int degree) throws Exception {
+        if (!directAvailable) return null;
+
+        String mainName;
+        try { mainName = engine.programView(0).programName(); }
+        catch (Exception ex) { mainName = null; }
+        String progForDirect = (selectedProgram != null && !selectedProgram.isBlank())
+                ? selectedProgram
+                : (pvAtStart != null ? pvAtStart.programName() : mainName);
+
+        if (directHasProgramParam && progForDirect != null && !progForDirect.isBlank()) {
+            invoke(mDebugStartWithProgram, progForDirect, inputs, degree);
+        } else {
+            invoke(mDebugStart, inputs, degree);
         }
 
+        this.alive = true;
+        DebugSnapshot snap = directSnapshot();
+        return buildSnapshotWithState(snap.currentInstructionIndex(), snap.vars(), snap.cycles(), snap.finished());
+    }
+
+    //This func initializes a synthetic timeline
+    private DebugSnapshot startSyntheticTimeline() {
         this.timeline = synthesizeTimelineFromProgramView(null);
-        this.idx = (timeline.isEmpty() ? -1 : 0);
-        this.alive = !timeline.isEmpty();
+        this.idx      = (timeline.isEmpty() ? -1 : 0);
+        this.alive    = !timeline.isEmpty();
+
         DebugSnapshot cur = current();
         return buildSnapshotWithState(cur.currentInstructionIndex(), cur.vars(), cur.cycles(), cur.finished());
     }
 
+    // Start debug
     @Override
     public DebugSnapshot start(Long[] inputs, int degree) throws Exception {
         return start(inputs, degree, this.programName);
