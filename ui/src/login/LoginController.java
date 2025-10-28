@@ -3,6 +3,7 @@ package login;
 import Main.Dashboard.mainDashboardController;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
+import emulator.api.dto.UserDTO;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -25,6 +26,7 @@ public class LoginController {
 
     private static final String BASE_URL = "http://localhost:8080/semulator/";
     private final Gson gson = new Gson();
+    private final HttpSessionClient httpClient = new HttpSessionClient();
 
     @FXML
     private void onLoginClicked(ActionEvent event) {
@@ -44,24 +46,19 @@ public class LoginController {
                 return;
             }
 
+            long credits = ((Number) map.get("credits")).longValue();
+            UserDTO user = new UserDTO(username, credits);
+            Utils.ClientContext.init(httpClient, BASE_URL, user);
+
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();
 
-            mainDashboardController main = loader.getController();
-            main.initServerMode(BASE_URL);
-
             Stage stage = (Stage) usernameField.getScene().getWindow();
             Scene scene = new Scene(root);
-
             stage.setTitle("S-Emulator (Server Mode)");
             stage.setScene(scene);
-
             stage.setMaximized(true);
-            stage.setResizable(true);
-            stage.centerOnScreen();
-
             stage.setFullScreen(true);
-
             stage.show();
 
         } catch (Exception e) {
@@ -76,6 +73,6 @@ public class LoginController {
     }
 
     private String httpPost(String urlStr, String formData) throws IOException {
-        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
+        return httpClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 }

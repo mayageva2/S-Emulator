@@ -3,7 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.RunRecord;
-import emulator.api.dto.UserService;
+import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -13,9 +13,7 @@ import java.util.*;
 
 @WebServlet("/user/history")
 public class HistoryServlet extends HttpServlet {
-
     private static final Gson gson = new Gson();
-    private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -27,22 +25,17 @@ public class HistoryServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            String username = req.getParameter("username");
-            if (username == null || username.isBlank()) {
-                username = userService.getCurrentUser()
-                        .map(u -> u.getUsername())
-                        .orElse(null);
-            }
-
-            if (username == null) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            UserDTO currentUser = SessionUserManager.getUser(req.getSession());
+            if (currentUser == null) {
                 responseMap.put("status", "error");
-                responseMap.put("message", "No username provided and no current user found");
+                responseMap.put("message", "No user logged in for this session");
                 writeJson(resp, responseMap);
                 return;
             }
 
-            EmulatorEngine engine = EngineHolder.getEngine();
+            String username = currentUser.getUsername();
+
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
             List<RunRecord> allHistory = engine.history();
 
             List<RunRecord> userHistory = new ArrayList<>();

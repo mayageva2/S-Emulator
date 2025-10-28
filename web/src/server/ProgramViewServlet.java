@@ -23,7 +23,7 @@ public class ProgramViewServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         try (PrintWriter out = resp.getWriter()) {
-            EmulatorEngine engine = EngineHolder.getEngine();
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
 
             if (!engine.hasProgramLoaded()) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);

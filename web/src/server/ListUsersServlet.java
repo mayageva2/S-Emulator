@@ -1,43 +1,29 @@
 package server;
 
 import com.google.gson.Gson;
-import emulator.api.dto.UserService;
-import emulator.api.dto.UserStats;
+import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.*;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @WebServlet("/user/list")
 public class ListUsersServlet extends HttpServlet {
-    private final UserService userService = new UserService();
     private final Gson gson = new Gson();
+    private static final Map<String, UserDTO> activeUsers = Collections.synchronizedMap(new HashMap<>());
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
-
-        try {
-            List<UserStats> users = userService.getAllUserStats();
-
-            String json = gson.toJson(Map.of(
-                    "status", "success",
-                    "users", users
-            ));
-
-            resp.getWriter().write(json);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            String errorJson = gson.toJson(Map.of(
-                    "status", "error",
-                    "message", "Failed to retrieve user list: " + e.getMessage()
-            ));
-            resp.getWriter().write(errorJson);
+        UserDTO user = SessionUserManager.getUser(req.getSession());
+        if (user != null) {
+            activeUsers.put(req.getSession().getId(), user);
         }
+
+        resp.getWriter().write(gson.toJson(Map.of(
+                "status", "success",
+                "users", new ArrayList<>(activeUsers.values())
+        )));
     }
 }

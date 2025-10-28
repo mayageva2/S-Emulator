@@ -4,13 +4,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ProgramService {
-    private static final Map<String, ProgramStats> programs = new ConcurrentHashMap<>();
-    private static final ProgramService instance = new ProgramService();
+    private final Map<String, ProgramStats> programs = new ConcurrentHashMap<>();
+    private final ProgramStatsRepository programStatsRepository;
 
-    private ProgramService() {}
-
-    // This func returns the instance
-    public static ProgramService getInstance() {return instance;}
+    public ProgramService(ProgramStatsRepository programStatsRepository) {
+        this.programStatsRepository = programStatsRepository;
+    }
 
     // This func adds a new program entry
     public void addProgram(String programName, String username,
@@ -46,7 +45,7 @@ public class ProgramService {
     public List<ProgramStats> getAllPrograms() {
         List<ProgramStats> result = new ArrayList<>();
         for (ProgramStats p : programs.values()) {
-            double avg = ProgramStatsRepository.getInstance().getAverage(p.getProgramName());
+            double avg = programStatsRepository.getAverage(p.getProgramName());
             result.add(new ProgramStats(
                     p.getProgramName(),
                     p.getUsername(),

@@ -1,5 +1,6 @@
 package VariablesBox;
 
+import Utils.HttpSessionClient;
 import cyclesLine.CyclesLineController;
 import emulator.api.dto.RunResult;
 import emulator.api.dto.VarType;
@@ -32,6 +33,11 @@ public class VariablesBoxController {
     private final Map<String, VarRow> byName = new ConcurrentHashMap<>();
     private final ObservableSet<String> changedNow = FXCollections.observableSet();
     private static final String CHANGED_CSS_CLASS = "current-instruction";
+
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     @FXML
     private void initialize() {

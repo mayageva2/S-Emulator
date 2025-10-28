@@ -1,15 +1,13 @@
 package emulator.logic.execution;
 
+import emulator.api.dto.UserDTO;
 import emulator.logic.instruction.Instruction;
-import emulator.logic.instruction.JumpEqualFunctionInstruction;
-import emulator.logic.instruction.quote.QuotationInstruction;
 import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.FixedLabel;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.variable.Variable;
 import emulator.logic.variable.VariableType;
-import emulator.logic.user.UserManager;
 
 import java.util.*;
 
@@ -18,12 +16,24 @@ public class ProgramExecutorImpl implements ProgramExecutor {
     private final ExecutionContext context = new ExecutionContextImpl();
     private final QuoteEvaluator quoteEval;
     private final Program program;
+
+    // Execution state
     private int lastExecutionCycles = 0;
     private int lastDynamicCycles = 0;
     private Long[] lastInputs = new Long[0];
     private int observedDynamicCycles = 0;
     private StepListener stepListener;
     private int baseCycles = 0;
+    private UserDTO currentUser;
+
+    public ProgramExecutorImpl(Program program) {
+        this(program, null);
+    }
+
+    public ProgramExecutorImpl(Program program, QuoteEvaluator quoteEval) {
+        this.program = Objects.requireNonNull(program, "program must not be null");
+        this.quoteEval = quoteEval;
+    }
 
     public void setBaseCycles(int base) {
         this.baseCycles = base;
@@ -33,14 +43,8 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         return baseCycles;
     }
 
-    public ProgramExecutorImpl(Program program) {
-        this.program = Objects.requireNonNull(program, "program must not be null");
-        this.quoteEval = null;
-    }
-
-    public ProgramExecutorImpl(Program program, QuoteEvaluator quoteEval) {
-        this.program = Objects.requireNonNull(program, "program must not be null");
-        this.quoteEval = quoteEval;
+    public void setCurrentUser(UserDTO user) {
+        this.currentUser = user;
     }
 
     @Override
@@ -49,7 +53,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
     }
 
     @Override
-    public long run(Long... input) {
+    public synchronized long run(Long... input) {
         lastExecutionCycles = 0;
         lastDynamicCycles = 0;
         observedDynamicCycles = 0;
@@ -67,9 +71,66 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         seedVariables(finalInputs);
 
         executeProgram(instructions);
-        System.out.println("variableState after execution: " + variableState());
-        lastDynamicCycles = QuoteUtils.drainCycles();
+
+        lastDynamicCycles = (quoteEval != null)
+                ? QuoteUtils.drainCycles()
+                : 0;
+
         return context.getVariableValue(Variable.RESULT);
+    }
+
+    private void executeProgram(List<Instruction> instructions) {
+        int idx = 0;
+        int len = instructions.size();
+
+        while (idx >= 0 && idx < len) {
+            idx = step(instructions, idx);
+        }
+    }
+
+    private synchronized int step(List<Instruction> instructions, int currentIndex) {
+        Instruction ins = instructions.get(currentIndex);
+        int cost = ins.cycles();
+
+        if (stepListener != null) {
+            stepListener.onStep(currentIndex,
+                    QuoteUtils.getCurrentCycles() + lastExecutionCycles,
+                    snapshotVarsForDebug(),
+                    false);
+        }
+
+        Label next = ins.execute(context);
+        lastExecutionCycles += cost;
+
+        if (currentUser != null) {
+            long credits = currentUser.getCredits();
+            if (credits < cost) {
+                throw new IllegalStateException(
+                        "User " + currentUser.getUsername() +
+                                " has insufficient credits (required=" + cost + ", available=" + credits + ")");
+            }
+            currentUser.setCredits(credits - cost);
+        }
+
+        // Track dynamic cycles if relevant
+        if (context instanceof ExecutionContextImpl ectx) {
+            int dynamicIncrement = ectx.drainDynamicCycles();
+            if (dynamicIncrement != 0) {
+                observedDynamicCycles += dynamicIncrement;
+            }
+        }
+
+        int nextIndex;
+        if (isExit(next)) {
+            nextIndex = instructions.size();
+        } else if (isEmpty(next)) {
+            nextIndex = currentIndex + 1;
+        } else {
+            Instruction target = program.instructionAt(next);
+            nextIndex = instructions.indexOf(target);
+        }
+
+        return nextIndex;
     }
 
     private Map<String, String> snapshotVarsForDebug() {
@@ -85,7 +146,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
     private void validateNotEmpty(List<Instruction> instructions) {
         if (instructions.isEmpty()) {
-            throw new IllegalStateException("empty program");
+            throw new IllegalStateException("Empty program cannot be executed.");
         }
     }
 
@@ -113,79 +174,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         }
     }
 
-    private void executeProgram(List<Instruction> instructions) {
-        int idx = 0;
-        int len = instructions.size();
-
-        while (idx >= 0 && idx < len) {
-            idx = step(instructions, idx);
-        }
-    }
-
-    private int step(List<Instruction> instructions, int currentIndex) {
-        Instruction ins = instructions.get(currentIndex);
-        int cost = ins.cycles();
-
-        if (stepListener != null) {
-            stepListener.onStep(currentIndex,
-                    QuoteUtils.getCurrentCycles() + lastExecutionCycles,
-                    snapshotVarsForDebug(),
-                    false);
-        }
-
-        Label next = ins.execute(context);
-        lastExecutionCycles += cost;
-        if (!UserManager.charge(cost)) {
-            System.err.println("Not enough credits to execute instruction at PC=" + currentIndex +
-                    " (" + ins.getName() + "), cost=" + cost);
-            throw new IllegalStateException("Not enough credits to continue execution.");
-        }
-
-        int dynamicIncrement = 0;
-        if (context instanceof ExecutionContextImpl ectx) {
-            dynamicIncrement = ectx.drainDynamicCycles();
-            if (dynamicIncrement != 0) {
-                observedDynamicCycles += dynamicIncrement;
-            }
-        }
-
-        int nextIndex;
-        if (isExit(next)) {
-            nextIndex = instructions.size();
-        } else if (isEmpty(next)) {
-            nextIndex = currentIndex + 1;
-        } else {
-            Instruction target = program.instructionAt(next);
-            nextIndex = instructions.indexOf(target);
-        }
-
-        return nextIndex;
-    }
-
-    public int getLastDynamicCycles() {
-        return lastDynamicCycles;
-    }
-
-    @Override
-    public Map<Variable, Long> variableState() {
-        return context.getAllVariables();
-    }
-
-    @Override
-    public int getLastExecutionCycles() {
-        return lastExecutionCycles;
-    }
-
-    private int requiredInputCount() {
-        int maxIdx = 0;
-        for (Variable v : program.getVariables()) {
-            if (v.getType() == VariableType.INPUT) {
-                maxIdx = Math.max(maxIdx, v.getNumber());
-            }
-        }
-        return maxIdx;
-    }
-
     private static boolean isExit(Label l) {
         if (l == null) return false;
         if (l == FixedLabel.EXIT) return true;
@@ -200,14 +188,27 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         return s == null || s.trim().isEmpty();
     }
 
-    private Map<String, Long> buildCurrentEnvMapLowerCase() {
-        Map<String, Long> env = new HashMap<>();
-        for (int i = 0; i < lastInputs.length; i++) {
-            env.put(("x" + (i + 1)).toLowerCase(Locale.ROOT), lastInputs[i]);
+    private int requiredInputCount() {
+        int maxIdx = 0;
+        for (Variable v : program.getVariables()) {
+            if (v.getType() == VariableType.INPUT) {
+                maxIdx = Math.max(maxIdx, v.getNumber());
+            }
         }
-        variableState().forEach((var, val) ->
-                env.put(var.getRepresentation().toLowerCase(Locale.ROOT), val)
-        );
-        return env;
+        return maxIdx;
+    }
+
+    @Override
+    public Map<Variable, Long> variableState() {
+        return context.getAllVariables();
+    }
+
+    @Override
+    public int getLastExecutionCycles() {
+        return lastExecutionCycles;
+    }
+
+    public int getLastDynamicCycles() {
+        return lastDynamicCycles;
     }
 }

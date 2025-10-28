@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface EmulatorEngine {
+    void setSessionUser(UserDTO user);
     // Returns the current program view
     ProgramView programView();
     ProgramView programView(int degree);
@@ -56,6 +57,8 @@ public interface EmulatorEngine {
             ProgramException,
            IOException;
     LoadResult loadProgram(Path xmlPath, ProgressListener listener) throws Exception;
+    public FunctionService getFunctionService();
+    public ProgramService getProgramService();
 
     //saves/ loads state
     void saveState(Path fileWithoutExt) throws Exception;

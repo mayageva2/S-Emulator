@@ -31,10 +31,10 @@ public class mainDashboardController {
     @FXML private FunctionsTableController functionsController;
     @FXML private StatisticsCommandsController statisticsCommandsController;
 
-    private String baseUrl;
+    private final String baseUrl = Utils.ClientContext.getBaseUrl();
+    private final HttpSessionClient httpClient = Utils.ClientContext.getHttpClient();
 
-    public void initServerMode(String baseUrl) {
-        this.baseUrl = baseUrl;
+    public void initServerMode() {
         Platform.runLater(this::safeInitAfterLoad);
     }
 
@@ -64,7 +64,7 @@ public class mainDashboardController {
             @Override
             public void run() {
                 try {
-                    String json = HttpSessionClient.get(baseUrl + "events/latest");
+                    String json = httpClient .get(baseUrl + "events/latest");
                     Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
                     String event = (String) map.get("event");
                     if (!"NONE".equalsIgnoreCase(event))
@@ -135,7 +135,7 @@ public class mainDashboardController {
     private void highlightFunctionsForProgram(String programName) {
         try {
             String encodedProgram = URLEncoder.encode(programName, StandardCharsets.UTF_8).replace("+", "%2B");
-            String json = HttpSessionClient.get(baseUrl + "relations/functions?program=" + encodedProgram);
+            String json = httpClient .get(baseUrl + "relations/functions?program=" + encodedProgram);
             Set<String> funcs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
             functionsController.highlightFunctions(funcs);
         } catch (Exception e) { e.printStackTrace(); }
@@ -143,7 +143,7 @@ public class mainDashboardController {
 
     private void highlightProgramsForFunction(String functionName) {
         try {
-            String json = HttpSessionClient.get(baseUrl + "relations/programs?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
+            String json = httpClient .get(baseUrl + "relations/programs?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
             Set<String> progs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
             mainProgramsController.highlightPrograms(progs);
         } catch (Exception e) { e.printStackTrace(); }
@@ -151,7 +151,7 @@ public class mainDashboardController {
 
     private void highlightRelatedFunctions(String functionName) {
         try {
-            String json = HttpSessionClient.get(baseUrl + "relations/related-functions?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
+            String json = httpClient .get(baseUrl + "relations/related-functions?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
             Set<String> funcs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
             functionsController.highlightFunctions(funcs);
         } catch (Exception e) {}
@@ -159,7 +159,7 @@ public class mainDashboardController {
 
     public String getCurrentUsername() {
         try {
-            String json = HttpSessionClient.get(baseUrl + "user/current");
+            String json = httpClient .get(baseUrl + "user/current");
             Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if ("success".equals(map.get("status"))) {
                 Map<String, Object> user = (Map<String, Object>) map.get("user");
@@ -183,6 +183,7 @@ public class mainDashboardController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController execController = loader.getController();
+            execController.setHttpClient(this.httpClient);
             execController.prepareForRerun(program, degree, inputsCsv, architecture);
             Stage stage = (Stage) statisticsController.getTableView().getScene().getWindow();
             stage.setScene(new Scene(root));

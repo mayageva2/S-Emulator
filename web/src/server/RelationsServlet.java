@@ -1,6 +1,7 @@
 package server;
 
 import com.google.gson.Gson;
+import emulator.api.EmulatorEngine;
 import emulator.api.dto.FunctionService;
 import emulator.api.dto.ProgramService;
 import jakarta.servlet.annotation.WebServlet;
@@ -20,8 +21,6 @@ import java.util.*;
 public class RelationsServlet extends HttpServlet {
 
     private static final Gson gson = new Gson();
-    private final ProgramService programService = ProgramService.getInstance();
-    private final FunctionService functionService = FunctionService.getInstance();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -32,11 +31,16 @@ public class RelationsServlet extends HttpServlet {
         Map<String, Object> response = new LinkedHashMap<>();
 
         try (PrintWriter out = resp.getWriter()) {
+            // 🔹 קחי את המנוע הספציפי ל-session הזה
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            ProgramService programService = engine.getProgramService();
+            FunctionService functionService = engine.getFunctionService();
+
             if (path.endsWith("/functions")) {
                 String rawParam = req.getQueryString();
                 String program = URLDecoder.decode(req.getParameter("program"), StandardCharsets.UTF_8);
 
-                if (rawParam != null && rawParam.contains("%2B")) {  //edge case of '+'
+                if (rawParam != null && rawParam.contains("%2B")) {  // edge case של '+'
                     program = program.replace(' ', '+');
                 }
 
@@ -47,7 +51,7 @@ public class RelationsServlet extends HttpServlet {
 
             } else if (path.endsWith("/programs")) {
                 String func = URLDecoder.decode(req.getParameter("function"), StandardCharsets.UTF_8);
-                Set<String> progs = FunctionService.getInstance().getProgramsUsingFunction(func);
+                Set<String> progs = functionService.getProgramsUsingFunction(func);
                 out.write(gson.toJson(progs));
 
             } else if (path.endsWith("/related-functions")) {
@@ -60,6 +64,7 @@ public class RelationsServlet extends HttpServlet {
                 response.put("error", "Unknown relation path");
                 out.write(gson.toJson(response));
             }
+
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

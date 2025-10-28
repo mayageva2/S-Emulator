@@ -58,6 +58,21 @@ public class MainExecutionController {
     private String loadedProgramName = null;
     private String selectedFunctionName = null;
     private String predefinedInputsCsv = null;
+    private HttpSessionClient httpClient;
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+
+        if (toolbarController != null) toolbarController.setHttpClient(client);
+        if (instructionsController != null) instructionsController.setHttpClient(client);
+        if (summaryLineController != null) summaryLineController.setHttpClient(client);
+        if (historyChainController != null) historyChainController.setHttpClient(client);
+        if (runButtonsController != null) runButtonsController.setHttpClient(client);
+        if (varsBoxController != null) varsBoxController.setHttpClient(client);
+        if (inputsBoxController != null) inputsBoxController.setHttpClient(client);
+        if (architectureController != null) architectureController.setHttpClient(client);
+        if (DashboardBtnController != null) DashboardBtnController.setHttpClient(client);
+    }
 
     @FXML
     private void initialize() {
@@ -169,7 +184,7 @@ public class MainExecutionController {
     }
 
     private String httpPostForm(String urlStr, String formData) throws Exception {
-        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
+        return httpClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     private void refreshProgramView(int degree) {
@@ -492,11 +507,11 @@ public class MainExecutionController {
     }
 
     private String httpGet(String urlStr) throws Exception {
-        return HttpSessionClient.get(urlStr);
+        return httpClient.get(urlStr);
     }
 
     private String httpPost(String urlStr, String json) throws Exception {
-        return HttpSessionClient.post(urlStr, json, "application/json; charset=UTF-8");
+        return httpClient.post(urlStr, json, "application/json; charset=UTF-8");
     }
 
     private void showError(String msg) {

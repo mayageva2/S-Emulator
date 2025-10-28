@@ -1,5 +1,6 @@
 package ArchitectureChoiceBox;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import javafx.application.Platform;
@@ -19,6 +20,11 @@ public class ArchitectureChoiceBoxController {
 
     private static final String BASE_URL = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
+
     private Consumer<Architecture> onArchitectureSelected;
     public void setOnArchitectureSelected(Consumer<Architecture> listener) {
         this.onArchitectureSelected = listener;
@@ -68,7 +74,7 @@ public class ArchitectureChoiceBoxController {
         new Thread(() -> {
             try {
                 String url = BASE_URL + "architectures";
-                String response = Utils.HttpSessionClient.get(url);
+                String response = httpClient.get(url);
                 System.out.println("[architectures] response: " + response);
 
                 List<Architecture> architectures = parseArchitecturesResponse(response);

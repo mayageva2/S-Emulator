@@ -50,6 +50,11 @@ public class StatisticsTableController {
     private List<RunRecord> currentHistory = List.of();
     public List<RunRecord> getCurrentHistory() { return currentHistory; }
     public TableView<?> getTableView() { return table; }
+    private HttpSessionClient httpClient = new HttpSessionClient();
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     @FXML
     private void initialize() {
@@ -186,7 +191,7 @@ public class StatisticsTableController {
     public void loadUserHistory(String baseUrl, String username) {
         try {
             String urlStr = baseUrl + "user/history?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-            String json = HttpSessionClient.get(urlStr);
+            String json = httpClient.get(urlStr);
             Map<String, Object> resp = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
             if (!"success".equals(resp.get("status"))) return;

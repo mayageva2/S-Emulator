@@ -24,6 +24,11 @@ public class ConnectedUsersTableController {
     private final Gson gson = new Gson();
     private String baseUrl = "http://localhost:8080/semulator/";
     private mainDashboardController dashboardController;
+    private HttpSessionClient httpClient = new HttpSessionClient();
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
@@ -57,7 +62,7 @@ public class ConnectedUsersTableController {
 
     public void refreshUsers() {
         try {
-            String json = HttpSessionClient.get(baseUrl + "user/list");
+            String json = httpClient.get(baseUrl + "user/list");
             Map<String, Object> response = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(response.get("status"))) return;
 
@@ -65,12 +70,12 @@ public class ConnectedUsersTableController {
             List<UserRow> rows = new ArrayList<>();
             for (Map<String, Object> u : users) {
                 rows.add(new UserRow(
-                        (String) u.get("username"),
-                        ((Number) u.get("mainPrograms")).intValue(),
-                        ((Number) u.get("functions")).intValue(),
-                        ((Number) u.get("credits")).intValue(),
-                        ((Number) u.get("usedCredits")).intValue(),
-                        ((Number) u.get("runs")).intValue()
+                        (String) u.getOrDefault("username", "Unknown"),
+                        toInt(u.get("mainPrograms")),
+                        toInt(u.get("functions")),
+                        toInt(u.get("credits")),
+                        toInt(u.get("usedCredits")),
+                        toInt(u.get("runs"))
                 ));
             }
 
@@ -96,4 +101,13 @@ public class ConnectedUsersTableController {
     public TableView<UserRow> getUsersTable() {
         return usersTable;
     }
+
+    private int toInt(Object obj) {
+        if (obj instanceof Number n) return n.intValue();
+        if (obj instanceof String s) {
+            try { return Integer.parseInt(s.trim()); } catch (NumberFormatException ignored) {}
+        }
+        return 0;
+    }
+
 }

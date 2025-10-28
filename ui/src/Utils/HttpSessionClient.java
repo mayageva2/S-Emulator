@@ -8,16 +8,18 @@ import java.nio.file.Path;
 import java.util.*;
 
 public class HttpSessionClient {
-    private static final Map<String, String> cookies = new HashMap<>();
+    private final Map<String, String> cookies = new HashMap<>();
+
+    // === PUBLIC API ===
 
     // GET
-    public static String get(String urlStr) throws IOException {
+    public String get(String urlStr) throws IOException {
         HttpURLConnection conn = openConnection(urlStr, "GET");
         return readResponse(conn);
     }
 
-    // POST
-    public static String post(String urlStr, String body, String contentType) throws IOException {
+    // POST (JSON / FORM)
+    public String post(String urlStr, String body, String contentType) throws IOException {
         HttpURLConnection conn = openConnection(urlStr, "POST");
         conn.setDoOutput(true);
         conn.setRequestProperty("Content-Type", contentType);
@@ -27,8 +29,8 @@ public class HttpSessionClient {
         return readResponse(conn);
     }
 
-    // MULTIPART POST
-    public static String postMultipart(String urlStr, Path file, String fieldName) throws IOException {
+    // MULTIPART POST (file upload)
+    public String postMultipart(String urlStr, Path file, String fieldName) throws IOException {
         String boundary = "Boundary" + System.currentTimeMillis();
         HttpURLConnection conn = openConnection(urlStr, "POST");
         conn.setDoOutput(true);
@@ -36,7 +38,8 @@ public class HttpSessionClient {
 
         try (OutputStream os = conn.getOutputStream()) {
             os.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
-            os.write(("Content-Disposition: form-data; name=\"" + fieldName + "\"; filename=\"" + file.getFileName() + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+            os.write(("Content-Disposition: form-data; name=\"" + fieldName + "\"; filename=\"" +
+                    file.getFileName() + "\"\r\n").getBytes(StandardCharsets.UTF_8));
             os.write("Content-Type: text/xml\r\n\r\n".getBytes(StandardCharsets.UTF_8));
             Files.copy(file, os);
             os.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
@@ -45,8 +48,9 @@ public class HttpSessionClient {
         return readResponse(conn);
     }
 
-    // HELPERS
-    private static HttpURLConnection openConnection(String urlStr, String method) throws IOException {
+    // === INTERNAL HELPERS ===
+
+    private HttpURLConnection openConnection(String urlStr, String method) throws IOException {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         applyCookies(conn);
@@ -54,15 +58,23 @@ public class HttpSessionClient {
         return conn;
     }
 
-    private static String readResponse(HttpURLConnection conn) throws IOException {
+    private String readResponse(HttpURLConnection conn) throws IOException {
         storeCookies(conn);
         try (InputStream in = conn.getInputStream()) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            InputStream err = conn.getErrorStream();
+            if (err != null) {
+                String errorBody = new String(err.readAllBytes(), StandardCharsets.UTF_8);
+                throw new IOException("Server error: " + errorBody);
+            }
+            throw e;
         }
     }
 
-    // COOKIES HELPERS
-    private static void applyCookies(URLConnection conn) {
+    // === COOKIES ===
+
+    private void applyCookies(URLConnection conn) {
         if (!cookies.isEmpty()) {
             String cookieHeader = cookies.entrySet().stream()
                     .map(e -> e.getKey() + "=" + e.getValue())
@@ -72,7 +84,7 @@ public class HttpSessionClient {
         }
     }
 
-    private static void storeCookies(URLConnection conn) {
+    private void storeCookies(URLConnection conn) {
         Map<String, List<String>> headers = conn.getHeaderFields();
         List<String> setCookies = headers.get("Set-Cookie");
         if (setCookies != null) {
@@ -86,7 +98,7 @@ public class HttpSessionClient {
         }
     }
 
-    public static String getSessionCookie() {
+    public String getSessionCookie() {
         if (cookies.isEmpty()) return "";
         return cookies.entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())

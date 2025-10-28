@@ -31,6 +31,11 @@ public class MainProgramsTableController {
     private String baseUrl = "http://localhost:8080/semulator/";
     private Timer refreshTimer;
     private Runnable onProgramSelected; // optional callback
+    private HttpSessionClient httpClient = new HttpSessionClient();
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
@@ -77,7 +82,7 @@ public class MainProgramsTableController {
 
     public void refreshPrograms() {
         try {
-            String json = HttpSessionClient.get(baseUrl + "programs/list");
+            String json = httpClient.get(baseUrl + "programs/list");
             Map<String, Object> resp = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(resp.get("status"))) return;
 

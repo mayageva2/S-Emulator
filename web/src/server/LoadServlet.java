@@ -4,8 +4,7 @@ import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.dto.LoadService;
 import emulator.api.dto.LoadResult;
-import emulator.logic.user.UserManager;
-import emulator.logic.user.User;
+import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -17,7 +16,6 @@ import java.util.Map;
 @WebServlet("/load")
 @MultipartConfig
 public class LoadServlet extends HttpServlet {
-    private final LoadService loadService = new LoadService();
     private final Gson gson = new Gson();
 
     @Override
@@ -25,6 +23,7 @@ public class LoadServlet extends HttpServlet {
         resp.setContentType("application/json;charset=UTF-8");
 
         try {
+            SessionUserBinder.bind(req.getSession());
             Part filePart = req.getPart("file");
             if (filePart == null) {
                 resp.getWriter().write(gson.toJson(Map.of(
@@ -34,16 +33,32 @@ public class LoadServlet extends HttpServlet {
                 return;
             }
 
-            EmulatorEngine engine = EngineHolder.getEngine();
-            String username = UserManager.getCurrentUser()
-                    .map(User::getUsername)
-                    .orElse("unknown");
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            UserDTO user = SessionUserManager.getUser(req.getSession());
+            String username = (user != null) ? user.getUsername() : "unknown";
+
+            var loadService = new LoadService(
+                    engine.getProgramService(),
+                    engine.getFunctionService(),
+                    new emulator.api.dto.ProgramStatsRepository()
+            );
 
             LoadResult result;
             try (InputStream fileStream = filePart.getInputStream()) {
                 result = loadService.loadFromStream(engine, fileStream, username);
             }
 
+            if (result != null) {
+                GlobalDataCenter.addProgram(
+                        result.programName(),
+                        username,
+                        result.instructionCount(),
+                        result.maxDegree()
+                );
+                ServerEventManager.broadcast("PROGRAM_UPLOADED");
+            }
+
+            SessionUserBinder.snapshotBack(req.getSession(), user);
             ServerEventManager.broadcast("PROGRAM_UPLOADED");
 
             resp.getWriter().write(gson.toJson(Map.of(

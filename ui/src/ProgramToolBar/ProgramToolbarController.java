@@ -1,5 +1,6 @@
 package ProgramToolBar;
 
+import Utils.HttpSessionClient;
 import emulator.api.dto.ProgramView;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -22,6 +23,7 @@ public class ProgramToolbarController {
     private Consumer<String> onHighlightChanged;
     private Consumer<String> onProgramSelected;
     private Consumer<Integer> onDegreeChanged;
+    private HttpSessionClient httpClient;
 
     public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
     public void setOnProgramSelected(Consumer<String> c) { this.onProgramSelected = c; }
@@ -37,6 +39,10 @@ public class ProgramToolbarController {
 
     public void setCollapseEnabled(boolean enabled) {
         if (CollapseButton != null) CollapseButton.setDisable(!enabled);
+    }
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
     }
 
     @FXML

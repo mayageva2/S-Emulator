@@ -28,6 +28,11 @@ public class StatisticsCommandsController {
     private static final String BASE_URL = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
     private Map<String, String> lastVarsSnapshot = Map.of();
+    private HttpSessionClient httpClient = new HttpSessionClient();
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     private ProgramToolbarController toolbarController;
     private MainExecutionController mainExecutionController;
@@ -73,7 +78,7 @@ public class StatisticsCommandsController {
                     URLEncoder.encode(rec.username(), StandardCharsets.UTF_8) +
                     "&runNumber=" + rec.runNumber();
 
-            String json = HttpSessionClient.get(url);
+            String json = httpClient.get(url);
             Map<String, Object> result = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
             if (!"success".equals(result.get("status"))) {

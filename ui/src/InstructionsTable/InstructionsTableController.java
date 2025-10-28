@@ -31,12 +31,17 @@ public class InstructionsTableController {
     @FXML private TableColumn<InstructionRow, String> instructionCol;
     @FXML private TableColumn<InstructionRow, String> architectureCol;
 
+    private HttpSessionClient httpClient;
     private Consumer<InstructionView> onRowSelected;
     private String highlightTerm = null;
     private int highlightedIndex = -1;
     private Function<String,String> fnNameResolver = s -> s; // identity default
     public void setFunctionNameResolver(java.util.function.Function<String,String> f) {
         this.fnNameResolver = (f != null) ? f : (s -> s);
+    }
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
     }
 
     @FXML
@@ -456,7 +461,7 @@ public class InstructionsTableController {
         new Thread(() -> {
             try {
                 String urlStr = "http://localhost:8080/semulator/view?degree=" + degree;
-                String json = HttpSessionClient.get(urlStr);
+                String json = httpClient.get(urlStr);
 
                 Gson gson = new Gson();
                 Map<String, Object> map = gson.fromJson(json, Map.class);

@@ -25,7 +25,7 @@ public class ClearHistoryServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineHolder.getEngine();
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
 
             if (!engine.hasProgramLoaded()) {
                 responseMap.put("status", "warning");

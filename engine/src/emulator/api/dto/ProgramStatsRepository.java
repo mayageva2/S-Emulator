@@ -4,13 +4,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ProgramStatsRepository {
-    private static final ProgramStatsRepository instance = new ProgramStatsRepository();
     private final Map<String, AvgData> averages = new ConcurrentHashMap<>();
 
-    // This func returns the instance
-    public static ProgramStatsRepository getInstance() {
-        return instance;
-    }
+    public ProgramStatsRepository() {}
 
     // This func updates the average cycles for a program
     public void updateAverage(String programName, long cycles) {

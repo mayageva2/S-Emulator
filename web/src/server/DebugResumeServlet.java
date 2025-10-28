@@ -3,7 +3,6 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
-import emulator.api.dto.UserService;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -25,7 +24,7 @@ public class DebugResumeServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineHolder.getEngine();
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
 
             if (!(engine instanceof EmulatorEngineImpl impl)) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

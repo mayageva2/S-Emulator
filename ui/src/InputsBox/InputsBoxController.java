@@ -1,5 +1,6 @@
 package InputsBox;
 
+import Utils.HttpSessionClient;
 import emulator.api.dto.ProgramView;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -20,6 +21,11 @@ public class InputsBoxController {
     private final List<String> inputNames = new ArrayList<>();
     private final Map<String, TextField> fieldsByName = new LinkedHashMap<>();
     private final BooleanProperty locked = new SimpleBooleanProperty(false);
+
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     @FXML
     private void initialize() {}

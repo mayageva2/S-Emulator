@@ -1,5 +1,6 @@
 package SelectedInstructionHistoryChainTable;
 
+import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
@@ -20,6 +21,11 @@ public class SelectedInstructionHistoryChainTableController {
     private Function<String, String> fnNameResolver = s -> s;
     public void setFunctionNameResolver(Function<String, String> f) {
         this.fnNameResolver = (f != null) ? f : (s -> s);
+    }
+
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
     }
 
     @FXML

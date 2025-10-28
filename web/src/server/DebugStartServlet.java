@@ -32,12 +32,12 @@ public class DebugStartServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineHolder.getEngine();
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
 
             if (engine == null) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 responseMap.put("status", "error");
-                responseMap.put("message", "Engine is null (EngineHolder not initialized)");
+                responseMap.put("message", "Engine is null");
                 writeJson(resp, responseMap);
                 return;
             }

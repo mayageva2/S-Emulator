@@ -45,6 +45,10 @@ public class RunButtonsController {
     private String currentProgram = "";
     private static final String BASE_URL = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     private DropShadow glow;
 
@@ -360,7 +364,7 @@ public class RunButtonsController {
     }
 
     private String httpPost(String urlStr, String body) throws Exception {
-        return HttpSessionClient.post(urlStr, body, "application/x-www-form-urlencoded; charset=UTF-8");
+        return httpClient.post(urlStr, body, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     private void alertError(String title, String msg) {
@@ -401,7 +405,7 @@ public class RunButtonsController {
     }
 
     private String httpPostJson(String urlStr, String json) throws Exception {
-        return HttpSessionClient.post(urlStr, json, "application/json; charset=UTF-8");
+        return httpClient.post(urlStr, json, "application/json; charset=UTF-8");
     }
 
     public void setMainController(MainExecutionController mainExecutionController) {

@@ -19,10 +19,7 @@ import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramCost;
-import emulator.logic.user.UserManager;
 import emulator.logic.xml.*;
-import jakarta.xml.bind.JAXBContext;
-import jakarta.xml.bind.Unmarshaller;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -61,8 +58,12 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final Map<String, List<Long>> functionCreditHistory = new HashMap<>();
     private final Map<String, Integer> runCountByProgram = new HashMap<>();
     private final Map<String, Double> avgCreditsByProgram = new HashMap<>();
-    private final UserService userService = UserService.getInstance();
+    private transient UserDTO sessionUser;
     private ArchitectureInfo lastArchitecture = new ArchitectureInfo("I", 5, "Basic architecture");
+    private final ProgramStatsRepository programStats = new ProgramStatsRepository();
+    private final ProgramService programService = new ProgramService(programStats);
+    private final FunctionService functionService = new FunctionService(programStats);
+    private final LoadService loadService = new LoadService(programService, functionService, programStats);
 
     // ----- DEBUG -----
     private transient Thread dbgThread;
@@ -79,6 +80,22 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private volatile Map<String,String> dbgVars = Map.of();
     private transient Program dbgProgram;
     private transient ProgramExecutor dbgExecutor;
+
+    public void setSessionUser(UserDTO user) {
+        this.sessionUser = user;
+    }
+
+    public FunctionService getFunctionService() {
+        return functionService;
+    }
+
+    public ProgramService getProgramService() {
+        return programService;
+    }
+
+    public UserDTO getSessionUser() {
+        return sessionUser;
+    }
 
     //This func validate degree bounds for a program
     private void validateDegree(Program p, int degree) {
@@ -168,7 +185,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     // This func checks if user has enough credits for run
     private void ensureEnoughArchCredits(String programName, ArchitectureInfo arch) {
-        long credits   = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
+        long credits   = (sessionUser != null) ? sessionUser.getCredits() : 0L;
         long archCost  = arch.cost();
         double avgCost = avgCreditsByProgram.getOrDefault(programName.toUpperCase(Locale.ROOT), 0.0);
         long required  = archCost + Math.round(avgCost);
@@ -183,9 +200,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     // This func estimates ProgramCost
     private int estimateAndCharge(Program target, int degree) {
         int estimated = new ProgramCost(quotationRegistry).cyclesAtDegree(target, degree);
-        if (!UserManager.charge(estimated)) {
+        if (sessionUser == null || sessionUser.getCredits() < estimated) {
             throw new IllegalStateException("Not enough credits (" + estimated + " cycles required)");
         }
+        sessionUser.setCredits(sessionUser.getCredits() - estimated);
         return estimated;
     }
 
@@ -307,10 +325,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     extractFunctionNames(pxml)
             );
 
-            LoadService.registerProgramType(current.getName(), "PROGRAM"); //setting type
+            loadService.registerProgramType(current.getName(), "PROGRAM"); //setting type
             for (String fn : result.functions()) {
                 if (!fn.equalsIgnoreCase(current.getName())) {
-                    LoadService.registerProgramType(fn, "FUNCTION");
+                    loadService.registerProgramType(fn, "FUNCTION");
                 }
             }
             return result;
@@ -430,10 +448,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         );
 
         // Register program and function types
-        LoadService.registerProgramType(current.getName(), "PROGRAM");
+        loadService.registerProgramType(current.getName(), "PROGRAM");
         for (String fn : result.functions()) {
             if (!fn.equalsIgnoreCase(current.getName())) {
-                LoadService.registerProgramType(fn, "FUNCTION");
+                loadService.registerProgramType(fn, "FUNCTION");
             }
         }
         return result;
@@ -462,7 +480,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return displayToInternal.getOrDefault(s, s);
     }
 
-    private static final ThreadLocal<Deque<Program>> CALL_STACK = ThreadLocal.withInitial(ArrayDeque::new);
+    private final ThreadLocal<Deque<Program>> CALL_STACK = ThreadLocal.withInitial(ArrayDeque::new);
 
     // This func creates a QuoteEvaluator used for evaluating QUOTE instructions
     private QuoteEvaluator makeQuoteEvaluator() {
@@ -645,7 +663,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         validateDegree(target, degree);
         ensureEnoughArchCredits(programName, arch);
 
-        UserManager.charge(arch.cost());
+        if (sessionUser == null || sessionUser.getCredits() < arch.cost()) {
+            throw new IllegalStateException("Not enough credits for architecture cost = " + arch.cost());
+        }
+        sessionUser.setCredits(sessionUser.getCredits() - arch.cost());
         this.lastArchitecture = arch;
 
         Program toRun = expandIfNeeded(target, degree);
@@ -695,10 +716,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     // This func creates a RunRecord object for the given run data
     private RunRecord createRunRecord(String programName, int degree, Long[] input, long y, int cycles,
                                       String arch, int nextRunNumber) {
-        String currentUser = UserManager.getCurrentUser()
-                .map(u -> u.getUsername())
-                .orElse("Unknown");
-        String programType = LoadService.getTypeForProgram(programName);
+        String currentUser = (sessionUser != null)
+                ? sessionUser.getUsername()
+                : "Unknown";
+        String programType = loadService.getTypeForProgram(programName);
 
         return new RunRecord(
                 currentUser,
@@ -748,14 +769,13 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             avgCreditsByProgram.put(canonical, newAvg);
             runCountByProgram.put(canonical, prevRuns + 1);
+            programStats.updateAverage(programName, cycles);
+            programService.recordRun(programName, cycles);
 
-            if (ProgramStatsRepository.getInstance() != null) {
-                ProgramStatsRepository.getInstance().updateAverage(programName, cycles);
+            if (sessionUser != null) {
+                long runs = sessionUser.getRunsCount() + 1;
+                sessionUser.setRunsCount(runs);
             }
-            if (ProgramService.getInstance() != null) {
-                ProgramService.getInstance().recordRun(programName, cycles);
-            }
-            userService.incrementRuns();
 
             System.out.println("recordRun(): Added run #" + nextRunNumber +
                     " for program=" + programName +
@@ -1148,7 +1168,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + maxDegree + ")");
         }
 
-        long credits = UserManager.getCurrentUser().map(u -> u.getCredits()).orElse(0L);
+        long credits = (sessionUser != null) ? sessionUser.getCredits() : 0L;
         long archCost = archInfo.cost();
         double avgCost = avgCreditsByProgram.getOrDefault(target.getName().toUpperCase(Locale.ROOT), 0.0);
         long totalRequired = archCost + Math.round(avgCost);
@@ -1161,7 +1181,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             );
         }
 
-        UserManager.charge(archCost);
+        if (sessionUser == null || sessionUser.getCredits() < archCost) {
+            throw new IllegalStateException("Not enough credits for architecture cost = " + archCost);
+        }
+        sessionUser.setCredits(sessionUser.getCredits() - archCost);
         Program toRun = (degree <= 0) ? target : programExpander.expandToDegree(target, degree);
 
         debugStopSafe();
@@ -1238,7 +1261,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                         .toList();
                 lastRunDegree = degree;
                 lastRunProgramName = target.getName();
-                userService.incrementRuns();
+                if (sessionUser != null) {
+                    long runs = sessionUser.getRunsCount() + 1;
+                    sessionUser.setRunsCount(runs);
+                }
                 recordRun(lastRunProgramName, degree, inputs, y, cycles, architectureInfo.name());
 
                 dbgVars = vars;

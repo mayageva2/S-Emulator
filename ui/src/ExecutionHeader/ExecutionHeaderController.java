@@ -19,6 +19,7 @@ public class ExecutionHeaderController {
     @FXML private Label lblCredits;
 
     private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private final HttpSessionClient httpClient = new HttpSessionClient();
 
     @FXML
     public void initialize() {
@@ -34,7 +35,7 @@ public class ExecutionHeaderController {
     private void updateUserHeader() {
         new Thread(() -> {
             try {
-                String json = HttpSessionClient.get(BASE_URL + "user/current");
+                String json = httpClient.get(BASE_URL + "user/current");
                 Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
                 if ("success".equals(map.get("status"))) {
                     Map<String, Object> user = (Map<String, Object>) map.get("user");

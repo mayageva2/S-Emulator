@@ -35,7 +35,7 @@ public class UserRunStatusServlet extends HttpServlet {
             }
 
             int runNumber = Integer.parseInt(runStr);
-            EmulatorEngine engine = EngineHolder.getEngine();
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
             if (engine == null) {
                 responseMap.put("status", "error");
                 responseMap.put("message", "Engine not initialized");

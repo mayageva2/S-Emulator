@@ -1,5 +1,6 @@
 package SummaryLine;
 
+import Utils.HttpSessionClient;
 import emulator.api.dto.InstructionView;
 import emulator.api.dto.ProgramView;
 import javafx.application.Platform;
@@ -19,6 +20,11 @@ public class SummaryLineController {
     @FXML private Label arch3Count;
     @FXML private Label arch4Count;
     @FXML private BorderPane root;
+
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     @FXML
     private void initialize() {

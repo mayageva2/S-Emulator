@@ -1,25 +1,34 @@
 package emulator.api.dto;
 
 import emulator.api.EmulatorEngine;
+import emulator.logic.user.UserService;
+
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.*;
 
 public class LoadService {
 
-    private final ProgramService programService = ProgramService.getInstance();
-    private final FunctionService functionService = FunctionService.getInstance();
+    private final ProgramService programService;
+    private final FunctionService functionService;
+    private final ProgramStatsRepository programStats;
     private final UserService userService = new UserService();
-    private static final Map<String, String> programTypes = new HashMap<>();
+    private final Map<String, String> programTypes = new HashMap<>();
+
+    public LoadService(ProgramService programService, FunctionService functionService, ProgramStatsRepository stats) {
+        this.programService = programService;
+        this.functionService = functionService;
+        this.programStats = stats;
+    }
 
     //This func returns the type of the file
-    public static String getTypeForProgram(String name) {
+    public String getTypeForProgram(String name) {
         if (name == null) return "PROGRAM";
         return programTypes.getOrDefault(name.toUpperCase(Locale.ROOT), "PROGRAM");
     }
 
     //This func registers a program or function type
-    public static void registerProgramType(String name, String type) {
+    public void registerProgramType(String name, String type) {
         if (name != null && type != null) {
             programTypes.put(name.toUpperCase(Locale.ROOT), type);
         }

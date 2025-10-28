@@ -4,14 +4,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class FunctionService {
-    private static final Map<String, FunctionInfo> functions = new ConcurrentHashMap<>();
-    private static final FunctionService instance = new FunctionService();
+    private final Map<String, FunctionInfo> functions = new ConcurrentHashMap<>();
+    private final ProgramStatsRepository programStats;
     private static final Map<String, Set<String>> programToFunctions = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> funcToFuncs       = new ConcurrentHashMap<>();
 
-    private FunctionService() {}
-
-    public static FunctionService getInstance() {return instance;}
+    public FunctionService(ProgramStatsRepository programStats) {
+        this.programStats = programStats;
+    }
 
     //This function adds a new function entry and links it to its parent program
     public void addFunction(String functionName, String programName, String username,
@@ -34,7 +34,7 @@ public class FunctionService {
     public List<FunctionInfo> getAllFunctions() {
         List<FunctionInfo> result = new ArrayList<>();
         for (FunctionInfo f : functions.values()) {
-            double avg = ProgramStatsRepository.getInstance().getAverage(f.functionName());
+            double avg = programStats.getAverage(f.functionName());
             result.add(new FunctionInfo(
                     f.functionName(),
                     f.programName(),

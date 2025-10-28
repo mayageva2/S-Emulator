@@ -28,10 +28,15 @@ public class FunctionsTableController {
     private final Gson gson = new Gson();
     private String baseUrl = "http://localhost:8080/semulator/";
     public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
+    private HttpSessionClient httpClient = new HttpSessionClient();
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     public void refreshFunctions() {
         try {
-            String json = HttpSessionClient.get(baseUrl + "functions");
+            String json = httpClient.get(baseUrl + "functions");
             Map<String, Object> resp = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(resp.get("status"))) return;
 

@@ -2,6 +2,7 @@ package goToDashboardButton;
 
 import Main.Dashboard.mainDashboardController;
 import Main.Execution.MainExecutionController;
+import Utils.HttpSessionClient;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -14,6 +15,11 @@ public class goToDashboardController {
     @FXML private Button btnGoToDashboard;
     private MainExecutionController parentController;
 
+    private HttpSessionClient httpClient;
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
+
     public void setParentController(MainExecutionController controller) {
         this.parentController = controller;
     }
@@ -25,7 +31,7 @@ public class goToDashboardController {
             Parent root = loader.load();
 
             mainDashboardController controller = loader.getController();
-            controller.initServerMode(parentController.getBaseUrl());
+            controller.initServerMode();
             controller.refreshAll();
 
             Stage stage = (Stage) btnGoToDashboard.getScene().getWindow();

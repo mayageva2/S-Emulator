@@ -42,8 +42,12 @@ public class HeaderAndLoadButtonController {
 
     private String baseUrl = "http://localhost:8080/semulator/";
     public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
-
+    private HttpSessionClient httpClient = new HttpSessionClient();
     private final Gson gson = new Gson();
+
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
 
     public record LoadedEvent(Path xmlPath, String programName, int maxDegree) {}
 
@@ -65,7 +69,7 @@ public class HeaderAndLoadButtonController {
 
     private void updateUserHeader() {
         try {
-            String json = HttpSessionClient.get(baseUrl + "user/current");
+            String json = httpClient.get(baseUrl + "user/current");
             Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
             if ("success".equals(map.get("status"))) {
@@ -153,7 +157,7 @@ public class HeaderAndLoadButtonController {
                 updateMessage("Uploading file...");
                 updateProgress(0.1, 1);
 
-                String json = HttpSessionClient.postMultipart(baseUrl + "load", xmlPath, "file");
+                String json = httpClient.postMultipart(baseUrl + "load", xmlPath, "file");
                 Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
                 if (!"success".equals(map.get("status"))) {
@@ -202,7 +206,7 @@ public class HeaderAndLoadButtonController {
     }
 
     private String httpPost(String urlStr, String formData) throws IOException {
-        return HttpSessionClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
+        return httpClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 
     public void setOnLoaded(Consumer<LoadedEvent> onLoaded) {

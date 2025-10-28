@@ -1,6 +1,7 @@
 package server;
 
 import com.google.gson.Gson;
+import emulator.api.EmulatorEngine;
 import emulator.api.dto.FunctionInfo;
 import emulator.api.dto.FunctionService;
 import jakarta.servlet.annotation.WebServlet;
@@ -13,13 +14,15 @@ import java.util.Map;
 @WebServlet("/functions")
 public class FunctionsServlet extends HttpServlet {
     private final Gson gson = new Gson();
-    private final FunctionService functionService = FunctionService.getInstance();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
         try {
+            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            FunctionService functionService = engine.getFunctionService();
+
             List<FunctionInfo> all = functionService.getAllFunctions();
             String json = gson.toJson(Map.of(
                     "status", "success",
