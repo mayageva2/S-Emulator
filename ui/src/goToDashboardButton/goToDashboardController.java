@@ -2,6 +2,7 @@ package goToDashboardButton;
 
 import Main.Dashboard.mainDashboardController;
 import Main.Execution.MainExecutionController;
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -9,20 +10,32 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
+
 import java.io.IOException;
 
 public class goToDashboardController {
     @FXML private Button btnGoToDashboard;
     private MainExecutionController parentController;
-    private String baseUrl = "http://localhost:8080/semulator/";
 
     private HttpSessionClient httpClient;
+    private String baseUrl;
+
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
 
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
     public void setParentController(MainExecutionController controller) {
         this.parentController = controller;
+    }
+
+    @FXML
+    public void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
     }
 
     @FXML
@@ -32,6 +45,7 @@ public class goToDashboardController {
             Parent root = loader.load();
 
             mainDashboardController controller = loader.getController();
+            controller.setHttpClient(httpClient);
             controller.initServerMode(baseUrl);
             controller.refreshAll();
 
@@ -46,5 +60,4 @@ public class goToDashboardController {
             System.err.println("Failed to load mainDashboard.fxml: " + e.getMessage());
         }
     }
-
 }

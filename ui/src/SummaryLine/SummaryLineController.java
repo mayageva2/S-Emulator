@@ -21,10 +21,19 @@ public class SummaryLineController {
     @FXML private Label arch4Count;
     @FXML private BorderPane root;
 
+    private String baseUrl = "http://localhost:8080/semulator/";
     private HttpSessionClient httpClient;
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
 
     @FXML
     private void initialize() {

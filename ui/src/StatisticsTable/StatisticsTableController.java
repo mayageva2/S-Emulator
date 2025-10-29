@@ -51,6 +51,15 @@ public class StatisticsTableController {
     public List<RunRecord> getCurrentHistory() { return currentHistory; }
     public TableView<?> getTableView() { return table; }
     private HttpSessionClient httpClient = new HttpSessionClient();
+    private String baseUrl = "http://localhost:8080/semulator/";
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
@@ -189,6 +198,11 @@ public class StatisticsTableController {
     }
 
     public void loadUserHistory(String baseUrl, String username) {
+        this.baseUrl = baseUrl;
+        loadUserHistory(username);
+    }
+
+    public void loadUserHistory(String username) {
         try {
             String urlStr = baseUrl + "user/history?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
             String json = httpClient.get(urlStr);

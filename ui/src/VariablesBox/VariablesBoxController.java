@@ -34,10 +34,20 @@ public class VariablesBoxController {
     private final ObservableSet<String> changedNow = FXCollections.observableSet();
     private static final String CHANGED_CSS_CLASS = "current-instruction";
 
+    private String baseUrl = "http://localhost:8080/semulator/";
     private HttpSessionClient httpClient;
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
 
     @FXML
     private void initialize() {

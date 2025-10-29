@@ -24,6 +24,16 @@ public class ProgramToolbarController {
     private Consumer<String> onProgramSelected;
     private Consumer<Integer> onDegreeChanged;
     private HttpSessionClient httpClient;
+    private String baseUrl;
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
 
     public void setOnJumpToDegree(Consumer<Integer> c) { this.onJumpToDegree = c; }
     public void setOnProgramSelected(Consumer<String> c) { this.onProgramSelected = c; }

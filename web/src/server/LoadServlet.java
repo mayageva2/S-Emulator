@@ -2,6 +2,7 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
+import emulator.api.dto.FunctionInfo;
 import emulator.api.dto.LoadService;
 import emulator.api.dto.LoadResult;
 import emulator.api.dto.UserDTO;
@@ -55,8 +56,17 @@ public class LoadServlet extends HttpServlet {
                         result.instructionCount(),
                         result.maxDegree()
                 );
+
+                for (String funcName : result.functions()) {
+                    FunctionInfo funcInfo = new FunctionInfo(funcName, result.programName(),
+                            username, 0, result.maxDegree(), 0.0
+                    );
+                    GlobalDataCenter.addFunction(funcInfo);
+                }
+
                 ServerEventManager.broadcast("PROGRAM_UPLOADED");
             }
+
 
             SessionUserBinder.snapshotBack(req.getSession(), user);
 

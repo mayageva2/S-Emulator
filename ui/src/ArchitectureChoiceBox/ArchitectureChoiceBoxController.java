@@ -1,5 +1,6 @@
 package ArchitectureChoiceBox;
 
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -18,12 +19,9 @@ public class ArchitectureChoiceBoxController {
 
     @FXML private ChoiceBox<Architecture> architectureChoiceBox;
 
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
-    private static final Gson gson = new Gson();
+    private final Gson gson = new Gson();
     private HttpSessionClient httpClient;
-    public void setHttpClient(HttpSessionClient client) {
-        this.httpClient = client;
-    }
+    private String baseUrl;
 
     private Consumer<Architecture> onArchitectureSelected;
     public void setOnArchitectureSelected(Consumer<Architecture> listener) {
@@ -33,8 +31,19 @@ public class ArchitectureChoiceBoxController {
     private static final Architecture PLACEHOLDER =
             new Architecture("__PLACEHOLDER__", 0, "Select Architecture…");
 
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
     @FXML
     public void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
+
         architectureChoiceBox.setConverter(new StringConverter<>() {
             @Override public String toString(Architecture a) {
                 if (a == null) return "";
@@ -64,7 +73,6 @@ public class ArchitectureChoiceBoxController {
                     return;
                 }
             }
-
             architectureChoiceBox.getSelectionModel().select(PLACEHOLDER);
             System.out.println("Architecture name not found → fallback to placeholder");
         });
@@ -73,7 +81,7 @@ public class ArchitectureChoiceBoxController {
     private void loadArchitecturesFromServer() {
         new Thread(() -> {
             try {
-                String url = BASE_URL + "architectures";
+                String url = baseUrl + "architectures";
                 String response = httpClient.get(url);
                 System.out.println("[architectures] response: " + response);
 
@@ -88,12 +96,10 @@ public class ArchitectureChoiceBoxController {
 
     private List<Architecture> parseArchitecturesResponse(String response) {
         if (response == null || response.isBlank()) return List.of();
-
         try {
             Type wrapperType = new TypeToken<Map<String, Object>>() {}.getType();
             Map<String, Object> wrapper = gson.fromJson(response, wrapperType);
             Object arr = wrapper.get("architectures");
-
             if (arr != null) {
                 String arrJson = gson.toJson(arr);
                 Type listType = new TypeToken<List<Architecture>>() {}.getType();

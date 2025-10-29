@@ -43,12 +43,21 @@ public class RunButtonsController {
 
     private int currentDegree = 0;
     private String currentProgram = "";
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private String baseUrl = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
     private HttpSessionClient httpClient;
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
 
     private DropShadow glow;
 
@@ -112,7 +121,7 @@ public class RunButtonsController {
             data.put("inputs", inputs);
 
             String json = gson.toJson(data);
-            String response = httpPostJson(BASE_URL + "run", json);
+            String response = httpPostJson(baseUrl + "run", json);
 
             Map<String, Object> outer = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(outer.get("status"))) {
@@ -219,7 +228,7 @@ public class RunButtonsController {
                     + "&degree=" + currentDegree
                     + "&architecture=" + URLEncoder.encode(architecture, StandardCharsets.UTF_8)
                     + "&inputs=" + Arrays.toString(inputs).replaceAll("[\\[\\]\\s]", "");
-            String response = httpPost(BASE_URL + "debug/start", formData);
+            String response = httpPost(baseUrl + "debug/start", formData);
             Map<String, Object> json = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(json.get("status"))) {
                 throw new RuntimeException(String.valueOf(json.get("message")));
@@ -268,7 +277,7 @@ public class RunButtonsController {
 
     private void handleDebugAction(String endpoint, String errorTitle) {
         try {
-            String response = httpPost(BASE_URL + endpoint, "");
+            String response = httpPost(baseUrl + endpoint, "");
             Map<String, Object> result = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
 
             String msg = String.valueOf(result.get("message"));

@@ -24,9 +24,18 @@ public class SelectedInstructionHistoryChainTableController {
     }
 
     private HttpSessionClient httpClient;
+    private String baseUrl;
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
 
     @FXML
     private void initialize() {}

@@ -1,6 +1,7 @@
 package FunctionsTable;
 
 import Main.Execution.MainExecutionController;
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -26,40 +27,22 @@ public class FunctionsTableController {
     @FXML private Button btnExecuteFunc;
 
     private final Gson gson = new Gson();
-    private String baseUrl = "http://localhost:8080/semulator/";
-    public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
-    private HttpSessionClient httpClient = new HttpSessionClient();
+    private HttpSessionClient httpClient;
+    private String baseUrl;
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
 
-    public void refreshFunctions() {
-        try {
-            String json = httpClient.get(baseUrl + "functions");
-            Map<String, Object> resp = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
-            if (!"success".equals(resp.get("status"))) return;
-
-            List<Map<String, Object>> funcs = (List<Map<String, Object>>) resp.get("functions");
-            List<FunctionRow> rows = new ArrayList<>();
-            for (Map<String, Object> f : funcs) {
-                rows.add(new FunctionRow(
-                        (String) f.get("functionName"),
-                        (String) f.get("programName"),
-                        (String) f.get("username"),
-                        ((Number) f.get("instructionCount")).intValue(),
-                        ((Number) f.get("maxDegree")).intValue()
-                ));
-            }
-            functionsTable.getItems().setAll(rows);
-
-        } catch (Exception e) {
-            System.err.println("Failed to refresh functions: " + e.getMessage());
-        }
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
     }
 
     @FXML
     private void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
+
         colFunction.setCellValueFactory(new PropertyValueFactory<>("functionName"));
         colProgram.setCellValueFactory(new PropertyValueFactory<>("programName"));
         colUser.setCellValueFactory(new PropertyValueFactory<>("username"));
@@ -92,6 +75,35 @@ public class FunctionsTableController {
         });
 
         refreshFunctions();
+    }
+
+    public void refreshFunctions() {
+        new Thread(() -> {
+            try {
+                String json = httpClient.get(baseUrl + "functions");
+                Map<String, Object> resp = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (!"success".equals(resp.get("status"))) return;
+
+                List<Map<String, Object>> funcs = (List<Map<String, Object>>) resp.get("functions");
+                List<FunctionRow> rows = new ArrayList<>();
+                for (Map<String, Object> f : funcs) {
+                    rows.add(new FunctionRow(
+                            (String) f.get("functionName"),
+                            (String) f.get("programName"),
+                            (String) f.get("username"),
+                            ((Number) f.get("instructionCount")).intValue(),
+                            ((Number) f.get("maxDegree")).intValue()
+                    ));
+                }
+
+                javafx.application.Platform.runLater(() -> {
+                    functionsTable.getItems().setAll(rows);
+                });
+
+            } catch (Exception e) {
+                System.err.println("Failed to refresh functions: " + e.getMessage());
+            }
+        }).start();
     }
 
     public void highlightFunctions(Set<String> functionNames) {

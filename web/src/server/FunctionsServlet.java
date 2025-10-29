@@ -19,60 +19,12 @@ public class FunctionsServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
-        resp.setCharacterEncoding("UTF-8");
-
-        Map<String, Object> response;
-
         try {
-            HttpSession session = req.getSession(false);
-            if (session == null) {
-                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response = Map.of(
-                        "status", "error",
-                        "message", "No active session"
-                );
-                resp.getWriter().write(gson.toJson(response));
-                return;
-            }
-
-            UserDTO user = SessionUserManager.getUser(session);
-            if (user == null) {
-                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response = Map.of(
-                        "status", "error",
-                        "message", "No user logged in for this session"
-                );
-                resp.getWriter().write(gson.toJson(response));
-                return;
-            }
-
-            EmulatorEngine engine = EngineSessionManager.getEngine(session);
-            if (engine == null) {
-                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                response = Map.of(
-                        "status", "error",
-                        "message", "No engine found for this session"
-                );
-                resp.getWriter().write(gson.toJson(response));
-                return;
-            }
-
-            FunctionService functionService = engine.getFunctionService();
-            List<FunctionInfo> all = functionService.getAllFunctions();
-
-            response = Map.of(
-                    "status", "success",
-                    "functions", all
-            );
-
+            List<emulator.api.dto.FunctionInfo> allFuncs = GlobalDataCenter.getFunctions();
+            resp.getWriter().write(gson.toJson(Map.of("status", "success", "functions", allFuncs)));
         } catch (Exception e) {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response = Map.of(
-                    "status", "error",
-                    "message", e.getMessage()
-            );
+            resp.getWriter().write(gson.toJson(Map.of("status", "error", "message", e.getMessage())));
         }
-
-        resp.getWriter().write(gson.toJson(response));
     }
 }
+

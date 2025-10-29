@@ -1,6 +1,7 @@
 package login;
 
 import Main.Dashboard.mainDashboardController;
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import emulator.api.dto.UserDTO;
@@ -12,9 +13,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
 
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -24,7 +23,7 @@ public class LoginController {
     @FXML private TextField usernameField;
     @FXML private Label errorLabel;
 
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private static final String DEFAULT_BASE_URL = "http://localhost:8080/semulator/";
     private final Gson gson = new Gson();
     private final HttpSessionClient httpClient = new HttpSessionClient();
 
@@ -38,9 +37,10 @@ public class LoginController {
 
         try {
             String formData = "username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-            String response = httpPost(BASE_URL + "user/login", formData);
-            Map<String, Object> map = gson.fromJson(response, Map.class);
+            String response = httpClient.post(DEFAULT_BASE_URL + "user/login", formData,
+                    "application/x-www-form-urlencoded; charset=UTF-8");
 
+            Map<String, Object> map = gson.fromJson(response, Map.class);
             if (!"success".equals(map.get("status"))) {
                 showError(String.valueOf(map.get("message")));
                 return;
@@ -48,8 +48,8 @@ public class LoginController {
 
             long credits = ((Number) map.get("credits")).longValue();
             UserDTO user = new UserDTO(username, credits);
-            Utils.ClientContext.init(httpClient, BASE_URL, user);
 
+            ClientContext.init(httpClient, DEFAULT_BASE_URL, user);
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();
             mainDashboardController main = loader.getController();
@@ -72,9 +72,5 @@ public class LoginController {
     private void showError(String msg) {
         errorLabel.setText(msg);
         errorLabel.setVisible(true);
-    }
-
-    private String httpPost(String urlStr, String formData) throws IOException {
-        return httpClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
     }
 }

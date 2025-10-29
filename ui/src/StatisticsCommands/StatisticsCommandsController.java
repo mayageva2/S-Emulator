@@ -25,13 +25,20 @@ public class StatisticsCommandsController {
 
     @FXML private Button showButton, rerunButton;
 
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private String baseUrl = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
     private Map<String, String> lastVarsSnapshot = Map.of();
     private HttpSessionClient httpClient = new HttpSessionClient();
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
+    }
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
     }
 
     private ProgramToolbarController toolbarController;
@@ -74,7 +81,7 @@ public class StatisticsCommandsController {
             }
 
             var rec = optRec.get();
-            String url = BASE_URL + "user/run/status?username=" +
+            String url = baseUrl + "user/run/status?username=" +
                     URLEncoder.encode(rec.username(), StandardCharsets.UTF_8) +
                     "&runNumber=" + rec.runNumber();
 

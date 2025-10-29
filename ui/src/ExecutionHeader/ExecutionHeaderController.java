@@ -1,5 +1,6 @@
 package ExecutionHeader;
 
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -7,9 +8,6 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -18,11 +16,14 @@ public class ExecutionHeaderController {
     @FXML private Label lblUsername;
     @FXML private Label lblCredits;
 
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
-    private final HttpSessionClient httpClient = new HttpSessionClient();
+    private HttpSessionClient httpClient;
+    private String baseUrl;
+    private final Gson gson = new Gson();
 
     @FXML
     public void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
         updateUserHeader();
 
         new Timer(true).scheduleAtFixedRate(new TimerTask() {
@@ -35,8 +36,8 @@ public class ExecutionHeaderController {
     private void updateUserHeader() {
         new Thread(() -> {
             try {
-                String json = httpClient.get(BASE_URL + "user/current");
-                Map<String, Object> map = new Gson().fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                String json = httpClient.get(baseUrl + "user/current");
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
                 if ("success".equals(map.get("status"))) {
                     Map<String, Object> user = (Map<String, Object>) map.get("user");
                     String username = (String) user.get("username");
@@ -47,17 +48,18 @@ public class ExecutionHeaderController {
                         lblCredits.setText("Available Credits: " + credits);
                     });
                 } else {
-                    Platform.runLater(() -> {
-                        lblUsername.setText("User: (none)");
-                        lblCredits.setText("Available Credits: —");
-                    });
+                    showNoUser();
                 }
             } catch (Exception e) {
-                Platform.runLater(() -> {
-                    lblUsername.setText("User: (none)");
-                    lblCredits.setText("Available Credits: —");
-                });
+                showNoUser();
             }
         }).start();
+    }
+
+    private void showNoUser() {
+        Platform.runLater(() -> {
+            lblUsername.setText("User: (none)");
+            lblCredits.setText("Available Credits: —");
+        });
     }
 }

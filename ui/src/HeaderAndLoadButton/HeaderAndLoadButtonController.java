@@ -1,5 +1,6 @@
 package HeaderAndLoadButton;
 
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -9,12 +10,10 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.FileChooser;
 
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.File;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Timer;
@@ -36,29 +35,40 @@ public class HeaderAndLoadButtonController {
     private String lastProgramName;
     private Consumer<LoadedEvent> onLoaded;
     private Runnable onProgramUploaded;
-    public void setOnProgramUploaded(Runnable onProgramUploaded) {
-        this.onProgramUploaded = onProgramUploaded;
-    }
+    private Runnable onCreditsChanged;
 
-    private String baseUrl = "http://localhost:8080/semulator/";
-    public void setBaseUrl(String baseUrl) {this.baseUrl = baseUrl;}
-    private HttpSessionClient httpClient = new HttpSessionClient();
+    private HttpSessionClient httpClient;
+    private String baseUrl;
     private final Gson gson = new Gson();
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
 
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
     public record LoadedEvent(Path xmlPath, String programName, int maxDegree) {}
+
+    public void setOnProgramUploaded(Runnable onProgramUploaded) {
+        this.onProgramUploaded = onProgramUploaded;
+    }
+
+    public void setOnCreditsChanged(Runnable onCreditsChanged) {
+        this.onCreditsChanged = onCreditsChanged;
+    }
 
     @FXML
     private void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
+
         assert xmlPathField != null;
         assert statusLabel != null;
         assert loadButton != null;
 
         updateUserHeader();
-
         Timer timer = new Timer(true);
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override public void run() {
@@ -68,27 +78,25 @@ public class HeaderAndLoadButtonController {
     }
 
     private void updateUserHeader() {
-        try {
-            String json = httpClient.get(baseUrl + "user/current");
-            Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+        new Thread(() -> {
+            try {
+                String json = httpClient.get(baseUrl + "user/current");
+                Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
 
-            if ("success".equals(map.get("status"))) {
-                Object userObj = map.get("user");
-                if (userObj instanceof Map<?, ?> user) {
+                if ("success".equals(map.get("status"))) {
+                    Map<String, Object> user = (Map<String, Object>) map.get("user");
                     String username = (String) user.get("username");
-
-                    Object creditsObj = user.get("credits");
-                    long credits = (creditsObj instanceof Number n) ? n.longValue() : 0L;
+                    long credits = ((Number) user.get("credits")).longValue();
 
                     Platform.runLater(() -> {
                         lblUsername.setText("User: " + username);
                         lblCredits.setText("Credits: " + credits);
                     });
                 }
+            } catch (Exception e) {
+                System.err.println("Failed to refresh user header: " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println("Failed to refresh user header: " + e.getMessage());
-        }
+        }).start();
     }
 
     @FXML
@@ -118,7 +126,7 @@ public class HeaderAndLoadButtonController {
             }
 
             String formData = "amount=" + URLEncoder.encode(String.valueOf(amount), StandardCharsets.UTF_8);
-            String response = httpPost(baseUrl + "user/charge", formData);
+            String response = httpClient.post(baseUrl + "user/charge", formData, "application/x-www-form-urlencoded; charset=UTF-8");
 
             Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>(){}.getType());
             if ("success".equals(map.get("status"))) {
@@ -133,15 +141,6 @@ public class HeaderAndLoadButtonController {
         } catch (Exception e) {
             showAlert("Connection failed: " + e.getMessage());
         }
-    }
-
-    private Runnable onCreditsChanged;
-    public void setOnCreditsChanged(Runnable onCreditsChanged) {
-        this.onCreditsChanged = onCreditsChanged;
-    }
-
-    private void showAlert(String msg) {
-        Platform.runLater(() -> new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK).showAndWait());
     }
 
     private void sendLoadRequest(Path xmlPath) {
@@ -173,11 +172,12 @@ public class HeaderAndLoadButtonController {
                     Object degObj = map.get("maxDegree");
                     if (degObj instanceof Number n) lastMaxDegree = n.intValue();
                     lastXmlPath = xmlPath;
+
                     if (onLoaded != null)
                         onLoaded.accept(new LoadedEvent(lastXmlPath, lastProgramName, lastMaxDegree));
-                    if (onProgramUploaded != null) {
+
+                    if (onProgramUploaded != null)
                         onProgramUploaded.run();
-                    }
                 });
 
                 updateProgress(1, 1);
@@ -205,8 +205,8 @@ public class HeaderAndLoadButtonController {
         new Thread(task).start();
     }
 
-    private String httpPost(String urlStr, String formData) throws IOException {
-        return httpClient.post(urlStr, formData, "application/x-www-form-urlencoded; charset=UTF-8");
+    private void showAlert(String msg) {
+        Platform.runLater(() -> new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK).showAndWait());
     }
 
     public void setOnLoaded(Consumer<LoadedEvent> onLoaded) {

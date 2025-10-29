@@ -49,7 +49,7 @@ public class MainExecutionController {
     @FXML private Region runButtons;
     @FXML private TextArea centerOutput;
 
-    private static final String BASE_URL = "http://localhost:8080/semulator/";
+    private String baseUrl = "http://localhost:8080/semulator/";
     private static final Gson gson = new Gson();
     private String currentProgram = null;
     private int currentDegree = 0;
@@ -66,12 +66,23 @@ public class MainExecutionController {
         if (toolbarController != null) toolbarController.setHttpClient(client);
         if (instructionsController != null) instructionsController.setHttpClient(client);
         if (summaryLineController != null) summaryLineController.setHttpClient(client);
-        if (historyChainController != null) historyChainController.setHttpClient(client);
+        if (summaryLineController != null) summaryLineController.setBaseUrl(baseUrl);
+        if (historyChainController != null) historyChainController.setBaseUrl(baseUrl);
         if (runButtonsController != null) runButtonsController.setHttpClient(client);
+        if (runButtonsController != null) runButtonsController.setBaseUrl(baseUrl);
         if (varsBoxController != null) varsBoxController.setHttpClient(client);
+        if (varsBoxController != null) varsBoxController.setBaseUrl(baseUrl);
         if (inputsBoxController != null) inputsBoxController.setHttpClient(client);
         if (architectureController != null) architectureController.setHttpClient(client);
         if (DashboardBtnController != null) DashboardBtnController.setHttpClient(client);
+    }
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+        return baseUrl;
     }
 
     @FXML
@@ -132,7 +143,7 @@ public class MainExecutionController {
 
     private void onProgramLoaded(HeaderAndLoadButtonController.LoadedEvent ev) {
         try {
-            String viewUrl = BASE_URL + "view?degree=0&program=" +
+            String viewUrl = baseUrl + "view?degree=0&program=" +
                     URLEncoder.encode(ev.programName(), StandardCharsets.UTF_8);
             String response = httpGet(viewUrl);
 
@@ -216,7 +227,7 @@ public class MainExecutionController {
     private String fetchProgramViewJson(int degree) throws Exception {
         String programParam = (currentProgram == null || currentProgram.equalsIgnoreCase("Main Program"))
                 ? "" : "&program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8);
-        String url = BASE_URL + "view?degree=" + degree + programParam;
+        String url = baseUrl + "view?degree=" + degree + programParam;
         return httpGet(url);
     }
 
@@ -441,7 +452,7 @@ public class MainExecutionController {
 
     public void refreshHistory() {
         try {
-            String histJson = httpGet(BASE_URL + "history");
+            String histJson = httpGet(baseUrl + "history");
             System.out.println("HISTORY RESPONSE: " + histJson);
 
             Map<String, Object> histMap = gson.fromJson(histJson, new TypeToken<Map<String, Object>>(){}.getType());
@@ -570,7 +581,7 @@ public class MainExecutionController {
 
         new Thread(() -> {
             try {
-                String viewUrl = BASE_URL + "view?degree=0&program=" +
+                String viewUrl = baseUrl + "view?degree=0&program=" +
                         URLEncoder.encode(programName, StandardCharsets.UTF_8);
                 String json = httpGet(viewUrl);
 
@@ -629,7 +640,7 @@ public class MainExecutionController {
     private void loadProgramFromServer(String programName) {
         new Thread(() -> {
             try {
-                String viewUrl = BASE_URL + "view?degree=0&program=" +
+                String viewUrl = baseUrl + "view?degree=0&program=" +
                         URLEncoder.encode(programName, StandardCharsets.UTF_8);
                 String json = httpGet(viewUrl);
 
@@ -680,7 +691,7 @@ public class MainExecutionController {
     private void loadProgramForRerun(String programName, String architectureName, int degree) {
         new Thread(() -> {
             try {
-                String viewUrl = BASE_URL + "view?degree=" + degree +
+                String viewUrl = baseUrl + "view?degree=" + degree +
                         "&program=" + URLEncoder.encode(programName, StandardCharsets.UTF_8);
                 String json = httpGet(viewUrl);
 
@@ -752,10 +763,6 @@ public class MainExecutionController {
                 System.err.println("DashboardBtnController is null — cannot trigger return.");
             }
         });
-    }
-
-    public String getBaseUrl() {
-        return BASE_URL;
     }
 
     private void checkArchitectureCompatibility(ArchitectureChoiceBoxController.Architecture selectedArch) {

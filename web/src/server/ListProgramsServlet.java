@@ -13,30 +13,13 @@ public class ListProgramsServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
+
         try {
             List<GlobalDataCenter.ProgramEntry> list = GlobalDataCenter.getPrograms();
-
-            List<Map<String, Object>> jsonList = new ArrayList<>();
-            for (var p : list) {
-                jsonList.add(Map.of(
-                        "programName", p.programName,
-                        "username", p.username,
-                        "instructionCount", p.instructionCount,
-                        "maxDegree", p.maxDegree,
-                        "runCount", 0,
-                        "avgCreditCost", 0
-                ));
-            }
-
-            resp.getWriter().write(gson.toJson(Map.of(
-                    "status", "success",
-                    "programs", jsonList
-            )));
+            resp.getWriter().write(gson.toJson(Map.of("status", "success", "programs", list)));
         } catch (Exception e) {
-            resp.getWriter().write(gson.toJson(Map.of(
-                    "status", "error",
-                    "message", e.getMessage()
-            )));
+            resp.getWriter().write(gson.toJson(Map.of("status", "error", "message", e.getMessage())));
         }
     }
 }
+

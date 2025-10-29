@@ -1,5 +1,6 @@
 package InputsBox;
 
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import emulator.api.dto.ProgramView;
 import javafx.beans.property.BooleanProperty;
@@ -9,7 +10,6 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
-import javafx.scene.input.InputEvent;
 import javafx.scene.layout.*;
 
 import java.util.*;
@@ -23,12 +23,15 @@ public class InputsBoxController {
     private final BooleanProperty locked = new SimpleBooleanProperty(false);
 
     private HttpSessionClient httpClient;
+
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
     }
 
     @FXML
-    private void initialize() {}
+    private void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+    }
 
     public void lockInputs()   { locked.set(true);  applyLockToFields(); }
     public void unlockInputs() { locked.set(false); applyLockToFields(); }
@@ -48,12 +51,7 @@ public class InputsBoxController {
             return;
         }
         List<String> inputs = pv.inputs();
-        if (inputs == null || inputs.isEmpty()) {
-            showNames(Collections.emptyList());
-        } else {
-            showNames(inputs);
-        }
-
+        showNames(inputs == null ? Collections.emptyList() : inputs);
     }
 
     public void showNames(List<String> names) {
@@ -77,7 +75,7 @@ public class InputsBoxController {
         for (String name : inputNames) {
             int idx = parseXIndex(name);
             if (idx <= 0) continue;
-            String raw = java.util.Optional.ofNullable(fieldsByName.get(name).getText()).orElse("").trim();
+            String raw = Optional.ofNullable(fieldsByName.get(name).getText()).orElse("").trim();
             long v = raw.isEmpty() ? 0L : Long.parseLong(raw);
             out[idx - 1] = v;
         }
@@ -127,14 +125,13 @@ public class InputsBoxController {
 
         for (int row = 0; row < names.size(); row++) {
             String name = names.get(row);
-
             Label nameLbl = new Label(names.get(row) + " =");
             TextField tf = new TextField();
             attachGuards(tf);
             fieldsByName.put(name, tf);
 
             grid.add(nameLbl, 0, row);
-            grid.add(tf,      1, row);
+            grid.add(tf, 1, row);
             GridPane.setHgrow(tf, Priority.ALWAYS);
         }
 
@@ -143,16 +140,7 @@ public class InputsBoxController {
     }
 
     private void attachGuards(TextField tf) {
-        // This formatter allows edits only when locked=false
-        tf.setTextFormatter(new javafx.scene.control.TextFormatter<String>(change -> {
-            return locked.get() ? null : change;
-        }));
-    }
-
-    private void makeEditable(TextField tf) {
-        tf.setDisable(false);
-        tf.setEditable(true);
-        tf.setTextFormatter(null);
+        tf.setTextFormatter(new TextFormatter<String>(change -> locked.get() ? null : change));
     }
 
     public void clearInputs() {
@@ -163,12 +151,12 @@ public class InputsBoxController {
         return new ArrayList<>(inputNames);
     }
 
-    public void setInputs(java.util.List<Long> inputs) {
-        if (inputs == null) inputs = java.util.List.of();
+    public void setInputs(List<Long> inputs) {
+        if (inputs == null) inputs = List.of();
 
         for (var entry : fieldsByName.entrySet()) {
             String name = entry.getKey();
-            javafx.scene.control.TextField tf = entry.getValue();
+            TextField tf = entry.getValue();
             if (tf == null) continue;
 
             int idx = parseXIndex(name);
@@ -185,13 +173,7 @@ public class InputsBoxController {
 
     public String collectInputsAsJson() {
         Long[] values = collectAsLongsOrThrow();
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < values.length; i++) {
-            sb.append(values[i]);
-            if (i < values.length - 1) sb.append(",");
-        }
-        sb.append("]");
-        return sb.toString();
+        return "[" + String.join(",", Arrays.stream(values).map(String::valueOf).toList()) + "]";
     }
 
     public Map<String, Long> collectInputsAsMap() {
@@ -218,9 +200,7 @@ public class InputsBoxController {
         for (String name : inputNames) {
             if (i >= prevValues.size()) break;
             TextField field = fieldsByName.get(name);
-            if (field != null) {
-                field.setText(prevValues.get(i));
-            }
+            if (field != null) field.setText(prevValues.get(i));
             i++;
         }
     }

@@ -7,6 +7,7 @@ import StatisticsCommands.StatisticsCommandsController;
 import StatisticsTable.StatisticsTableController;
 import MainProgramsTable.MainProgramsTableController;
 import FunctionsTable.FunctionsTableController;
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -34,14 +35,34 @@ public class mainDashboardController {
     private String baseUrl;
     private HttpSessionClient httpClient;
 
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    @FXML
+    private void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
+
+        if (httpClient == null || baseUrl == null) {
+            System.err.println("ClientContext not initialized yet. Make sure login completed successfully.");
+            return;
+        }
+
+        setHttpClient(httpClient);
+        Platform.runLater(this::safeInitAfterLoad);
+    }
+
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
-        headerController.setHttpClient(client);
-        connectedUsersController.setHttpClient(client);
-        statisticsController.setHttpClient(client);
-        mainProgramsController.setHttpClient(client);
-        functionsController.setHttpClient(client);
-        statisticsCommandsController.setHttpClient(client);
+        if (headerController != null) headerController.setHttpClient(client);
+        if (connectedUsersController != null) connectedUsersController.setHttpClient(client);
+        if (statisticsController != null) statisticsController.setHttpClient(client);
+        if (statisticsController != null) statisticsController.setBaseUrl(baseUrl);
+        if (mainProgramsController != null) mainProgramsController.setHttpClient(client);
+        if (functionsController != null) functionsController.setHttpClient(client);
+        if (statisticsCommandsController != null) statisticsCommandsController.setHttpClient(client);
+        if (statisticsCommandsController != null) statisticsCommandsController.setBaseUrl(baseUrl);
     }
 
     public void initServerMode(String baseUrl) {

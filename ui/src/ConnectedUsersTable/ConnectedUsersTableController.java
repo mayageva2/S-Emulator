@@ -1,6 +1,7 @@
 package ConnectedUsersTable;
 
 import Main.Dashboard.mainDashboardController;
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -22,9 +23,9 @@ public class ConnectedUsersTableController {
     @FXML private TableColumn<UserRow, Integer> colRuns;
 
     private final Gson gson = new Gson();
-    private String baseUrl = "http://localhost:8080/semulator/";
+    private HttpSessionClient httpClient;
+    private String baseUrl;
     private mainDashboardController dashboardController;
-    private HttpSessionClient httpClient = new HttpSessionClient();
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
@@ -40,6 +41,9 @@ public class ConnectedUsersTableController {
 
     @FXML
     private void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
+
         colUsername.setCellValueFactory(new PropertyValueFactory<>("username"));
         colMainPrograms.setCellValueFactory(new PropertyValueFactory<>("mainPrograms"));
         colFunctions.setCellValueFactory(new PropertyValueFactory<>("functions"));
@@ -109,5 +113,4 @@ public class ConnectedUsersTableController {
         }
         return 0;
     }
-
 }

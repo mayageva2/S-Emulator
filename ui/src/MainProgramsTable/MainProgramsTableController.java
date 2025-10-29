@@ -31,7 +31,7 @@ public class MainProgramsTableController {
     private String baseUrl = "http://localhost:8080/semulator/";
     private Timer refreshTimer;
     private Runnable onProgramSelected; // optional callback
-    private HttpSessionClient httpClient = new HttpSessionClient();
+    private HttpSessionClient httpClient;
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
@@ -121,6 +121,8 @@ public class MainProgramsTableController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController controller = loader.getController();
+            controller.setHttpClient(httpClient);
+            controller.setBaseUrl(baseUrl);
             controller.setProgramToExecute(selectedProgram.getProgramName());
 
             Stage stage = (Stage) btnExecuteProgram.getScene().getWindow();

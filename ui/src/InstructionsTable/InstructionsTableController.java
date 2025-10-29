@@ -1,5 +1,6 @@
 package InstructionsTable;
 
+import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import emulator.api.dto.InstructionView;
@@ -32,6 +33,7 @@ public class InstructionsTableController {
     @FXML private TableColumn<InstructionRow, String> architectureCol;
 
     private HttpSessionClient httpClient;
+    private String baseUrl;
     private Consumer<InstructionView> onRowSelected;
     private String highlightTerm = null;
     private int highlightedIndex = -1;
@@ -46,6 +48,9 @@ public class InstructionsTableController {
 
     @FXML
     private void initialize() {
+        this.httpClient = ClientContext.getHttpClient();
+        this.baseUrl = ClientContext.getBaseUrl();
+
         indexCol.setCellValueFactory(cd -> new ReadOnlyIntegerWrapper(cd.getValue().index + 1));
         typeCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().basic ? "B" : "S"));
         labelCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(ns(cd.getValue().label)));
@@ -460,8 +465,8 @@ public class InstructionsTableController {
     public void refreshFromServer(int degree) {
         new Thread(() -> {
             try {
-                String urlStr = "http://localhost:8080/semulator/view?degree=" + degree;
-                String json = httpClient.get(urlStr);
+                String url = baseUrl + "view?degree=" + degree;
+                String json = httpClient.get(url);
 
                 Gson gson = new Gson();
                 Map<String, Object> map = gson.fromJson(json, Map.class);
