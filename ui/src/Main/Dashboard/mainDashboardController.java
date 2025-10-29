@@ -31,10 +31,21 @@ public class mainDashboardController {
     @FXML private FunctionsTableController functionsController;
     @FXML private StatisticsCommandsController statisticsCommandsController;
 
-    private final String baseUrl = Utils.ClientContext.getBaseUrl();
-    private final HttpSessionClient httpClient = Utils.ClientContext.getHttpClient();
+    private String baseUrl;
+    private HttpSessionClient httpClient;
 
-    public void initServerMode() {
+    public void setHttpClient(HttpSessionClient client) {
+        this.httpClient = client;
+        headerController.setHttpClient(client);
+        connectedUsersController.setHttpClient(client);
+        statisticsController.setHttpClient(client);
+        mainProgramsController.setHttpClient(client);
+        functionsController.setHttpClient(client);
+        statisticsCommandsController.setHttpClient(client);
+    }
+
+    public void initServerMode(String baseUrl) {
+        this.baseUrl = baseUrl;
         Platform.runLater(this::safeInitAfterLoad);
     }
 

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.ArchitectureInfo;
+import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -22,22 +23,45 @@ public class DebugStartServlet extends HttpServlet {
             "IV", new ArchitectureInfo("IV", 1000, "Ultimate architecture")
     );
 
-
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No active session");
+                writeJson(resp, responseMap);
+                return;
+            }
 
+            UserDTO user = SessionUserManager.getUser(session);
+            if (user == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No user logged in for this session");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            EmulatorEngine engine = EngineSessionManager.getEngine(session);
             if (engine == null) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 responseMap.put("status", "error");
-                responseMap.put("message", "Engine is null");
+                responseMap.put("message", "No engine associated with this session");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            if (!(engine instanceof EmulatorEngineImpl impl)) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine is not EmulatorEngineImpl");
                 writeJson(resp, responseMap);
                 return;
             }
@@ -50,7 +74,6 @@ public class DebugStartServlet extends HttpServlet {
                 return;
             }
 
-            // Parse parameters
             String programName = req.getParameter("program");
             String degreeStr = req.getParameter("degree");
             String inputsStr = req.getParameter("inputs");
@@ -76,18 +99,9 @@ public class DebugStartServlet extends HttpServlet {
 
             Long[] inputs = parseInputs(inputsStr);
 
-            if (!(engine instanceof EmulatorEngineImpl impl)) {
-                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                responseMap.put("status", "error");
-                responseMap.put("message", "Engine is not EmulatorEngineImpl");
-                writeJson(resp, responseMap);
-                return;
-            }
-
-            if (programName == null || programName.isEmpty()) {
+            if (programName == null || programName.isBlank()) {
                 impl.debugStart(inputs, degree, arch);
-            }
-            else {
+            } else {
                 impl.debugStart(programName, inputs, degree, arch);
             }
 
@@ -113,12 +127,16 @@ public class DebugStartServlet extends HttpServlet {
                 responseMap.put("message", msg != null ? msg : "Unknown runtime error");
                 responseMap.put("errorType", "RUNTIME");
             }
+        } catch (Exception e) {
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            responseMap.put("status", "error");
+            responseMap.put("message", e.getMessage());
+            responseMap.put("exception", e.getClass().getSimpleName());
         }
 
         writeJson(resp, responseMap);
     }
 
-    // Parse CSV of inputs
     private Long[] parseInputs(String csv) {
         if (csv == null || csv.isBlank()) return new Long[0];
         return Arrays.stream(csv.split(","))
@@ -128,11 +146,9 @@ public class DebugStartServlet extends HttpServlet {
                 .toArray(Long[]::new);
     }
 
-    //Write JSON response to client
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
-        String json = gson.toJson(data);
         try (PrintWriter out = resp.getWriter()) {
-            out.write(json);
+            out.write(gson.toJson(data));
         }
     }
 }

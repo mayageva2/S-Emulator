@@ -8,6 +8,7 @@ import emulator.api.dto.RunResult;
 import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+
 import java.io.*;
 import java.util.*;
 
@@ -27,14 +28,48 @@ public class RunServlet extends HttpServlet {
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
-        Map<String, Object> responseMap = new LinkedHashMap<>();
+        Map<String, Object> response = new LinkedHashMap<>();
 
-        try {
+        try (PrintWriter out = resp.getWriter()) {
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.put("status", "error");
+                response.put("message", "No active session");
+                out.write(gson.toJson(response));
+                return;
+            }
+
+            UserDTO currentUser = SessionUserManager.getUser(session);
+            if (currentUser == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.put("status", "error");
+                response.put("message", "No user logged in");
+                out.write(gson.toJson(response));
+                return;
+            }
+
+            EmulatorEngine engine = EngineSessionManager.getEngine(session);
+            if (engine == null || !engine.hasProgramLoaded()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.put("status", "error");
+                response.put("message", "No program loaded for user: " + currentUser.getUsername());
+                out.write(gson.toJson(response));
+                return;
+            }
+
+            // === parse JSON body safely ===
             String body = new BufferedReader(new InputStreamReader(req.getInputStream()))
                     .lines().reduce("", (a, b) -> a + b);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> data = gson.fromJson(body, Map.class);
+            if (data == null) {
+                response.put("status", "error");
+                response.put("message", "Missing JSON body");
+                out.write(gson.toJson(response));
+                return;
+            }
 
             String program = (String) data.get("program");
             int degree = ((Double) data.getOrDefault("degree", 0.0)).intValue();
@@ -45,40 +80,39 @@ public class RunServlet extends HttpServlet {
             @SuppressWarnings("unchecked")
             List<Double> inputsD = (List<Double>) data.getOrDefault("inputs", List.of());
             Long[] inputs = inputsD.stream().map(Double::longValue).toArray(Long[]::new);
-            SessionUserBinder.bind(req.getSession());
-            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
-            RunResult result = ((EmulatorEngineImpl) engine).run(program, degree, archInfo, inputs);
-            UserDTO currentUser = SessionUserManager.getUser(req.getSession());
-            if (currentUser != null) {
-                SessionUserBinder.snapshotBack(req.getSession(), currentUser);
+
+            RunResult result;
+            try {
+                result = ((EmulatorEngineImpl) engine).run(program, degree, archInfo, inputs);
+            } catch (IllegalStateException ex) {
+                String msg = ex.getMessage();
+                response.put("status", "error");
+                response.put("message", msg);
+                response.put("errorType", msg.toLowerCase().contains("credits") ? "CREDITS" : "RUNTIME");
+                out.write(gson.toJson(response));
+                return;
             }
 
-            responseMap.put("status", "success");
-            responseMap.put("result", result);
-            responseMap.put("userCredits", currentUser != null ? currentUser.getCredits() : 0L);
+            UserDTO updatedUser = engine.getSessionUser();
+            if (updatedUser != null) {
+                SessionUserManager.setUser(session, updatedUser);
+                SessionUserBinder.snapshotBack(session, updatedUser);
+            }
+
+            response.put("status", "success");
+            response.put("result", result);
+            response.put("userCredits", updatedUser != null ? updatedUser.getCredits() : 0L);
 
             ServerEventManager.broadcast("PROGRAM_RUN");
-
-        } catch (IllegalStateException ex) {
-            String msg = ex.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not enough credits")) {
-                responseMap.put("status", "error");
-                responseMap.put("message", msg);
-                responseMap.put("errorType", "CREDITS");
-            } else {
-                responseMap.put("status", "error");
-                responseMap.put("message", msg != null ? msg : "Unknown runtime error");
-                responseMap.put("errorType", "RUNTIME");
-            }
+            out.write(gson.toJson(response));
 
         } catch (Exception e) {
             e.printStackTrace();
-            responseMap.put("status", "error");
-            responseMap.put("message", e.getMessage());
-        }
-
-        try (PrintWriter out = resp.getWriter()) {
-            out.print(gson.toJson(responseMap));
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            response.put("exception", e.getClass().getSimpleName());
+            resp.getWriter().write(gson.toJson(response));
         }
     }
 }

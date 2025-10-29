@@ -2,6 +2,7 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
+import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -25,7 +26,25 @@ public class ClearHistoryServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No active session");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            UserDTO user = SessionUserManager.getUser(session);
+            if (user == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No user logged in for this session");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            EmulatorEngine engine = EngineSessionManager.getEngine(session);
 
             if (!engine.hasProgramLoaded()) {
                 responseMap.put("status", "warning");
@@ -36,6 +55,7 @@ public class ClearHistoryServlet extends HttpServlet {
             }
 
             engine.clearHistory();
+            ServerEventManager.broadcast("HISTORY_CLEARED");
 
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -48,9 +68,8 @@ public class ClearHistoryServlet extends HttpServlet {
     }
 
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
-        String json = gson.toJson(data);
         try (PrintWriter out = resp.getWriter()) {
-            out.write(json);
+            out.write(gson.toJson(data));
         }
     }
 }

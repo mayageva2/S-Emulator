@@ -1,12 +1,8 @@
 package server;
 
 import com.google.gson.Gson;
-import emulator.api.EmulatorEngine;
-import emulator.api.dto.ProgramService;
-import emulator.api.dto.ProgramStats;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-
 import java.io.IOException;
 import java.util.*;
 
@@ -44,4 +40,3 @@ public class ListProgramsServlet extends HttpServlet {
         }
     }
 }
-

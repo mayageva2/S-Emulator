@@ -3,9 +3,8 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.*;
+
 import java.io.IOException;
 import java.util.Map;
 
@@ -21,14 +20,17 @@ public class CurrentUserServlet extends HttpServlet {
         if (currentUser == null) {
             resp.getWriter().write(gson.toJson(Map.of(
                     "status", "error",
-                    "message", "No user logged in"
+                    "message", "No active session"
             )));
             return;
         }
 
         resp.getWriter().write(gson.toJson(Map.of(
                 "status", "success",
-                "user", currentUser
+                "user", Map.of(
+                        "username", currentUser.getUsername(),
+                        "credits", currentUser.getCredits()
+                )
         )));
     }
 }

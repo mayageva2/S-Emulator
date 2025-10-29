@@ -93,6 +93,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         return programService;
     }
 
+    @Override
     public UserDTO getSessionUser() {
         return sessionUser;
     }

@@ -14,6 +14,7 @@ import java.io.IOException;
 public class goToDashboardController {
     @FXML private Button btnGoToDashboard;
     private MainExecutionController parentController;
+    private String baseUrl = "http://localhost:8080/semulator/";
 
     private HttpSessionClient httpClient;
     public void setHttpClient(HttpSessionClient client) {
@@ -31,7 +32,7 @@ public class goToDashboardController {
             Parent root = loader.load();
 
             mainDashboardController controller = loader.getController();
-            controller.initServerMode();
+            controller.initServerMode(baseUrl);
             controller.refreshAll();
 
             Stage stage = (Stage) btnGoToDashboard.getScene().getWindow();

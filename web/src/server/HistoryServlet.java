@@ -25,8 +25,18 @@ public class HistoryServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            UserDTO currentUser = SessionUserManager.getUser(req.getSession());
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No active session");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            UserDTO currentUser = SessionUserManager.getUser(session);
             if (currentUser == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 responseMap.put("status", "error");
                 responseMap.put("message", "No user logged in for this session");
                 writeJson(resp, responseMap);
@@ -35,9 +45,16 @@ public class HistoryServlet extends HttpServlet {
 
             String username = currentUser.getUsername();
 
-            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
-            List<RunRecord> allHistory = engine.history();
+            EmulatorEngine engine = EngineSessionManager.getEngine(session);
+            if (engine == null) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                responseMap.put("status", "error");
+                responseMap.put("message", "Engine not found for session");
+                writeJson(resp, responseMap);
+                return;
+            }
 
+            List<RunRecord> allHistory = engine.history();
             List<RunRecord> userHistory = new ArrayList<>();
             for (RunRecord r : allHistory) {
                 if (username.equalsIgnoreCase(r.username())) {
@@ -83,9 +100,8 @@ public class HistoryServlet extends HttpServlet {
     }
 
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
-        String json = gson.toJson(data);
         try (PrintWriter out = resp.getWriter()) {
-            out.write(json);
+            out.write(gson.toJson(data));
         }
     }
 }

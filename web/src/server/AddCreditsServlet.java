@@ -6,6 +6,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Map;
 
@@ -27,7 +28,14 @@ public class AddCreditsServlet extends HttpServlet {
                 return;
             }
 
-            UserDTO currentUser = SessionUserManager.getUser(req.getSession());
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                response = Map.of("status", "error", "message", "No active session");
+                resp.getWriter().write(gson.toJson(response));
+                return;
+            }
+
+            UserDTO currentUser = SessionUserManager.getUser(session);
             if (currentUser == null) {
                 response = Map.of("status", "error", "message", "No user logged in for this session");
                 resp.getWriter().write(gson.toJson(response));
@@ -37,13 +45,13 @@ public class AddCreditsServlet extends HttpServlet {
             long newCredits = currentUser.getCredits() + amount;
             UserDTO updatedUser = new UserDTO(currentUser.getUsername(), newCredits);
 
-            SessionUserManager.setUser(req.getSession(), updatedUser);
-            SessionUserBinder.snapshotBack(req.getSession(), updatedUser);
+            SessionUserManager.setUser(session, updatedUser);
             ServerEventManager.broadcast("USER_CREDITS_UPDATED");
 
             response = Map.of(
                     "status", "success",
-                    "credits", updatedUser.getCredits()
+                    "credits", updatedUser.getCredits(),
+                    "username", updatedUser.getUsername()
             );
 
         } catch (NumberFormatException e) {

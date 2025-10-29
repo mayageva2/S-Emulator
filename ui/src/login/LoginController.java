@@ -52,6 +52,8 @@ public class LoginController {
 
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();
+            mainDashboardController main = loader.getController();
+            main.setHttpClient(httpClient);
 
             Stage stage = (Stage) usernameField.getScene().getWindow();
             Scene scene = new Scene(root);

@@ -3,12 +3,13 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
+
 @WebServlet("/debug/step")
 public class DebugStepServlet extends HttpServlet {
 
@@ -22,12 +23,37 @@ public class DebugStepServlet extends HttpServlet {
         Map<String, Object> responseMap = new LinkedHashMap<>();
 
         try {
-            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No active session");
+                writeJson(resp, responseMap);
+                return;
+            }
 
+            UserDTO user = SessionUserManager.getUser(session);
+            if (user == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No user logged in for this session");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            EmulatorEngine engine = EngineSessionManager.getEngine(session);
             if (!(engine instanceof EmulatorEngineImpl impl)) {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 responseMap.put("status", "error");
                 responseMap.put("message", "Engine is not EmulatorEngineImpl");
+                writeJson(resp, responseMap);
+                return;
+            }
+
+            if (!engine.hasProgramLoaded()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                responseMap.put("status", "error");
+                responseMap.put("message", "No program loaded");
                 writeJson(resp, responseMap);
                 return;
             }
@@ -37,14 +63,6 @@ public class DebugStepServlet extends HttpServlet {
                 responseMap.put("status", "error");
                 responseMap.put("message", dbgError);
                 impl.clearDebugErrorMessage();
-                writeJson(resp, responseMap);
-                return;
-            }
-
-            if (!engine.hasProgramLoaded()) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                responseMap.put("status", "error");
-                responseMap.put("message", "No program loaded");
                 writeJson(resp, responseMap);
                 return;
             }
@@ -65,7 +83,6 @@ public class DebugStepServlet extends HttpServlet {
 
             while (System.currentTimeMillis() - start < 1000) {
                 Thread.sleep(20);
-
                 int newCycles = impl.debugCycles();
                 if (newCycles != oldCycles || impl.debugIsFinished()) {
                     finished = impl.debugIsFinished();
@@ -122,10 +139,8 @@ public class DebugStepServlet extends HttpServlet {
     }
 
     private void writeJson(HttpServletResponse resp, Map<String, Object> data) throws IOException {
-        String json = gson.toJson(data);
         try (PrintWriter out = resp.getWriter()) {
-            out.write(json);
+            out.write(gson.toJson(data));
         }
     }
 }
-

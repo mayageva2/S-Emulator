@@ -37,7 +37,7 @@ public class LoadServlet extends HttpServlet {
             UserDTO user = SessionUserManager.getUser(req.getSession());
             String username = (user != null) ? user.getUsername() : "unknown";
 
-            var loadService = new LoadService(
+            var loadService = new emulator.api.dto.LoadService(
                     engine.getProgramService(),
                     engine.getFunctionService(),
                     new emulator.api.dto.ProgramStatsRepository()
@@ -59,7 +59,6 @@ public class LoadServlet extends HttpServlet {
             }
 
             SessionUserBinder.snapshotBack(req.getSession(), user);
-            ServerEventManager.broadcast("PROGRAM_UPLOADED");
 
             resp.getWriter().write(gson.toJson(Map.of(
                     "status", "success",

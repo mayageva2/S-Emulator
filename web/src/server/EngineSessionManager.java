@@ -13,33 +13,46 @@ public class EngineSessionManager {
     private static final String ENGINE_KEY = "sessionEngine";
 
     public static EmulatorEngine getEngine(HttpSession session) {
-        String sessionId = session.getId();
-        synchronized (session) {
-            EmulatorEngine engine = engines.computeIfAbsent(sessionId, id -> new EmulatorEngineImpl());
-            UserDTO user = SessionUserManager.getUser(session);
+        if (session == null) return null;
 
+        String sessionId = session.getId();
+
+        synchronized (session) {
+            EmulatorEngine engine = (EmulatorEngine) session.getAttribute(ENGINE_KEY);
+            if (engine == null) {
+                engine = engines.get(sessionId);
+            }
+
+            if (engine == null) {
+                engine = new EmulatorEngineImpl();
+                engines.put(sessionId, engine);
+                session.setAttribute(ENGINE_KEY, engine);
+            }
+
+            UserDTO user = SessionUserManager.getUser(session);
             if (user != null) {
                 if (engine instanceof EmulatorEngineImpl impl) {
                     UserDTO existing = impl.getSessionUser();
+
                     if (existing == null || !existing.getUsername().equals(user.getUsername())) {
-                        engine = new EmulatorEngineImpl();
-                        engine.setSessionUser(user);
-                        engines.put(sessionId, engine);
-                        session.setAttribute(ENGINE_KEY, engine);
+                        impl.setSessionUser(user);
                     } else {
-                        engine.setSessionUser(user);
+                        impl.setSessionUser(user);
                     }
                 } else {
                     engine.setSessionUser(user);
                 }
             }
 
+            engines.put(sessionId, engine);
             session.setAttribute(ENGINE_KEY, engine);
+
             return engine;
         }
     }
 
     public static void clearEngine(HttpSession session) {
+        if (session == null) return;
         String sessionId = session.getId();
         engines.remove(sessionId);
         session.removeAttribute(ENGINE_KEY);

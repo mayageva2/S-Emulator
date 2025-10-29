@@ -12,6 +12,7 @@ import java.util.Map;
 
 public interface EmulatorEngine {
     void setSessionUser(UserDTO user);
+    UserDTO getSessionUser();
     // Returns the current program view
     ProgramView programView();
     ProgramView programView(int degree);
