@@ -5,6 +5,7 @@ import Utils.ClientContext;
 import Utils.HttpSessionClient;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableColumn;
@@ -62,6 +63,7 @@ public class ConnectedUsersTableController {
         }
 
         refreshUsers();
+        startAutoRefresh();
     }
 
     public void refreshUsers() {
@@ -112,5 +114,15 @@ public class ConnectedUsersTableController {
             try { return Integer.parseInt(s.trim()); } catch (NumberFormatException ignored) {}
         }
         return 0;
+    }
+
+    private void startAutoRefresh() {
+        Timer timer = new Timer(true);
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                Platform.runLater(() -> refreshUsers());
+            }
+        }, 3000, 3000);
     }
 }
