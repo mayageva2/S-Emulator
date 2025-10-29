@@ -36,8 +36,9 @@ public class ListUsersServlet extends HttpServlet {
             writeJson(resp, response);
             return;
         }
+
         activeUsers.put(session.getId(), user);
-        activeUsers.keySet().removeIf(id -> !session.getId().equals(id) && !session.isNew());
+        ServerState.addUser(session.getId(), user);
 
         response.put("status", "success");
         response.put("users", new ArrayList<>(activeUsers.values()));
