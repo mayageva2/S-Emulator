@@ -3,6 +3,7 @@ package emulator.api;
 import emulator.api.debug.DebugService;
 import emulator.api.dto.*;
 import emulator.exception.*;
+import emulator.logic.program.Program;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +30,7 @@ public interface EmulatorEngine {
     int lastRunDegree();
     String lastRunProgramName();
     List<String> extractInputVars(ProgramView pv);
+    void registerProgram(Program program);
 
     //History funcs
     List<RunRecord> history();

@@ -50,7 +50,23 @@ public class mainDashboardController {
         }
 
         setHttpClient(httpClient);
-        Platform.runLater(this::safeInitAfterLoad);
+        Platform.runLater(() -> {
+            if (ClientContext.isInitialized()) {
+                safeInitAfterLoad();
+            } else {
+                System.err.println("ClientContext not ready yet, delaying dashboard initialization...");
+                new Timer(true).schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        if (ClientContext.isInitialized()) {
+                            Platform.runLater(() -> safeInitAfterLoad());
+                            cancel();
+                        }
+                    }
+                }, 1000, 1000);
+            }
+        });
+
     }
 
     public void setHttpClient(HttpSessionClient client) {
@@ -110,11 +126,16 @@ public class mainDashboardController {
 
     public void onSystemEvent(String eventType) {
         try {
+            System.out.println("[Dashboard] Received event: " + eventType);
             switch (eventType) {
-                case "USER_LOGIN", "USER_LOGOUT" -> connectedUsersController.refreshUsers();
+                case "USER_LOGIN", "USER_LOGOUT" -> {
+                    connectedUsersController.refreshUsers();
+                    headerController.refreshUserHeader();
+                }
                 case "PROGRAM_UPLOADED" -> {
                     mainProgramsController.refreshPrograms();
                     functionsController.refreshFunctions();
+                    statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
                     connectedUsersController.refreshUsers();
                 }
                 case "PROGRAM_RUN" -> {
@@ -123,8 +144,6 @@ public class mainDashboardController {
                 }
                 default -> refreshAll();
             }
-            if (headerController != null)
-                headerController.refreshUserHeader();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -167,18 +186,45 @@ public class mainDashboardController {
     private void highlightFunctionsForProgram(String programName) {
         try {
             String encodedProgram = URLEncoder.encode(programName, StandardCharsets.UTF_8).replace("+", "%2B");
-            String json = httpClient .get(baseUrl + "relations/functions?program=" + encodedProgram);
-            Set<String> funcs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
-            functionsController.highlightFunctions(funcs);
-        } catch (Exception e) { e.printStackTrace(); }
+            String json = httpClient.get(baseUrl + "relations/functions?program=" + encodedProgram);
+            Gson gson = new Gson();
+            Map<String, Object> response = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+
+            if (!"success".equals(response.get("status"))) {
+                System.err.println("Server returned error: " + response.get("message"));
+                return;
+            }
+
+            List<String> funcs = (List<String>) response.get("functions");
+            if (funcs == null) funcs = List.of();
+            functionsController.highlightFunctions(new HashSet<>(funcs));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
+
 
     private void highlightProgramsForFunction(String functionName) {
         try {
-            String json = httpClient .get(baseUrl + "relations/programs?function=" + URLEncoder.encode(functionName, StandardCharsets.UTF_8));
-            Set<String> progs = new Gson().fromJson(json, new TypeToken<Set<String>>(){}.getType());
-            mainProgramsController.highlightPrograms(progs);
-        } catch (Exception e) { e.printStackTrace(); }
+            String json = httpClient.get(baseUrl + "relations/programs?function=" +
+                    URLEncoder.encode(functionName, StandardCharsets.UTF_8));
+
+            Gson gson = new Gson();
+            Map<String, Object> response = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+
+            if (!"success".equals(response.get("status"))) {
+                System.err.println("Server returned error: " + response.get("message"));
+                return;
+            }
+
+            List<String> programsList = (List<String>) response.get("programs");
+            if (programsList == null) programsList = List.of();
+            mainProgramsController.highlightPrograms(new HashSet<>(programsList));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void highlightRelatedFunctions(String functionName) {

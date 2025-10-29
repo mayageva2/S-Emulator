@@ -2,10 +2,7 @@ package server;
 
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
-import emulator.api.dto.FunctionInfo;
-import emulator.api.dto.LoadService;
-import emulator.api.dto.LoadResult;
-import emulator.api.dto.UserDTO;
+import emulator.api.dto.*;
 import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -38,10 +35,10 @@ public class LoadServlet extends HttpServlet {
             UserDTO user = SessionUserManager.getUser(req.getSession());
             String username = (user != null) ? user.getUsername() : "unknown";
 
-            var loadService = new emulator.api.dto.LoadService(
+            var loadService = new LoadService(
                     engine.getProgramService(),
                     engine.getFunctionService(),
-                    new emulator.api.dto.ProgramStatsRepository()
+                    new ProgramStatsRepository()
             );
 
             LoadResult result;
@@ -50,6 +47,7 @@ public class LoadServlet extends HttpServlet {
             }
 
             if (result != null) {
+                GlobalProgramRegistry.add(result.programName(), result.program());
                 GlobalDataCenter.addProgram(
                         result.programName(),
                         username,
@@ -64,9 +62,17 @@ public class LoadServlet extends HttpServlet {
                     GlobalDataCenter.addFunction(funcInfo);
                 }
 
+                ProgramStats loadedProgram = new ProgramStats(
+                        result.programName(),
+                        username,
+                        result.instructionCount(),
+                        result.maxDegree(),
+                        0, 0.0
+                );
+                ProgramRegistry.register(loadedProgram);
+
                 ServerEventManager.broadcast("PROGRAM_UPLOADED");
             }
-
 
             SessionUserBinder.snapshotBack(req.getSession(), user);
 

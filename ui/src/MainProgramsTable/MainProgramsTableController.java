@@ -35,6 +35,9 @@ public class MainProgramsTableController {
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
+        if (client != null) {
+            refreshPrograms();
+        }
     }
 
     public void setBaseUrl(String baseUrl) {
@@ -77,7 +80,7 @@ public class MainProgramsTableController {
             programsTable.getStyleClass().add("instructions");
         }
 
-        refreshPrograms();
+     /*   refreshPrograms();*/
     }
 
     public void refreshPrograms() {

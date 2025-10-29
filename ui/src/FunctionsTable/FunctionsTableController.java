@@ -133,6 +133,9 @@ public class FunctionsTableController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController controller = loader.getController();
+
+            controller.setHttpClient(httpClient);
+            controller.setBaseUrl(baseUrl);
             controller.setProgramToExecute(selected.getFunctionName());
 
             Stage stage = (Stage) btnExecuteFunc.getScene().getWindow();

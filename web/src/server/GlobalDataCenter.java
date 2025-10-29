@@ -1,6 +1,8 @@
 package server;
 
 import emulator.api.dto.FunctionInfo;
+import emulator.logic.program.Program;
+
 import java.util.*;
 
 public class GlobalDataCenter {
@@ -28,6 +30,7 @@ public class GlobalDataCenter {
     // === Shared global collections ===
     private static final List<ProgramEntry> programs = Collections.synchronizedList(new ArrayList<>());
     private static final List<FunctionInfo> functions = Collections.synchronizedList(new ArrayList<>());
+    private static final Map<String, Program> programObjects = Collections.synchronizedMap(new HashMap<>());
 
     // === Programs ===
     public static void addProgram(String programName, String username, int instructionCount, int maxDegree) {
@@ -39,6 +42,26 @@ public class GlobalDataCenter {
             } else {
                 System.out.println("[GlobalDataCenter] Program already exists: " + programName);
             }
+        }
+    }
+
+    public static void addProgramObject(String programName, Program program) {
+        if (program == null || programName == null) return;
+        synchronized (programObjects) {
+            programObjects.put(programName, program);
+            System.out.println("[GlobalDataCenter] Stored Program object: " + programName);
+        }
+    }
+
+    public static Program getProgramAsObject(String programName) {
+        synchronized (programObjects) {
+            return programObjects.get(programName);
+        }
+    }
+
+    public static boolean hasProgramObject(String programName) {
+        synchronized (programObjects) {
+            return programObjects.containsKey(programName);
         }
     }
 
@@ -70,6 +93,9 @@ public class GlobalDataCenter {
         }
         synchronized (functions) {
             functions.clear();
+        }
+        synchronized (programObjects) {
+            programObjects.clear();
         }
     }
 }

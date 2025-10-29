@@ -49,11 +49,14 @@ public class LoginController {
             long credits = ((Number) map.get("credits")).longValue();
             UserDTO user = new UserDTO(username, credits);
 
+            ClientContext.setHttpClient(httpClient);
+            ClientContext.setBaseUrl(DEFAULT_BASE_URL);
             ClientContext.init(httpClient, DEFAULT_BASE_URL, user);
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Dashboard/mainDashboard.fxml"));
             Parent root = loader.load();
             mainDashboardController main = loader.getController();
             main.setHttpClient(httpClient);
+            main.setBaseUrl(DEFAULT_BASE_URL);
 
             Stage stage = (Stage) usernameField.getScene().getWindow();
             Scene scene = new Scene(root);

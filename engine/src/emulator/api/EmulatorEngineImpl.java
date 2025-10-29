@@ -43,7 +43,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private transient ProgramExpander programExpander = new ProgramExpander();
     private transient Expander expander = new Expander();
     private static final long serialVersionUID = 1L;
-    private final Map<String, Program> functionLibrary = new HashMap<>();
+    private Map<String, Program> functionLibrary = new HashMap<>();
     private final Map<String, Program> functionsOnly   = new HashMap<>();
     private final Map<String, String> fnDisplayMap = new HashMap<>();
     private transient QuotationRegistry quotationRegistry = new MapBackedQuotationRegistry(functionLibrary);
@@ -96,6 +96,18 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public UserDTO getSessionUser() {
         return sessionUser;
+    }
+
+    @Override
+    public void registerProgram(Program program) {
+        if (program == null) return;
+        if (current == null) current = program;
+        if (functionLibrary == null) functionLibrary = new HashMap<>();
+
+        functionLibrary.put(program.getName().toUpperCase(Locale.ROOT), program);
+        this.lastViewProgram = program;
+
+        System.out.println("[EmulatorEngineImpl] Registered program: " + program.getName());
     }
 
     //This func validate degree bounds for a program
@@ -301,6 +313,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             emulator.exception.MissingLabelException,
             emulator.exception.ProgramException,
             java.io.IOException {
+
         try {
             String xmlContent = new String(xmlStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             XmlProgramReader reader = new XmlProgramReader();
@@ -323,15 +336,17 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     current.getName(),
                     current.getInstructions().size(),
                     current.calculateMaxDegree(),
-                    extractFunctionNames(pxml)
+                    extractFunctionNames(pxml),
+                    current
             );
 
-            loadService.registerProgramType(current.getName(), "PROGRAM"); //setting type
+            loadService.registerProgramType(current.getName(), "PROGRAM"); // setting type
             for (String fn : result.functions()) {
                 if (!fn.equalsIgnoreCase(current.getName())) {
                     loadService.registerProgramType(fn, "FUNCTION");
                 }
             }
+
             return result;
 
         } catch (emulator.exception.ProgramException | java.io.IOException e) {
@@ -428,9 +443,11 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func creates the LoadResult object
     private LoadResult finalizeLoad(ProgramXml pxml, ProgressListener listener) {
         listener.onProgress("Building program...", 0.85);
+
         this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
         this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
         functionLibrary.put(this.current.getName().toUpperCase(ROOT), this.current);
+
         this.lastViewProgram = null;
         this.history.clear();
         this.historyByProgram.clear();
@@ -440,21 +457,21 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         this.lastRunDegree = 0;
         this.lastRunProgramName = null;
 
-        // Create result
         LoadResult result = new LoadResult(
                 current.getName(),
                 current.getInstructions().size(),
                 current.calculateMaxDegree(),
-                extractFunctionNames(pxml)
+                extractFunctionNames(pxml),
+                current
         );
 
-        // Register program and function types
         loadService.registerProgramType(current.getName(), "PROGRAM");
         for (String fn : result.functions()) {
             if (!fn.equalsIgnoreCase(current.getName())) {
                 loadService.registerProgramType(fn, "FUNCTION");
             }
         }
+
         return result;
     }
 
