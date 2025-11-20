@@ -31,6 +31,7 @@ public interface EmulatorEngine {
     String lastRunProgramName();
     List<String> extractInputVars(ProgramView pv);
     void registerProgram(Program program);
+    Map<String, FunctionInfo> getFunctionStats();
 
     //History funcs
     List<RunRecord> history();

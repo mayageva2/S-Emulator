@@ -22,6 +22,7 @@ import emulator.logic.program.ProgramCost;
 import emulator.logic.xml.*;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -64,6 +65,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     private final ProgramService programService = new ProgramService(programStats);
     private final FunctionService functionService = new FunctionService(programStats);
     private final LoadService loadService = new LoadService(programService, functionService, programStats);
+    Map<String, FunctionInfo> functionStats = new HashMap<>();
 
     // ----- DEBUG -----
     private transient Thread dbgThread;
@@ -92,6 +94,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     public ProgramService getProgramService() {
         return programService;
     }
+
+    public Map<String, FunctionInfo> getFunctionStats() { return functionStats; }
 
     @Override
     public UserDTO getSessionUser() {
@@ -295,7 +299,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func returns last run inputs
     @Override
     public List<Long> lastRunInputs() {
-        return (lastRunInputs == null) ? java.util.List.of() : java.util.List.copyOf(lastRunInputs);
+        return (lastRunInputs == null) ? List.of() : List.copyOf(lastRunInputs);
     }
 
     //GETTERS
@@ -305,24 +309,23 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func loads a program from stream
     @Override
     public LoadResult loadProgramFromStream(InputStream xmlStream)
-            throws emulator.exception.XmlWrongExtensionException,
-            emulator.exception.XmlNotFoundException,
-            emulator.exception.XmlReadException,
-            emulator.exception.XmlInvalidContentException,
-            emulator.exception.InvalidInstructionException,
-            emulator.exception.MissingLabelException,
-            emulator.exception.ProgramException,
-            java.io.IOException {
+            throws XmlWrongExtensionException,
+            XmlNotFoundException,
+            XmlReadException,
+            XmlInvalidContentException,
+            InvalidInstructionException,
+            MissingLabelException,
+            ProgramException,
+            IOException {
 
         try {
-            String xmlContent = new String(xmlStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String xmlContent = new String(xmlStream.readAllBytes(), StandardCharsets.UTF_8);
             XmlProgramReader reader = new XmlProgramReader();
             ProgramXml pxml = reader.readFromString(xmlContent);
 
             this.current = XmlToObjects.toProgram(pxml, quotationRegistry, makeQuoteEvaluator());
             this.executor = new ProgramExecutorImpl(this.current, makeQuoteEvaluator());
-            functionLibrary.put(this.current.getName().toUpperCase(java.util.Locale.ROOT), this.current);
-
+            functionLibrary.put(this.current.getName().toUpperCase(Locale.ROOT), this.current);
             this.lastViewProgram = null;
             this.history.clear();
             this.historyByProgram.clear();
@@ -332,6 +335,35 @@ public class EmulatorEngineImpl implements EmulatorEngine {
             this.lastRunDegree = 0;
             this.lastRunProgramName = null;
 
+            functionStats.clear();
+            String user = (sessionUser != null ? sessionUser.getUsername() : "Unknown");
+
+            if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
+
+                for (FunctionXml fxml : pxml.getFunctions().getFunctions()) {
+
+                    int instructionCount =
+                            (fxml.getInstructions() != null &&
+                                    fxml.getInstructions().getInstructions() != null)
+                                    ? fxml.getInstructions().getInstructions().size()
+                                    : 0;
+
+                    int maxDegree = computeMaxDegree(fxml);
+
+                    functionStats.put(
+                            fxml.getName(),
+                            new FunctionInfo(
+                                    fxml.getName(),
+                                    pxml.getName(),
+                                    user,
+                                    instructionCount,
+                                    maxDegree,
+                                    0.0
+                            )
+                    );
+                }
+            }
+
             LoadResult result = new LoadResult(
                     current.getName(),
                     current.getInstructions().size(),
@@ -340,7 +372,7 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     current
             );
 
-            loadService.registerProgramType(current.getName(), "PROGRAM"); // setting type
+            loadService.registerProgramType(current.getName(), "PROGRAM");
             for (String fn : result.functions()) {
                 if (!fn.equalsIgnoreCase(current.getName())) {
                     loadService.registerProgramType(fn, "FUNCTION");
@@ -349,13 +381,48 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             return result;
 
-        } catch (emulator.exception.ProgramException | java.io.IOException e) {
+        } catch (ProgramException | IOException e) {
             throw e;
+
         } catch (Exception e) {
-            throw new emulator.exception.ProgramException(
+            throw new ProgramException(
                     "Unexpected error while loading program from stream",
                     e.getMessage()
             );
+        }
+    }
+
+    private int computeMaxDegree(FunctionXml fxml) {
+
+        try {
+            // Build a fully valid Program object
+            Program func = XmlToObjects.toFunctionProgram(
+                    fxml,
+                    quotationRegistry,
+                    makeQuoteEvaluator()
+            );
+
+            ProgramExpander expander = new ProgramExpander();
+
+            int deg = 0;
+            Program prev = func;
+
+            while (true) {
+                Program next = expander.expandOnce(prev);
+
+                if (next.getInstructions().size() == prev.getInstructions().size()) {
+                    // No more expansion possible
+                    break;
+                }
+                deg++;
+                prev = next;
+            }
+
+            return deg;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
         }
     }
 

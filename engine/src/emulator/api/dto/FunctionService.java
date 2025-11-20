@@ -7,7 +7,7 @@ public class FunctionService {
     private final Map<String, FunctionInfo> functions = new ConcurrentHashMap<>();
     private final ProgramStatsRepository programStats;
     private static final Map<String, Set<String>> programToFunctions = new ConcurrentHashMap<>();
-    private static final Map<String, Set<String>> funcToFuncs       = new ConcurrentHashMap<>();
+    private static final Map<String, Set<String>> funcToFuncs = new ConcurrentHashMap<>();
 
     public FunctionService(ProgramStatsRepository programStats) {
         this.programStats = programStats;

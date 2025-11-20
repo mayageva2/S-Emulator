@@ -297,4 +297,29 @@ public final class XmlToObjects {
         }
         throw new InvalidInstructionException(opcode, "Illegal label: " + s + (errCtx == null ? "" : " (" + errCtx + ")"), index);
     }
+
+    public static Program toFunctionProgram(
+            FunctionXml fxml,
+            QuotationRegistry registry,
+            QuoteEvaluator qeval
+    ) throws Exception {
+
+        Objects.requireNonNull(fxml, "fxml");
+
+        ProgramImpl program = new ProgramImpl(fxml.getName());
+        List<InstructionXml> list = (fxml.getInstructions() == null) ?
+                List.of() : fxml.getInstructions().getInstructions();
+
+        int idx = 0;
+        for (InstructionXml ix : list) {
+            idx++;
+            Instruction ins = toInstruction(ix, idx, program, registry, qeval);
+            program.addInstruction(ins);
+        }
+
+        // register this function in registry
+        registry.putProgram(program.getName().toUpperCase(Locale.ROOT), program);
+
+        return program;
+    }
 }
