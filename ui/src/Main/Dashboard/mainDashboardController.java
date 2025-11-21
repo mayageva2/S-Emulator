@@ -50,6 +50,7 @@ public class mainDashboardController {
         }
 
         setHttpClient(httpClient);
+        setBaseUrl(baseUrl);
         Platform.runLater(() -> {
             if (ClientContext.isInitialized()) {
                 safeInitAfterLoad();
@@ -97,10 +98,16 @@ public class mainDashboardController {
             statisticsCommandsController.setStatisticsTableController(statisticsController);
             statisticsCommandsController.setDashboardController(this);
         }
-        if (mainProgramsController != null)
+        if (mainProgramsController != null) {
             mainProgramsController.setBaseUrl(baseUrl);
-        if (functionsController != null)
+            mainProgramsController.setHttpClient(httpClient);
+            mainProgramsController.refreshPrograms();
+        }
+        if (functionsController != null) {
             functionsController.setBaseUrl(baseUrl);
+            functionsController.setHttpClient(httpClient);
+            functionsController.refreshFunctions();
+        }
 
         startEventListener();
         setupSelectionListener();

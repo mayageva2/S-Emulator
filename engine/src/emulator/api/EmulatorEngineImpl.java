@@ -19,6 +19,8 @@ import emulator.logic.instruction.quote.QuoteUtils;
 import emulator.logic.label.Label;
 import emulator.logic.program.Program;
 import emulator.logic.program.ProgramCost;
+//import emulator.logic.program.ProgramDeepCopyFactory;
+import emulator.logic.program.ProgramImpl;
 import emulator.logic.xml.*;
 
 import java.io.*;
@@ -96,6 +98,22 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     }
 
     public Map<String, FunctionInfo> getFunctionStats() { return functionStats; }
+
+  /*  @Override
+    public void setProgramFromGlobal(Program program, String programName) {
+        if (program == null) {
+            this.current = null;
+            this.lastViewProgram = null;
+            this.executor = null;
+            return;
+        }
+
+        ProgramImpl cloned = ProgramDeepCopyFactory.copyProgram((ProgramImpl) program);
+        this.current = cloned;
+        this.lastViewProgram = cloned;
+        this.executor = new ProgramExecutorImpl(cloned, makeQuoteEvaluator());
+        System.out.println("[Engine] Loaded program from GlobalDataCenter: " + programName);
+    }*/
 
     @Override
     public UserDTO getSessionUser() {
@@ -1469,4 +1487,5 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         historyByProgram.clear();
         runCountersByProgram.clear();
     }
+
 }

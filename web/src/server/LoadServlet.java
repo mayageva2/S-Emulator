@@ -32,6 +32,7 @@ public class LoadServlet extends HttpServlet {
             }
 
             EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
+            Map<String, FunctionInfo> stats = engine.getFunctionStats();
             UserDTO user = SessionUserManager.getUser(req.getSession());
             String username = (user != null) ? user.getUsername() : "unknown";
 
@@ -56,10 +57,12 @@ public class LoadServlet extends HttpServlet {
                 );
 
                 for (String funcName : result.functions()) {
-                    FunctionInfo funcInfo = new FunctionInfo(funcName, result.programName(),
-                            username, 0, result.maxDegree(), 0.0
-                    );
-                    GlobalDataCenter.addFunction(funcInfo);
+                    FunctionInfo info = stats.get(funcName);
+                    if (info == null) {
+                        info = new FunctionInfo(funcName, result.programName(),
+                                username, 0, 0, 0.0);
+                    }
+                    GlobalDataCenter.addFunction(info);
                 }
 
                 ProgramStats loadedProgram = new ProgramStats(

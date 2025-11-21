@@ -32,6 +32,7 @@ public interface EmulatorEngine {
     List<String> extractInputVars(ProgramView pv);
     void registerProgram(Program program);
     Map<String, FunctionInfo> getFunctionStats();
+//    public void setProgramFromGlobal(Program program, String programName);
 
     //History funcs
     List<RunRecord> history();

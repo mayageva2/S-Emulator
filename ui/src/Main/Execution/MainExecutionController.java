@@ -59,6 +59,66 @@ public class MainExecutionController {
     private String selectedFunctionName = null;
     private String predefinedInputsCsv = null;
     private HttpSessionClient httpClient;
+    private String forcedProgramName = null;
+    private String forcedFunctionName = null;
+
+    public void setProgram(String programName) {
+        this.forcedProgramName = programName;
+    }
+
+    public void setSelectedFunction(String functionName) {
+        this.forcedFunctionName = functionName;
+    }
+
+    public void loadProgramAndSelectFunction() {
+        if (forcedProgramName == null) {
+            showError("No program name provided");
+            return;
+        }
+
+        this.currentProgram = forcedProgramName;
+        this.loadedProgramName = forcedProgramName;
+
+        new Thread(() -> {
+            try {
+                String viewUrl = baseUrl + "view?degree=0&program=" +
+                        URLEncoder.encode(forcedProgramName, StandardCharsets.UTF_8);
+                String json = httpGet(viewUrl);
+
+                Map<String, Object> map = gson.fromJson(json,
+                        new TypeToken<Map<String, Object>>(){}.getType());
+
+                if (!"success".equals(map.get("status"))) {
+                    showError("Failed to load program: " + map.get("message"));
+                    return;
+                }
+
+                Map<String, Object> program = (Map<String, Object>) map.get("program");
+                if (program == null) {
+                    showError("Empty program data");
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    updateProgramDegrees(program);
+                    updateInputsBox(program);
+                    renderInstructions(program);
+                    updateToolbarHighlights(program);
+                    updateToolbarPrograms(program);
+                    updateSummaryLine(program);
+
+                    if (runButtonsController != null) {
+                        runButtonsController.setCurrentProgram(forcedProgramName);
+                        runButtonsController.setCurrentDegree(0);
+                        runButtonsController.enableRunButtonsAfterLoad();
+                    }
+                });
+
+            } catch (Exception e) {
+                showError("Failed to load program: " + e.getMessage());
+            }
+        }).start();
+    }
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
@@ -586,6 +646,11 @@ public class MainExecutionController {
                 String json = httpGet(viewUrl);
 
                 Map<String, Object> map = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
+                if (map == null) {
+                    showError("Invalid response from server");
+                    return;
+                }
+
                 if (!"success".equals(map.get("status"))) {
                     showError("Failed to load program view: " + map.get("message"));
                     return;
