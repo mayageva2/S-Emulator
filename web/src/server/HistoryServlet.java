@@ -43,7 +43,12 @@ public class HistoryServlet extends HttpServlet {
                 return;
             }
 
-            String username = currentUser.getUsername();
+            String username = req.getParameter("username");
+
+            // If no username was explicitly requested then use current session user
+            if (username == null || username.isBlank()) {
+                username = currentUser.getUsername();
+            }
 
             EmulatorEngine engine = EngineSessionManager.getEngine(session);
             if (engine == null) {
@@ -54,21 +59,7 @@ public class HistoryServlet extends HttpServlet {
                 return;
             }
 
-            List<RunRecord> allHistory = engine.history();
-            List<RunRecord> userHistory = new ArrayList<>();
-            for (RunRecord r : allHistory) {
-                if (username.equalsIgnoreCase(r.username())) {
-                    userHistory.add(r);
-                }
-            }
-
-            if (userHistory.isEmpty()) {
-                responseMap.put("status", "success");
-                responseMap.put("runs", Collections.emptyList());
-                responseMap.put("message", "No runs recorded yet for user: " + username);
-                writeJson(resp, responseMap);
-                return;
-            }
+            List<RunRecord> userHistory = GlobalHistoryCenter.getHistory(username);
 
             List<Map<String, Object>> runs = new ArrayList<>();
             for (RunRecord r : userHistory) {

@@ -1503,4 +1503,8 @@ public class EmulatorEngineImpl implements EmulatorEngine {
         runCountersByProgram.clear();
     }
 
+    public RunRecord lastRunRecord() {
+        return history().isEmpty() ? null : history().get(history().size() - 1);
+    }
+
 }

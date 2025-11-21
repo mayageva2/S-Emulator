@@ -34,6 +34,7 @@ public class mainDashboardController {
 
     private String baseUrl;
     private HttpSessionClient httpClient;
+    private boolean lockedOnSelectedUser = false;
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
@@ -159,10 +160,13 @@ public class mainDashboardController {
     private void setupSelectionListener() {
         connectedUsersController.getUsersTable().getSelectionModel()
                 .selectedItemProperty().addListener((obs, oldSel, newSel) -> {
-                    if (newSel != null)
+                    if (newSel != null) {
+                        lockedOnSelectedUser = true;
                         statisticsController.loadUserHistory(baseUrl, newSel.getUsername());
-                    else
+                    } else {
+                        lockedOnSelectedUser = false;
                         statisticsController.loadUserHistory(baseUrl, getCurrentUsername());
+                    }
                 });
 
         mainProgramsController.getProgramsTable().getSelectionModel()

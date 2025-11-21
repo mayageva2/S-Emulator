@@ -27,6 +27,7 @@ public class ConnectedUsersTableController {
     private HttpSessionClient httpClient;
     private String baseUrl;
     private mainDashboardController dashboardController;
+    private boolean selectionLocked = false;
 
     public void setHttpClient(HttpSessionClient client) {
         this.httpClient = client;
@@ -56,6 +57,12 @@ public class ConnectedUsersTableController {
         for (var col : usersTable.getColumns()) col.setSortable(false);
         usersTable.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
 
+        usersTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+            if (newSel != null) {
+                selectionLocked = true;
+            }
+        });
+
         var css = getClass().getResource("/InstructionsTable/InstructionTable.css");
         if (css != null) {
             usersTable.getStylesheets().add(css.toExternalForm());
@@ -68,6 +75,7 @@ public class ConnectedUsersTableController {
 
     public void refreshUsers() {
         try {
+            if (selectionLocked) return;
             String json = httpClient.get(baseUrl + "user/list");
             Map<String, Object> response = gson.fromJson(json, new TypeToken<Map<String, Object>>(){}.getType());
             if (!"success".equals(response.get("status"))) return;
@@ -94,6 +102,7 @@ public class ConnectedUsersTableController {
 
     @FXML
     private void onUnselectUserClicked() {
+        selectionLocked = false;
         usersTable.getSelectionModel().clearSelection();
 
         if (dashboardController != null) {

@@ -3,6 +3,7 @@ package server;
 import com.google.gson.Gson;
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.RunRecord;
 import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -114,6 +115,8 @@ public class DebugStepServlet extends HttpServlet {
                         vars,
                         cycles
                 );
+                RunRecord rec = impl.lastRunRecord();
+                GlobalHistoryCenter.addRecord(user.getUsername(), rec);
                 ServerEventManager.broadcast("PROGRAM_RUN");
             }
 
