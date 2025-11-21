@@ -5,6 +5,7 @@ import emulator.api.EmulatorEngine;
 import emulator.api.dto.FunctionService;
 import emulator.api.dto.ProgramService;
 import emulator.api.dto.UserDTO;
+import emulator.global.GlobalRelationsCenter;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -73,7 +74,7 @@ public class RelationsServlet extends HttpServlet {
                 }
 
                 program = URLDecoder.decode(program, StandardCharsets.UTF_8);
-                Set<String> funcs = functionService.getFunctionsByProgram(program);
+                Set<String> funcs = GlobalRelationsCenter.getFunctionsByProgram(program);
 
                 response.put("status", "success");
                 response.put("program", program);
@@ -94,7 +95,7 @@ public class RelationsServlet extends HttpServlet {
                 }
 
                 func = URLDecoder.decode(func, StandardCharsets.UTF_8);
-                Set<String> progs = functionService.getProgramsUsingFunction(func);
+                Set<String> progs = GlobalRelationsCenter.getProgramsUsingFunction(func);
 
                 response.put("status", "success");
                 response.put("function", func);
@@ -115,7 +116,7 @@ public class RelationsServlet extends HttpServlet {
                 }
 
                 func = URLDecoder.decode(func, StandardCharsets.UTF_8);
-                Set<String> related = functionService.getRelatedFunctions(func);
+                Set<String> related = GlobalRelationsCenter.getRelatedFunctions(func);
 
                 response.put("status", "success");
                 response.put("function", func);

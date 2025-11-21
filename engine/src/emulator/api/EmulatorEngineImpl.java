@@ -4,6 +4,7 @@ import emulator.api.debug.DebugRecord;
 import emulator.api.debug.DebugService;
 import emulator.api.dto.*;
 import emulator.exception.*;
+import emulator.global.GlobalRelationsCenter;
 import emulator.logic.compose.Composer;
 import emulator.logic.debug.EngineDebugAdapter;
 import emulator.logic.execution.ProgramExecutor;
@@ -355,10 +356,10 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
             functionStats.clear();
             String user = (sessionUser != null ? sessionUser.getUsername() : "Unknown");
-
             if (pxml.getFunctions() != null && pxml.getFunctions().getFunctions() != null) {
 
-                for (FunctionXml fxml : pxml.getFunctions().getFunctions()) {
+                List<FunctionXml> funcs = pxml.getFunctions().getFunctions();
+                for (FunctionXml fxml : funcs) {
 
                     int instructionCount =
                             (fxml.getInstructions() != null &&
@@ -367,7 +368,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                                     : 0;
 
                     int maxDegree = computeMaxDegree(fxml);
-
                     functionStats.put(
                             fxml.getName(),
                             new FunctionInfo(
@@ -379,6 +379,22 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                                     0.0
                             )
                     );
+
+                    GlobalRelationsCenter.addFunctionToProgram(
+                            pxml.getName(),
+                            fxml.getName()
+                    );
+                }
+
+                for (int i = 0; i < funcs.size(); i++) {
+                    for (int j = 0; j < funcs.size(); j++) {
+                        if (i != j) {
+                            GlobalRelationsCenter.addRelatedFunction(
+                                    funcs.get(i).getName(),
+                                    funcs.get(j).getName()
+                            );
+                        }
+                    }
                 }
             }
 
@@ -396,7 +412,6 @@ public class EmulatorEngineImpl implements EmulatorEngine {
                     loadService.registerProgramType(fn, "FUNCTION");
                 }
             }
-
             return result;
 
         } catch (ProgramException | IOException e) {
