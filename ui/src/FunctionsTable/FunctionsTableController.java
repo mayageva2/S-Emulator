@@ -136,7 +136,10 @@ public class FunctionsTableController {
 
             controller.setHttpClient(httpClient);
             controller.setBaseUrl(baseUrl);
-            controller.setProgramToExecute(selected.getFunctionName());
+
+            controller.setProgram(selected.getProgramName());
+            controller.setSelectedFunction(selected.getFunctionName());
+            controller.loadProgramAndSelectFunction();
 
             Stage stage = (Stage) btnExecuteFunc.getScene().getWindow();
             Scene scene = new Scene(root);

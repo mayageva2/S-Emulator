@@ -84,6 +84,8 @@ public class MainExecutionController {
                 String viewUrl = baseUrl + "view?degree=0&program=" +
                         URLEncoder.encode(forcedProgramName, StandardCharsets.UTF_8);
                 String json = httpGet(viewUrl);
+                System.out.println("TEST 0");
+                System.out.println(json);
 
                 Map<String, Object> map = gson.fromJson(json,
                         new TypeToken<Map<String, Object>>(){}.getType());
@@ -99,18 +101,45 @@ public class MainExecutionController {
                     return;
                 }
 
+                Map<String, Object> targetData = program;
+                String targetName = forcedProgramName;
+
+                if (forcedFunctionName != null && !forcedFunctionName.isEmpty()) {
+                    Map<String, Object> allFunctions = (Map<String, Object>) program.get("functions");
+
+                    System.out.println("TEST 1");
+                    System.out.println("allFunctions: " + allFunctions);
+
+                    if (allFunctions != null && allFunctions.containsKey(forcedFunctionName)) {
+                        targetData = (Map<String, Object>) allFunctions.get(forcedFunctionName);
+                        targetName = forcedFunctionName;
+                        System.out.println("TEST 2");
+                        System.out.println("targetName: " + targetName);
+                        System.out.println("targetData: " + targetData);
+                    }
+                }
+
+                final Map<String, Object> finalTargetData = targetData;
+                final String finalTargetName = targetName;
+
                 Platform.runLater(() -> {
-                    updateProgramDegrees(program);
-                    updateInputsBox(program);
-                    renderInstructions(program);
-                    updateToolbarHighlights(program);
-                    updateToolbarPrograms(program);
-                    updateSummaryLine(program);
+                    updateProgramDegrees(finalTargetData);
+                    updateToolbarPrograms(finalTargetData);
+                    updateInputsBox(finalTargetData);
+                    renderInstructions(finalTargetData);
+                    updateToolbarHighlights(finalTargetData);
+                    updateSummaryLine(finalTargetData);
 
                     if (runButtonsController != null) {
-                        runButtonsController.setCurrentProgram(forcedProgramName);
+                        runButtonsController.setCurrentProgram(finalTargetName);
                         runButtonsController.setCurrentDegree(0);
                         runButtonsController.enableRunButtonsAfterLoad();
+                    }
+
+                    if (toolbarController != null) {
+                        toolbarController.bindDegree(currentDegree, maxDegree);
+                        toolbarController.setHighlightEnabled(true);
+                        toolbarController.setDegreeButtonEnabled(true);
                     }
                 });
 

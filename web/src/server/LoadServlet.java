@@ -7,6 +7,7 @@ import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class LoadServlet extends HttpServlet {
                 return;
             }
 
+            // Get engine + user
             EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
             Map<String, FunctionInfo> stats = engine.getFunctionStats();
             UserDTO user = SessionUserManager.getUser(req.getSession());
@@ -42,13 +44,20 @@ public class LoadServlet extends HttpServlet {
                     new ProgramStatsRepository()
             );
 
-            LoadResult result;
+            // === 1) Read raw file bytes once ===
+            byte[] fileBytes;
             try (InputStream fileStream = filePart.getInputStream()) {
-                result = loadService.loadFromStream(engine, fileStream, username);
+                fileBytes = fileStream.readAllBytes();
+            }
+
+            // === 2) Load into THIS user's engine ===
+            LoadResult result;
+            try (InputStream reloadStream = new ByteArrayInputStream(fileBytes)) {
+                result = loadService.loadFromStream(engine, reloadStream, username);
             }
 
             if (result != null) {
-                GlobalProgramRegistry.add(result.programName(), result.program());
+                // === 3) Save program metadata ===
                 GlobalDataCenter.addProgram(
                         result.programName(),
                         username,
@@ -56,6 +65,10 @@ public class LoadServlet extends HttpServlet {
                         result.maxDegree()
                 );
 
+                // === 4) Save XML file globally for all users ===
+                GlobalDataCenter.storeProgramFile(result.programName(), fileBytes);
+
+                // === 5) Store functions ===
                 for (String funcName : result.functions()) {
                     FunctionInfo info = stats.get(funcName);
                     if (info == null) {
@@ -65,6 +78,7 @@ public class LoadServlet extends HttpServlet {
                     GlobalDataCenter.addFunction(info);
                 }
 
+                // === 6) Update program stats ===
                 ProgramStats loadedProgram = new ProgramStats(
                         result.programName(),
                         username,

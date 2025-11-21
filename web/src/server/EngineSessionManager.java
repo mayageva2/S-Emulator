@@ -2,6 +2,7 @@ package server;
 
 import emulator.api.EmulatorEngine;
 import emulator.api.EmulatorEngineImpl;
+import emulator.api.dto.FunctionInfo;
 import emulator.api.dto.UserDTO;
 import jakarta.servlet.http.HttpSession;
 
@@ -25,6 +26,21 @@ public class EngineSessionManager {
 
             if (engine == null) {
                 engine = new EmulatorEngineImpl();
+
+                var allFuncs = GlobalDataCenter.getFunctions();
+                if (allFuncs != null) {
+                    for (FunctionInfo f : allFuncs) {
+                        engine.getFunctionService().addFunction(
+                                f.functionName(),
+                                f.programName(),
+                                f.username(),
+                                f.instructionCount(),
+                                f.maxDegree(),
+                                0
+                        );
+                    }
+                }
+
                 engines.put(sessionId, engine);
                 session.setAttribute(ENGINE_KEY, engine);
             }
