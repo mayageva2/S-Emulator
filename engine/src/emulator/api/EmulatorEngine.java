@@ -32,12 +32,14 @@ public interface EmulatorEngine {
     List<String> extractInputVars(ProgramView pv);
     void registerProgram(Program program);
     Map<String, FunctionInfo> getFunctionStats();
+    void setCurrentProgram(String name);
+    boolean isFunction(String name);
 //    public void setProgramFromGlobal(Program program, String programName);
 
     //History funcs
     List<RunRecord> history();
     List<RunRecord> history(String programName);
-    public void clearHistory();
+    void clearHistory();
 
     // Checks if there's a loaded program
     boolean hasProgramLoaded();

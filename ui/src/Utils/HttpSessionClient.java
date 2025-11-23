@@ -102,12 +102,8 @@ public class HttpSessionClient {
         if (setCookie != null && setCookie.contains("JSESSIONID")) {
             int end = setCookie.indexOf(';');
             String newCookie = setCookie.substring(0, end);
-            if (sessionCookie == null) {
-                sessionCookie = newCookie;
-                System.out.println("Received cookie (first): " + sessionCookie);
-            } else {
-                System.out.println("Ignored new cookie: " + newCookie + " (keeping old: " + sessionCookie + ")");
-            }
+            sessionCookie = newCookie;
+            System.out.println("Updated session cookie: " + sessionCookie);
         }
     }
 

@@ -127,6 +127,8 @@ public class MainProgramsTableController {
             controller.setHttpClient(httpClient);
             controller.setBaseUrl(baseUrl);
             controller.setProgramToExecute(selectedProgram.getProgramName());
+            controller.setProgram(selectedProgram.getProgramName());
+            controller.loadProgramAndSelectFunction();
 
             Stage stage = (Stage) btnExecuteProgram.getScene().getWindow();
             Scene scene = new Scene(root);

@@ -29,7 +29,6 @@ public class ProgramViewServlet extends HttpServlet {
 
         try (PrintWriter out = resp.getWriter()) {
 
-            // === Validate session & user ===
             HttpSession session = req.getSession(false);
             if (session == null) {
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -57,7 +56,6 @@ public class ProgramViewServlet extends HttpServlet {
                 return;
             }
 
-            // === Degree ===
             int degree = 0;
             String degreeParam = req.getParameter("degree");
             if (degreeParam != null && !degreeParam.isBlank()) {
@@ -72,14 +70,17 @@ public class ProgramViewServlet extends HttpServlet {
                 }
             }
 
-            // === Program name ===
             String programParam = req.getParameter("program");
             if (programParam != null && !programParam.isBlank()) {
                 programParam = URLDecoder.decode(programParam, StandardCharsets.UTF_8);
             }
 
-            if (!engine.hasProgramLoaded()) {
+            String functionParam = req.getParameter("function");
+            if (functionParam != null && !functionParam.isBlank()) {
+                functionParam = URLDecoder.decode(functionParam, StandardCharsets.UTF_8);
+            }
 
+            if (!engine.hasProgramLoaded()) {
                 if (programParam != null && !programParam.isBlank()) {
 
                     byte[] xmlBytes = GlobalDataCenter.getProgramFile(programParam);
@@ -87,42 +88,63 @@ public class ProgramViewServlet extends HttpServlet {
                     if (xmlBytes != null) {
                         try (var xmlStream = new ByteArrayInputStream(xmlBytes)) {
                             engine.loadProgramFromStream(xmlStream);
-                            System.out.println("[ProgramViewServlet] Loaded XML program '" +
-                                    programParam + "' for user: " + user.getUsername());
+                            System.out.println("[VIEW] Loaded program from GlobalDataCenter: " + programParam);
                         }
                     }
                 }
             }
 
-            if (!engine.hasProgramLoaded()) {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.put("status", "error");
-                response.put("message",
-                        "No program loaded or available for user: " + user.getUsername());
-                out.write(gson.toJson(response));
-                return;
+            if (programParam != null && !programParam.isBlank()) {
+                if (!engine.isFunction(programParam)) {
+                    engine.setCurrentProgram(programParam);
+                }
             }
 
-            ProgramView pv = (
-                    programParam == null ||
-                            programParam.isBlank() ||
-                            "Main Program".equalsIgnoreCase(programParam)
-            )
-                    ? engine.programView(degree)
-                    : engine.programView(programParam, degree);
+            ProgramView pv;
 
-            Map<String, Object> programMap =
-                    gson.fromJson(gson.toJson(pv), Map.class);
+            if (functionParam != null && !functionParam.isBlank()) {
+
+                ProgramView baseFunc = engine.programView(functionParam, 0);
+                int maxDeg = baseFunc.maxDegree();
+                int safeDegree = Math.min(degree, maxDeg);
+
+                pv = (safeDegree == 0)
+                        ? baseFunc
+                        : engine.programView(functionParam, safeDegree);
+
+            } else if (programParam != null && !programParam.isBlank()) {
+
+                ProgramView baseProg = engine.programView(programParam, 0);
+                int maxDeg = baseProg.maxDegree();
+                int safeDegree = Math.min(degree, maxDeg);
+
+                pv = (safeDegree == 0)
+                        ? baseProg
+                        : engine.programView(programParam, safeDegree);
+
+            } else {
+                pv = engine.programView(0);
+            }
+
+            Map<String, Object> programMap = gson.fromJson(gson.toJson(pv), Map.class);
 
             List<FunctionInfo> allFuncInfos = GlobalDataCenter.getFunctions();
             Map<String, Map<String, Object>> funcViews = new LinkedHashMap<>();
 
             for (FunctionInfo info : allFuncInfos) {
                 try {
-                    ProgramView fpv = engine.programView(info.functionName(), degree);
+                    ProgramView baseFunc = engine.programView(info.functionName(), 0);
+                    int maxDeg = baseFunc.maxDegree();
+                    int safeDeg = Math.min(degree, maxDeg);
+
+                    ProgramView fpv = (safeDeg == 0)
+                            ? baseFunc
+                            : engine.programView(info.functionName(), safeDeg);
+
                     funcViews.put(info.functionName(),
                             gson.fromJson(gson.toJson(fpv), Map.class));
-                } catch (Exception ignore) {}
+
+                } catch (Exception ignored) {}
             }
 
             programMap.put("functions", funcViews);
@@ -132,8 +154,9 @@ public class ProgramViewServlet extends HttpServlet {
             out.write(gson.toJson(response));
 
         } catch (Exception e) {
-
+            System.err.println("SERVER ERROR IN /view: " + e.getMessage());
             e.printStackTrace();
+
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 
             response.put("status", "error");

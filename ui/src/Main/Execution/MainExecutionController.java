@@ -68,6 +68,7 @@ public class MainExecutionController {
 
     public void setSelectedFunction(String functionName) {
         this.forcedFunctionName = functionName;
+        this.selectedFunctionName = functionName;
     }
 
     public void loadProgramAndSelectFunction() {
@@ -81,8 +82,17 @@ public class MainExecutionController {
 
         new Thread(() -> {
             try {
-                String viewUrl = baseUrl + "view?degree=0&program=" +
-                        URLEncoder.encode(forcedProgramName, StandardCharsets.UTF_8);
+                String viewUrl;
+
+                if (forcedFunctionName != null && !forcedFunctionName.isBlank()) {
+                    // load FUNCTION
+                    viewUrl = baseUrl + "view?degree=0&function=" +
+                            URLEncoder.encode(forcedFunctionName, StandardCharsets.UTF_8);
+                } else {
+                    // load PROGRAM
+                    viewUrl = baseUrl + "view?degree=0&program=" +
+                            URLEncoder.encode(forcedProgramName, StandardCharsets.UTF_8);
+                }
                 String json = httpGet(viewUrl);
                 System.out.println("TEST 0");
                 System.out.println(json);
@@ -124,7 +134,6 @@ public class MainExecutionController {
 
                 Platform.runLater(() -> {
                     updateProgramDegrees(finalTargetData);
-                    updateToolbarPrograms(finalTargetData);
                     updateInputsBox(finalTargetData);
                     renderInstructions(finalTargetData);
                     updateToolbarHighlights(finalTargetData);
@@ -182,11 +191,6 @@ public class MainExecutionController {
         toolbarController.bindDegree(0, 0);
         toolbarController.setHighlightEnabled(false);
         toolbarController.setDegreeButtonEnabled(false);
-        toolbarController.setOnProgramSelected(name -> {
-            selectedFunctionName = (name == null ? "" : name);
-            runButtonsController.setCurrentProgram(selectedFunctionName);
-            refreshProgramView(currentDegree);
-        });
         toolbarController.setOnHighlightChanged(term -> {
             if (instructionsController != null) instructionsController.setHighlightTerm(term);
         });
@@ -266,7 +270,6 @@ public class MainExecutionController {
                 updateInputsBox(program);
                 renderInstructions(program);
                 updateToolbarHighlights(program);
-                updateToolbarPrograms(program);
                 updateSummaryLine(program);
 
                 toolbarController.bindDegree(currentDegree, maxDegree);
@@ -304,7 +307,6 @@ public class MainExecutionController {
 
             renderInstructions(program);
             updateToolbarHighlights(program);
-            updateToolbarPrograms(program);
             updateSummaryLine(program);
 
         } catch (Exception e) {
@@ -314,14 +316,27 @@ public class MainExecutionController {
     }
 
     private String fetchProgramViewJson(int degree) throws Exception {
-        String programParam = (currentProgram == null || currentProgram.equalsIgnoreCase("Main Program"))
-                ? "" : "&program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8);
-        String url = baseUrl + "view?degree=" + degree + programParam;
+        String url;
+
+        if (selectedFunctionName != null && !selectedFunctionName.isBlank()) {
+            url = baseUrl + "view?degree=" + degree +
+                    "&function=" + URLEncoder.encode(selectedFunctionName, StandardCharsets.UTF_8);
+        } else {
+            url = baseUrl + "view?degree=" + degree +
+                    "&program=" + URLEncoder.encode(currentProgram, StandardCharsets.UTF_8);
+        }
+
         return httpGet(url);
     }
 
     private Map<String, Object> parseAndValidateResponse(String response) {
         Map<String, Object> map = gson.fromJson(response, new TypeToken<Map<String, Object>>() {}.getType());
+
+        if (map == null) {
+            showError("View failed: Invalid JSON response from server or response is empty.");
+            return null;
+        }
+
         if (!"success".equals(map.get("status"))) {
             showError("View failed: " + map.get("message"));
             return null;
@@ -439,31 +454,6 @@ public class MainExecutionController {
             toolbarController.setHighlightEnabled(!highlights.isEmpty());
             toolbarController.setExpandEnabled(currentDegree < maxDegree);
             toolbarController.setCollapseEnabled(currentDegree > 0);
-        });
-    }
-
-    @SuppressWarnings("unchecked")
-    private void updateToolbarPrograms(Map<String, Object> program) {
-        Object funcsObj = program.get("functions");
-        if (!(funcsObj instanceof List<?> funcList)) return;
-
-        List<String> programs = new ArrayList<>();
-        for (Object o : funcList) {
-            if (o != null) {
-                String name = o.toString().trim();
-                if (!name.isEmpty()) programs.add(name);
-            }
-        }
-
-        programs.sort((a, b) -> {
-            String pa = a.replaceAll("[^A-Za-z]+.*$", "");
-            String pb = b.replaceAll("[^A-Za-z]+.*$", "");
-            if (pa.equalsIgnoreCase(pb)) {
-                int na = extractTrailingNumber(a);
-                int nb = extractTrailingNumber(b);
-                return Integer.compare(na, nb);
-            }
-            return pa.compareToIgnoreCase(pb);
         });
     }
 
@@ -631,7 +621,6 @@ public class MainExecutionController {
                     toolbarController.setOnExpand(this::onExpandOne);
                     toolbarController.setOnCollapse(this::onCollapseOne);
                     toolbarController.setOnJumpToDegree(this::onJumpToDegree);
-                    toolbarController.setOnProgramSelected(this::onProgramPicked);
                     toolbarController.setOnHighlightChanged(term -> {
                         if (instructionsController != null)
                             instructionsController.setHighlightTerm(term);
@@ -696,7 +685,6 @@ public class MainExecutionController {
                     updateInputsBox(program);
                     renderInstructions(program);
                     updateToolbarHighlights(program);
-                    updateToolbarPrograms(program);
                     updateSummaryLine(program);
 
                     if (runButtonsController != null) {
@@ -755,7 +743,6 @@ public class MainExecutionController {
                     updateInputsBox(program);
                     renderInstructions(program);
                     updateToolbarHighlights(program);
-                    updateToolbarPrograms(program);
                     updateSummaryLine(program);
 
                     if (predefinedInputsCsv != null && !predefinedInputsCsv.isBlank() && inputsBoxController != null) {
@@ -806,7 +793,6 @@ public class MainExecutionController {
                     updateInputsBox(program);
                     renderInstructions(program);
                     updateToolbarHighlights(program);
-                    updateToolbarPrograms(program);
                     updateSummaryLine(program);
 
                     if (runButtonsController != null) {

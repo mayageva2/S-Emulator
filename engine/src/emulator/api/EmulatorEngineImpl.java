@@ -144,8 +144,13 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     //This func resolve a program by name
     private Program resolveProgram(String programName) {
         Objects.requireNonNull(programName, "programName");
-        Program p = functionLibrary.get(programName);
-        if (p == null) p = functionLibrary.get(programName.toUpperCase(ROOT));
+        String key = programName.toUpperCase(Locale.ROOT);
+
+        if (functionsOnly.containsKey(key)) {
+            return functionsOnly.get(key);
+        }
+
+        Program p = functionLibrary.get(key);
         if (p == null) throw new IllegalArgumentException("Unknown program: " + programName);
         return p;
     }
@@ -263,21 +268,26 @@ public class EmulatorEngineImpl implements EmulatorEngine {
     @Override
     public ProgramView programView(int degree) {
         requireLoaded();
+
         int max = expander.calculateMaxDegree(current.getInstructions());
         if (degree < 0 || degree > max) {
-            throw new IllegalArgumentException("Invalid expansion degree: " + degree + " (0-" + max + ")");
+            throw new IllegalArgumentException(
+                    "Invalid expansion degree: " + degree + " (0-" + max + ")"
+            );
         }
 
-        Program base = (degree <= 0) ? current : programExpander.expandToDegree(current, degree);
+        // Build proper degree ladder
         List<Program> byDegree = new ArrayList<>(degree + 1);
-        byDegree.add(current);
 
-        //Expand according to degree
+        Program prev = current;
+        byDegree.add(prev);   // degree 0
+
         for (int d = 1; d <= degree; d++) {
-            byDegree.add(programExpander.expandToDegree(current, d));
+            prev = programExpander.expandOnce(prev);   // expand from previous degree
+            byDegree.add(prev);
         }
 
-        if (degree > 0) byDegree.add(base);
+        Program base = byDegree.get(degree);  // final degree
         return buildProgramView(base, degree, byDegree, max);
     }
 
@@ -1505,6 +1515,29 @@ public class EmulatorEngineImpl implements EmulatorEngine {
 
     public RunRecord lastRunRecord() {
         return history().isEmpty() ? null : history().get(history().size() - 1);
+    }
+
+    @Override
+    public void setCurrentProgram(String name) {
+        if (name == null || name.isBlank()) return;
+
+        if (isFunction(name)) {
+            Program p = functionsOnly.get(name.toUpperCase());
+            if (p != null) {
+                this.current = p;
+                return;
+            }
+        }
+
+        try {
+            this.current = resolveProgram(name);
+        } catch (Exception ignore) {}
+    }
+
+    @Override
+    public boolean isFunction(String name) {
+        if (name == null) return false;
+        return functionStats.containsKey(name) || functionStats.containsKey(name.toUpperCase());
     }
 
 }
