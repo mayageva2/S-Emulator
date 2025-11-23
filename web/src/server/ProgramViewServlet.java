@@ -94,6 +94,24 @@ public class ProgramViewServlet extends HttpServlet {
                 }
             }
 
+            if (!engine.hasProgramLoaded() && functionParam != null && !functionParam.isBlank()) {
+
+                for (FunctionInfo fi : GlobalDataCenter.getFunctions()) {
+                    if (fi.functionName().equals(functionParam)) {
+
+                        byte[] xmlBytes = GlobalDataCenter.getProgramFile(fi.programName());
+                        if (xmlBytes != null) {
+                            try (var xmlStream = new ByteArrayInputStream(xmlBytes)) {
+                                engine.loadProgramFromStream(xmlStream);
+                                System.out.println("[VIEW] Loaded parent program for function: " + fi.programName());
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+
             if (programParam != null && !programParam.isBlank()) {
                 if (!engine.isFunction(programParam)) {
                     engine.setCurrentProgram(programParam);
