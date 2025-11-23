@@ -87,4 +87,19 @@ public class GlobalDataCenter {
         synchronized (functions) { functions.clear(); }
         programFiles.clear();
     }
+
+    public static boolean functionExists(String funcName) {
+        synchronized (functions) {
+            return functions.stream().anyMatch(f ->
+                    f.functionName().equalsIgnoreCase(funcName)
+            );
+        }
+    }
+
+    public static boolean programExists(String programName) {
+        synchronized (programs) {
+            return programs.stream()
+                    .anyMatch(p -> p.programName.equalsIgnoreCase(programName));
+        }
+    }
 }

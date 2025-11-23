@@ -48,6 +48,11 @@ public class ProgramViewServlet extends HttpServlet {
             }
 
             EmulatorEngine engine = EngineSessionManager.getEngine(session);
+            System.out.println("=== DEBUG /view ===");
+            System.out.println("Session ID: " + session.getId());
+            System.out.println("engine.hasProgramLoaded(): " + engine.hasProgramLoaded());
+            System.out.println("engine.lastRunProgramName(): " + engine.lastRunProgramName());
+
             if (engine == null) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 response.put("status", "error");

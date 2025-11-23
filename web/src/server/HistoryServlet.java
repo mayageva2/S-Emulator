@@ -66,8 +66,8 @@ public class HistoryServlet extends HttpServlet {
                 Map<String, Object> record = new LinkedHashMap<>();
                 record.put("runNumber", r.runNumber());
                 record.put("type", r.getType());
-                record.put("program", r.programName());
-                record.put("arch", r.architecture());
+                record.put("programName", r.programName());
+                record.put("architecture", r.architecture());
                 record.put("degree", r.degree());
                 record.put("y", r.y());
                 record.put("cycles", r.cycles());

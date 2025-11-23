@@ -44,20 +44,28 @@ public class LoadServlet extends HttpServlet {
                     new ProgramStatsRepository()
             );
 
-            // === 1) Read raw file bytes once ===
             byte[] fileBytes;
             try (InputStream fileStream = filePart.getInputStream()) {
                 fileBytes = fileStream.readAllBytes();
             }
 
-            // === 2) Load into THIS user's engine ===
             LoadResult result;
             try (InputStream reloadStream = new ByteArrayInputStream(fileBytes)) {
                 result = loadService.loadFromStream(engine, reloadStream, username);
             }
 
+            // Check for duplicate functions BEFORE adding anything to global data
+            for (String funcName : result.functions()) {
+                if (GlobalDataCenter.functionExists(funcName)) {
+                    resp.getWriter().write(gson.toJson(Map.of(
+                            "status", "error",
+                            "message", "Function '" + funcName + "' already exists in the system"
+                    )));
+                    return; // stop here – do NOT add program, do NOT add functions
+                }
+            }
+
             if (result != null) {
-                // === 3) Save program metadata ===
                 GlobalDataCenter.addProgram(
                         result.programName(),
                         username,
@@ -65,10 +73,7 @@ public class LoadServlet extends HttpServlet {
                         result.maxDegree()
                 );
 
-                // === 4) Save XML file globally for all users ===
                 GlobalDataCenter.storeProgramFile(result.programName(), fileBytes);
-
-                // === 5) Store functions ===
                 for (String funcName : result.functions()) {
                     FunctionInfo info = stats.get(funcName);
                     if (info == null) {
@@ -78,7 +83,6 @@ public class LoadServlet extends HttpServlet {
                     GlobalDataCenter.addFunction(info);
                 }
 
-                // === 6) Update program stats ===
                 ProgramStats loadedProgram = new ProgramStats(
                         result.programName(),
                         username,
@@ -87,7 +91,6 @@ public class LoadServlet extends HttpServlet {
                         0, 0.0
                 );
                 ProgramRegistry.register(loadedProgram);
-
                 ServerEventManager.broadcast("PROGRAM_UPLOADED");
             }
 

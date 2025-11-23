@@ -10,71 +10,45 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class EngineSessionManager {
 
-    private static final ConcurrentHashMap<String, EmulatorEngine> engines = new ConcurrentHashMap<>();
     private static final String ENGINE_KEY = "sessionEngine";
 
     public static EmulatorEngine getEngine(HttpSession session) {
         if (session == null) return null;
 
-        String sessionId = session.getId();
-
         synchronized (session) {
             EmulatorEngine engine = (EmulatorEngine) session.getAttribute(ENGINE_KEY);
-            if (engine == null) {
-                engine = engines.get(sessionId);
-            }
 
+            // Engine doesn't exist yet → create personal engine
             if (engine == null) {
                 engine = new EmulatorEngineImpl();
 
-                var allFuncs = GlobalDataCenter.getFunctions();
-                if (allFuncs != null) {
-                    for (FunctionInfo f : allFuncs) {
-                        engine.getFunctionService().addFunction(
-                                f.functionName(),
-                                f.programName(),
-                                f.username(),
-                                f.instructionCount(),
-                                f.maxDegree(),
-                                0
-                        );
-                    }
+                // load shared functions from global DB
+                for (FunctionInfo f : GlobalDataCenter.getFunctions()) {
+                    engine.getFunctionService().addFunction(
+                            f.functionName(),
+                            f.programName(),
+                            f.username(),
+                            f.instructionCount(),
+                            f.maxDegree(),
+                            0
+                    );
                 }
 
-                engines.put(sessionId, engine);
                 session.setAttribute(ENGINE_KEY, engine);
             }
 
+            // always sync engine user with session user
             UserDTO user = SessionUserManager.getUser(session);
-            if (user != null) {
-                if (engine instanceof EmulatorEngineImpl impl) {
-                    UserDTO existing = impl.getSessionUser();
-
-                    if (existing == null || !existing.getUsername().equals(user.getUsername())) {
-                        impl.setSessionUser(user);
-                    } else {
-                        impl.setSessionUser(user);
-                    }
-                } else {
-                    engine.setSessionUser(user);
-                }
-            }
-
-            engines.put(sessionId, engine);
-            session.setAttribute(ENGINE_KEY, engine);
+            if (user != null) { engine.setSessionUser(user); }
 
             return engine;
         }
     }
 
     public static void clearEngine(HttpSession session) {
-        if (session == null) return;
-        String sessionId = session.getId();
-        engines.remove(sessionId);
-        session.removeAttribute(ENGINE_KEY);
-    }
-
-    public static void clearAllEngines() {
-        engines.clear();
+        if (session != null) {
+            session.removeAttribute(ENGINE_KEY);
+        }
     }
 }
+

@@ -1,10 +1,7 @@
 package server;
 
 import com.google.gson.Gson;
-import emulator.api.EmulatorEngine;
-import emulator.api.EmulatorEngineImpl;
 import emulator.api.dto.RunRecord;
-import emulator.api.dto.UserDTO;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
@@ -23,94 +20,66 @@ public class UserRunStatusServlet extends HttpServlet {
         resp.setContentType("application/json;charset=UTF-8");
         resp.setCharacterEncoding("UTF-8");
 
-        Map<String, Object> responseMap = new LinkedHashMap<>();
+        Map<String, Object> out = new LinkedHashMap<>();
 
         try {
-            UserDTO currentUser = SessionUserManager.getUser(req.getSession());
-            if (currentUser == null) {
-                responseMap.put("status", "error");
-                responseMap.put("message", "No user logged in for this session");
-                writeJson(resp, responseMap);
-                return;
-            }
-
             String usernameParam = req.getParameter("username");
             String runStr = req.getParameter("runNumber");
 
+            if (usernameParam == null || usernameParam.isBlank()) {
+                error(resp, "Missing username");
+                return;
+            }
             if (runStr == null || runStr.isBlank()) {
-                responseMap.put("status", "error");
-                responseMap.put("message", "Missing runNumber parameter");
-                writeJson(resp, responseMap);
+                error(resp, "Missing runNumber");
                 return;
             }
 
             int runNumber;
             try {
                 runNumber = Integer.parseInt(runStr);
-            } catch (NumberFormatException e) {
-                responseMap.put("status", "error");
-                responseMap.put("message", "Invalid runNumber format");
-                writeJson(resp, responseMap);
+            } catch (Exception e) {
+                error(resp, "Invalid runNumber");
                 return;
             }
 
-            EmulatorEngine engine = EngineSessionManager.getEngine(req.getSession());
-            if (engine instanceof EmulatorEngineImpl impl) {
-                impl.setSessionUser(currentUser);
-            }
+            List<RunRecord> history = GlobalHistoryCenter.getHistory(usernameParam);
 
-            if (engine == null) {
-                responseMap.put("status", "error");
-                responseMap.put("message", "Engine not initialized");
-                writeJson(resp, responseMap);
+            if (history.isEmpty()) {
+                error(resp, "No run history available");
                 return;
             }
 
-            List<RunRecord> history = engine.history();
-            if (history == null || history.isEmpty()) {
-                responseMap.put("status", "error");
-                responseMap.put("message", "No run history available");
-                writeJson(resp, responseMap);
+            RunRecord target = null;
+            for (RunRecord r : history) {
+                if (r.runNumber() == runNumber) {
+                    target = r;
+                    break;
+                }
+            }
+
+            if (target == null) {
+                error(resp, "Run not found for user " + usernameParam);
                 return;
             }
 
-            String effectiveUser = (usernameParam != null && !usernameParam.isBlank())
-                    ? usernameParam
-                    : currentUser.getUsername();
+            out.put("status", "success");
+            out.put("vars", target.getVarsSnapshot());
 
-            Optional<RunRecord> recOpt = history.stream()
-                    .filter(r -> r.runNumber() == runNumber &&
-                            effectiveUser.equalsIgnoreCase(r.username()))
-                    .findFirst();
-
-            if (recOpt.isEmpty()) {
-                responseMap.put("status", "error");
-                responseMap.put("message", "Run not found for user " + effectiveUser);
-                writeJson(resp, responseMap);
-                return;
+            try (PrintWriter writer = resp.getWriter()) {
+                writer.write(gson.toJson(out));
             }
-
-            RunRecord rec = recOpt.get();
-            Map<String, Long> vars = rec.getVarsSnapshot();
-            responseMap.put("status", "success");
-            responseMap.put("message", "Run status retrieved successfully");
-            responseMap.put("program", rec.programName());
-            responseMap.put("degree", rec.degree());
-            responseMap.put("cycles", rec.cycles());
-            responseMap.put("y", rec.y());
-            responseMap.put("vars", vars != null ? vars : Map.of());
 
         } catch (Exception e) {
-            responseMap.put("status", "error");
-            responseMap.put("message", "Failed to get run status: " + e.getMessage());
+            error(resp, "Failed to get run status: " + e.getMessage());
         }
-
-        writeJson(resp, responseMap);
     }
 
-    private void writeJson(HttpServletResponse resp, Map<String, Object> map) throws IOException {
-        try (PrintWriter out = resp.getWriter()) {
-            out.write(gson.toJson(map));
-        }
+    private void error(HttpServletResponse resp, String msg) throws IOException {
+        Map<String, Object> out = Map.of(
+                "status", "error",
+                "message", msg
+        );
+        resp.getWriter().write(gson.toJson(out));
     }
 }

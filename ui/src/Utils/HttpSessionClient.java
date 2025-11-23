@@ -107,4 +107,67 @@ public class HttpSessionClient {
         }
     }
 
+    public byte[] getBytes(String urlStr) throws IOException {
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+
+        if (sessionCookie != null)
+            conn.setRequestProperty("Cookie", sessionCookie);
+
+        int code = conn.getResponseCode();
+        InputStream stream = (code >= 200 && code < 300)
+                ? conn.getInputStream()
+                : conn.getErrorStream();
+
+        byte[] data = stream.readAllBytes();
+        stream.close();
+
+        captureCookie(conn);
+        return data;
+    }
+
+    public String postFile(String urlStr, String fieldName, String fileName, byte[] fileBytes) throws IOException {
+        String boundary = "Boundary-" + System.currentTimeMillis();
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setDoOutput(true);
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+        if (sessionCookie != null)
+            conn.setRequestProperty("Cookie", sessionCookie);
+
+        try (OutputStream output = conn.getOutputStream();
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, "UTF-8"), true)) {
+
+            writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"")
+                    .append(fieldName)
+                    .append("\"; filename=\"")
+                    .append(fileName)
+                    .append("\"\r\n");
+            writer.append("Content-Type: application/xml\r\n\r\n");
+            writer.flush();
+
+            output.write(fileBytes);
+            output.flush();
+
+            writer.append("\r\n--").append(boundary).append("--\r\n");
+            writer.flush();
+        }
+
+        int code = conn.getResponseCode();
+        InputStream stream = (code >= 200 && code < 300)
+                ? conn.getInputStream()
+                : conn.getErrorStream();
+
+        String response = new String(stream.readAllBytes());
+        stream.close();
+
+        captureCookie(conn);
+        return response;
+    }
+
+
 }

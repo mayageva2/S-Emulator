@@ -14,6 +14,8 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class FunctionsTableController {
@@ -130,6 +132,10 @@ public class FunctionsTableController {
                 return;
             }
 
+            if (!loadProgramXML(selected.getProgramName())) {
+                return; // failed to load, cannot execute
+            }
+
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/Main/Execution/mainExecution.fxml"));
             Parent root = loader.load();
             MainExecutionController controller = loader.getController();
@@ -152,4 +158,24 @@ public class FunctionsTableController {
             System.err.println("Failed to load mainExecution.fxml: " + e.getMessage());
         }
     }
+
+    private boolean loadProgramXML(String programName) {
+        try {
+            //Download XML
+            byte[] xmlBytes = httpClient.getBytes(baseUrl + "programs/download?name=" + URLEncoder.encode(programName, StandardCharsets.UTF_8));
+
+            //Upload to
+            httpClient.postFile(baseUrl + "load", "file", programName + ".xml", xmlBytes);
+
+            return true;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            new Alert(Alert.AlertType.ERROR,
+                    "Failed to load program '" + programName + "':\n" + e.getMessage())
+                    .showAndWait();
+            return false;
+        }
+    }
+
 }
